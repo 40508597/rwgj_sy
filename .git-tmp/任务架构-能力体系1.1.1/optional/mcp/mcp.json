@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "task-architecture": {
+      "command": "python",
+      "args": [
+        "optional/mcp/taskarch_mcp_server.py"
+      ]
+    }
+  }
+}
