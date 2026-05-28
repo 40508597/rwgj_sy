@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.task-architecture/agent-output.schema.json",
+  "标题": "智能体标准化输出结构底线",
+  "说明": "本 schema 只约束模块提案、接口提案、风险报告、验证报告、阻塞报告和门禁结果的基础结构。",
+  "type": "object",
+  "required": ["输出类型", "结论"],
+  "properties": {
+    "输出类型": {
+      "type": "string",
+      "enum": ["模块提案", "接口提案", "风险报告", "验证报告", "阻塞报告", "门禁结果"]
+    },
+    "关联语境": {"type": "string"},
+    "负责范围": {
+      "type": "object",
+      "properties": {
+        "模块": {"type": "array"},
+        "功能树节点": {"type": "array"},
+        "接口": {"type": "array"},
+        "文件": {"type": "array"}
+      }
+    },
+    "结论": {
+      "type": "string",
+      "enum": ["通过", "不通过", "需要确认", "阻塞", "降级执行"]
+    },
+    "功能族展开": {"type": "object"},
+    "变更提案": {"type": "array"},
+    "接口影响": {"type": "array"},
+    "风险": {"type": "array"},
+    "必须同步": {"type": "array"},
+    "验证责任": {"type": "array"},
+    "证据": {"type": "array"},
+    "下一步": {"type": "array"}
+  }
+}
+
