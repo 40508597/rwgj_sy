@@ -1,0 +1,213 @@
+{
+  "切片元信息": {
+    "编号": "slice_features_core",
+    "类型": "功能切片",
+    "路径": "architecture/features/core.json",
+    "包含": [
+      "运行形态",
+      "功能树",
+      "专业能力索引",
+      "入口"
+    ],
+    "状态": "已启用",
+    "更新时间": "2026-05-29T07:13:41+08:00"
+  },
+  "运行形态": [
+    {
+      "编号": "runtime_universal_pack",
+      "形态": "通用能力包",
+      "说明": "通过 AGENT-USAGE.md 和 skills/ 给任意编程智能体使用。",
+      "入口": [
+        "entry_universal_usage",
+        "entry_task_architecture_skill"
+      ],
+      "交付物": [
+        "artifact_universal_pack",
+        "artifact_universal_zip"
+      ]
+    },
+    {
+      "编号": "runtime_optional_mcp",
+      "形态": "可选 MCP 查验工具",
+      "说明": "只做架构切片、门禁、校验和漂移扫描，不做认知展开。",
+      "入口": [
+        "entry_optional_mcp"
+      ],
+      "交付物": [
+        "artifact_optional_mcp"
+      ]
+    }
+  ],
+  "功能树": [
+    {
+      "编号": "f1",
+      "名称": "历史能力分层保留",
+      "层级": "L1",
+      "类型": "功能域",
+      "分类": "核心功能",
+      "状态": "已确认",
+      "父节点": null,
+      "说明": "保留 1.1、1.2、1.3 的所有核心能力，并按注意力保护区重排。",
+      "子节点": [
+        "f1.1",
+        "f1.2",
+        "f1.3"
+      ],
+      "验收标准": [
+        "1.1 主动性不被 1.3 协议压住",
+        "三层技能存在",
+        "Portable Pack 为一等公民"
+      ],
+      "异常路径": [
+        "总入口过重",
+        "shared 规则分叉",
+        "回归断言缺失"
+      ],
+      "架构落位": {
+        "模块": [
+          "m_project_depth_core",
+          "m_architecture_json",
+          "m_agent_protocol"
+        ],
+        "文件": [
+          "docs/version-lineage.md",
+          "docs/capability-map.md",
+          "docs/regression-assertions.md"
+        ]
+      },
+      "验证责任": [
+        "插件校验",
+        "portable 文件检查",
+        "回归断言人工检查"
+      ]
+    },
+    {
+      "编号": "f1.1",
+      "名称": "Project Depth Core",
+      "层级": "L2",
+      "类型": "认知内核",
+      "分类": "核心功能",
+      "状态": "已确认",
+      "父节点": "f1",
+      "说明": "继承 1.1 的最大主动性、功能簇、交互完整性、多层递进、分治和智能关联。",
+      "子节点": [],
+      "验收标准": [
+        "总入口先调用 project-depth-core",
+        "功能簇叶子必须证明可停止"
+      ],
+      "异常路径": [
+        "直接进入协议层",
+        "只按字面需求实现"
+      ],
+      "架构落位": {
+        "模块": [
+          "m_project_depth_core"
+        ],
+        "文件": [
+          "skills/project-depth-core/SKILL.md"
+        ]
+      },
+      "验证责任": [
+        "导出功能回归断言",
+        "菜单栏回归断言"
+      ]
+    },
+    {
+      "编号": "f1.2",
+      "名称": "Architecture JSON",
+      "层级": "L2",
+      "类型": "结构落位",
+      "分类": "核心功能",
+      "状态": "已确认",
+      "父节点": "f1",
+      "说明": "继承 1.2 的 architecture.json、模块详情、实现清单和工具链。",
+      "子节点": [],
+      "验收标准": [
+        "深度理解结果必须物化到 JSON",
+        "没有模块详情不得实现"
+      ],
+      "异常路径": [
+        "只写文档不落 JSON",
+        "代码越过实现清单"
+      ],
+      "架构落位": {
+        "模块": [
+          "m_architecture_json"
+        ],
+        "文件": [
+          "skills/architecture-json/SKILL.md"
+        ]
+      },
+      "验证责任": [
+        "validate_architecture",
+        "scan_code_drift"
+      ]
+    },
+    {
+      "编号": "f1.3",
+      "名称": "Agent Protocol",
+      "层级": "L2",
+      "类型": "协议外壳",
+      "分类": "支撑功能",
+      "状态": "已确认",
+      "父节点": "f1",
+      "说明": "继承 1.3 的跨智能体、适配、虚拟模块、硬门禁和标准输出能力，但不得抢占认知内核。",
+      "子节点": [],
+      "验收标准": [
+        "只在需要跨平台或门禁时加载",
+        "MCP/CLI 只做查验不做认知"
+      ],
+      "异常路径": [
+        "agent-protocol 先于 project-depth-core 执行"
+      ],
+      "架构落位": {
+        "模块": [
+          "m_agent_protocol"
+        ],
+        "文件": [
+          "skills/agent-protocol/SKILL.md"
+        ]
+      },
+      "验证责任": [
+        "validate_protocol_semantics",
+        "validate_agent_output"
+      ]
+    }
+  ],
+  "专业能力索引": [],
+  "入口": {
+    "用户入口": [
+      {
+        "编号": "entry_universal_usage",
+        "名称": "AGENT-USAGE 通用入口",
+        "路径": "AGENT-USAGE.md",
+        "说明": "所有编程智能体的第一读取文件"
+      },
+      {
+        "编号": "entry_task_architecture_skill",
+        "名称": "任务架构薄入口",
+        "路径": "skills/task-architecture/SKILL.md",
+        "说明": "只做三层路由"
+      }
+    ],
+    "接口入口": [],
+    "命令入口": [
+      {
+        "编号": "entry_cli",
+        "名称": "taskarch_cli",
+        "路径": "shared/scripts/taskarch_cli.py",
+        "说明": "确定性 CLI 查验"
+      }
+    ],
+    "事件入口": [],
+    "系统入口": [
+      {
+        "编号": "entry_optional_mcp",
+        "名称": "可选 MCP server",
+        "路径": "optional/mcp/taskarch_mcp_server.py",
+        "说明": "可选查验工具"
+      }
+    ],
+    "资源入口": []
+  }
+}

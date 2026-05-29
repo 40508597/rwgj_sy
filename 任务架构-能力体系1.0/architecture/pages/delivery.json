@@ -1,0 +1,36 @@
+{
+  "切片元信息": {
+    "编号": "slice_pages_delivery",
+    "类型": "交付切片",
+    "路径": "architecture/pages/delivery.json",
+    "包含": [
+      "页面拓扑",
+      "交付物",
+      "系统集成"
+    ],
+    "状态": "已启用",
+    "更新时间": "2026-05-29T07:13:41+08:00"
+  },
+  "页面拓扑": [],
+  "交付物": [
+    {
+      "编号": "artifact_universal_pack",
+      "名称": "任务架构通用能力包",
+      "类型": "directory",
+      "路径": "."
+    },
+    {
+      "编号": "artifact_universal_zip",
+      "名称": "任务架构通用分发包",
+      "类型": "zip",
+      "路径": "C:/Users/Administrator/Desktop/AI项目/技能/任务架构-能力体系-universal.zip"
+    },
+    {
+      "编号": "artifact_optional_mcp",
+      "名称": "可选 MCP 查验工具",
+      "类型": "tool",
+      "路径": "optional/mcp"
+    }
+  ],
+  "系统集成": []
+}
