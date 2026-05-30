@@ -1,0 +1,4 @@
+{
+  "指向": "architecture/index.json",
+  "说明": "本项目已强制启用 architecture/ 架构文件夹；architecture.json 只作为轻量指针，请先读取 architecture/index.json。"
+}

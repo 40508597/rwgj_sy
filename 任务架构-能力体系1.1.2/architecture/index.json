@@ -1,0 +1,98 @@
+{
+  "项目": {
+    "名称": "任务架构能力体系",
+    "类型": "universal-agent-capability-pack",
+    "语言": "Markdown, JSON, Python",
+    "框架": "Universal Agent Capability Pack + Optional MCP",
+    "说明": "将任务架构历史版本能力重新分层：1.1 作为 project-depth-core 认知内核，1.2 作为 architecture-json 结构落位，1.3 作为 agent-protocol 协议外壳；以通用能力包为主形态，Codex、Claude Code、Trae、Cursor、Windsurf、Cline 和自研 Agent 共用同一入口。",
+    "目录约定": "AGENT-USAGE.md 是通用总入口，skills/ 放三层能力，shared/ 放共享 references/scripts/assets/adapters，docs/ 放能力地图和回归断言，optional/mcp/ 放可选 MCP 查验工具。",
+    "创建时间": "2026-05-29T00:00:00+08:00",
+    "更新时间": "2026-05-29T07:13:41+08:00"
+  },
+  "索引摘要": {
+    "运行形态数": 2,
+    "功能节点数": 4,
+    "模块详情数": 6,
+    "实现清单数": 6,
+    "最近更新": "2026-05-30T02:17:40+08:00"
+  },
+  "架构切片": {
+    "启用": true,
+    "架构模式": "架构文件夹",
+    "总索引文件": "architecture/index.json",
+    "根入口文件": "architecture.json",
+    "切片目录": "architecture/",
+    "切片清单": [
+      {
+        "编号": "slice_features_core",
+        "类型": "功能切片",
+        "路径": "architecture/features/core.json",
+        "包含": [
+          "运行形态",
+          "功能树",
+          "专业能力索引",
+          "入口"
+        ],
+        "状态": "已启用",
+        "更新时间": "2026-05-29T07:13:41+08:00"
+      },
+      {
+        "编号": "slice_modules_structure",
+        "类型": "模块切片",
+        "路径": "architecture/modules/structure.json",
+        "包含": [
+          "模块拓扑",
+          "模块树",
+          "模块详情",
+          "接口契约",
+          "实现清单",
+          "完整细节",
+          "测试责任矩阵"
+        ],
+        "状态": "已启用",
+        "更新时间": "2026-05-29T07:13:41+08:00"
+      },
+      {
+        "编号": "slice_pages_delivery",
+        "类型": "交付切片",
+        "路径": "architecture/pages/delivery.json",
+        "包含": [
+          "页面拓扑",
+          "交付物",
+          "系统集成"
+        ],
+        "状态": "已启用",
+        "更新时间": "2026-05-29T07:13:41+08:00"
+      },
+      {
+        "编号": "slice_data_topology",
+        "类型": "数据切片",
+        "路径": "architecture/data/data.json",
+        "包含": [
+          "数据拓扑"
+        ],
+        "状态": "已启用",
+        "更新时间": "2026-05-29T07:13:41+08:00"
+      },
+      {
+        "编号": "slice_tasks_state",
+        "类型": "任务状态切片",
+        "路径": "architecture/tasks/state.json",
+        "包含": [
+          "验证证据",
+          "上下文恢复点",
+          "未决问题",
+          "变更记录"
+        ],
+        "状态": "已启用",
+        "更新时间": "2026-05-30T02:17:40+08:00"
+      }
+    ],
+    "同步规则": [
+      "architecture/index.json 只保留项目身份、索引摘要和切片清单",
+      "完整架构真相位于 architecture/ 子目录的切片文件",
+      "修改切片必须同步更新本清单、恢复点和变更记录摘要",
+      "工具读取 architecture.json 时必须自动解析指针并合成切片"
+    ]
+  }
+}
