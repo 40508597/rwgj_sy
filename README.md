@@ -2,6 +2,14 @@
 
 > 任务架构通用智能体能力包，作为全局薄入口，承载任务架构规则、能力定义与共享工具。
 
+## 文档导航
+
+- 📖 **本 README**：仓库简介、版本历史、目录结构、维护说明（**人**读）
+- 📘 **[docs/USAGE.md](docs/USAGE.md)**：详细使用说明（安装、工具链、平台适配、故障排除）
+- 📊 **[docs/CAPABILITIES.md](docs/CAPABILITIES.md)**：技能能力报告（能力地图、评估指标、适用场景）
+- 🤖 **SKILL.md**：全局薄入口（**Agent** 加载）
+- 🤖 **AGENT-USAGE.md**：通用智能体入口（**Agent** 加载）
+
 ## 一、仓库简介
 
 本仓库是一个 **git 版本化的"任务架构技能包"**，用于让 Codex、Claude Code、Trae、Cursor、Windsurf、Cline、Continue、CLI Agent 或自研编程智能体按同一套任务架构协议工作。
