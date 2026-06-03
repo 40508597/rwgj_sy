@@ -10,7 +10,6 @@
 - **角色**：薄入口技能包，承载任务架构规则与共享工具
 - **使用方**：Codex / Claude Code / Trae / Cursor / Windsurf / Cline / Continue / CLI Agent / 自研 Agent
 - **核心特性**：真相源分离（能力在仓库，项目状态在调用方 `architecture/`）、跨平台一致（差异只写在 `shared/adapters/`）
-- **远程仓库**：https://github.com/405089597/rwgj_sy.git
 
 ---
 
@@ -551,7 +550,6 @@ git push origin main
 
 ## 七、链接
 
-- **远程仓库**：https://github.com/405089597/rwgj_sy.git
 - **Agent 入口**：`SKILL.md`（薄入口）/ `AGENT-USAGE.md`（通用入口）
 - **架构真相源**：`architecture.json` → `architecture/index.json`
 - **共享资源**：`shared/references/`（21 篇）、`shared/scripts/`（10 个）、`shared/adapters/`（4 个）
