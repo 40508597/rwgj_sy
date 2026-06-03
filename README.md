@@ -3,6 +3,13 @@
 > 任务架构通用智能体能力包，全局薄入口，承载任务架构规则、能力定义与共享工具。
 > 让 Codex、Claude Code、Trae、Cursor、Windsurf、Cline、Continue、CLI Agent 与自研 Agent 按同一套任务架构协议工作。
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/40508597/rwgj_sy?style=social)](https://github.com/40508597/rwgj_sy)
+[![GitHub forks](https://img.shields.io/github/forks/40508597/rwgj_sy?style=social)](https://github.com/40508597/rwgj_sy)
+[![GitHub release](https://img.shields.io/github/v/release/40508597/rwgj_sy)](https://github.com/40508597/rwgj_sy/releases)
+[![中文文档](https://img.shields.io/badge/文档-中文-red.svg)](README.md)
+[![跨平台](https://img.shields.io/badge/平台-Codex%20%7C%20Claude%20%7C%20Trae%20%7C%20Cursor%20%7C%20...-blue)](README.md)
+
 ---
 
 ## 一、仓库简介
