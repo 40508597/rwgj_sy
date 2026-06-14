@@ -14,9 +14,10 @@ import sys
 from pathlib import Path
 from typing import Any
 
-if hasattr(sys.stdout, "reconfigure"):
-    sys.stdout.reconfigure(encoding="utf-8")
-    sys.stderr.reconfigure(encoding="utf-8")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import _archlib  # noqa: E402
+
+_archlib.configure_utf8_stdout()
 
 
 REQUIRED_TOP_KEYS = [
@@ -80,60 +81,13 @@ TYPE_MAP = {
 }
 
 
-def load_json(path: Path) -> Any:
-    with path.open("r", encoding="utf-8") as handle:
-        data = json.load(handle)
-    if not isinstance(data, dict):
-        return data
-    # 指针格式: {"指向": "architecture/index.json"}
-    if isinstance(data.get("指向"), str):
-        target = path.parent / data["指向"]
-        with target.open("r", encoding="utf-8") as handle:
-            data = json.load(handle)
-        return hydrate_slices(data, target)
-    return hydrate_slices(data, path)
-
-
-def _project_root_for_architecture(path: Path) -> Path:
-    if path.name == "index.json" and path.parent.name == "architecture":
-        return path.parent.parent
-    return path.parent
-
-
-def hydrate_slices(data: Any, architecture_path: Path) -> Any:
-    if not isinstance(data, dict):
-        return data
-    slice_state = data.get("架构切片", {})
-    if not isinstance(slice_state, dict) or not slice_state.get("启用"):
-        return data
-    slice_items = slice_state.get("切片清单", [])
-    if not isinstance(slice_items, list) or not slice_items:
-        return data
-    project_root = _project_root_for_architecture(architecture_path)
-    hydrated = dict(data)
-    for item in slice_items:
-        if not isinstance(item, dict) or not isinstance(item.get("路径"), str):
-            continue
-        slice_path = project_root / item["路径"]
-        if not slice_path.exists():
-            continue
-        with slice_path.open("r", encoding="utf-8-sig") as handle:
-            slice_data = json.load(handle)
-        if not isinstance(slice_data, dict):
-            continue
-        for key, value in slice_data.items():
-            if key != "切片元信息":
-                hydrated[key] = value
-    return hydrated
-
-
 def load_schema() -> tuple[dict[str, Any] | None, str | None]:
     skill_root = Path(__file__).resolve().parents[1]
     schema_path = skill_root / "assets" / "schema" / "architecture.schema.json"
     if not schema_path.exists():
         return None, f"schema 文件不存在，已跳过轻量 schema 校验: {schema_path}"
     try:
-        schema = load_json(schema_path)
+        schema = _archlib.load_architecture_json(schema_path)
     except (OSError, json.JSONDecodeError) as exc:
         return None, f"schema 无法读取，已跳过轻量 schema 校验: {exc}"
     if not isinstance(schema, dict):
@@ -281,12 +235,6 @@ def validate_architecture(data: dict[str, Any], root: Path, stage: str = "full")
     return errors, warnings
 
 
-def emit_text(errors: list[str], warnings: list[str]) -> None:
-    print(f"架构校验: 错误 {len(errors)} 项, 警告 {len(warnings)} 项")
-    for item in errors:
-        print(f"ERROR: {item}")
-    for item in warnings:
-        print(f"WARN: {item}")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -298,7 +246,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        data = load_json(args.architecture)
+        data = _archlib.load_architecture_json(args.architecture)
     except FileNotFoundError:
         print(f"ERROR: 文件不存在: {args.architecture}", file=sys.stderr)
         return 2
@@ -311,12 +259,12 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     errors, warnings = validate_architecture(
-        data, _project_root_for_architecture(args.architecture.resolve()), stage=args.stage
+        data, _archlib.project_root_for_architecture(args.architecture.resolve()), stage=args.stage
     )
     if args.json:
         print(json.dumps({"错误": errors, "警告": warnings}, ensure_ascii=False, indent=2))
     else:
-        emit_text(errors, warnings)
+        _archlib.emit_validation_text("架构校验", errors, warnings)
     return 1 if errors else 0
 
 

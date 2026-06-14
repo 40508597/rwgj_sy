@@ -74,7 +74,7 @@
 **示例**：
 
 ```bash
-git commit -m "feat(skills): add agent-protocol sub-skill for Codex"
+git commit -m "feat(skills): add agent-protocol capability layer for Codex"
 git commit -m "fix(architecture): validate module requires section"
 git commit -m "docs: clarify installation steps in README"
 ```

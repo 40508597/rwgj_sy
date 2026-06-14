@@ -63,8 +63,6 @@
 ├── README.md                   # 本文件（仓库门面 + 完整能力 + 详细使用）
 ├── SKILL.md                    # Agent 薄入口
 ├── AGENT-USAGE.md              # Agent 通用入口
-├── architecture.json           # 架构真相源指针
-├── architecture/               # 架构切片（data/features/modules/pages/tasks/index）
 ├── docs/                       # 设计文档
 │   ├── capability-map.md       # 能力地图
 │   ├── mcp-tools.md            # MCP 工具清单
@@ -78,11 +76,11 @@
 │   ├── legacy/                 # 历史 SKILL 归档
 │   ├── references/             # 参考文档（21 篇）
 │   └── scripts/                # 工具脚本（10 个）
-└── skills/                     # 子技能（4 个）
-    ├── task-architecture/      # 总入口
-    ├── project-depth-core/     # 主动理解内核
-    ├── architecture-json/      # 架构物化层
-    └── agent-protocol/         # 外围协议层
+└── skills/                     # 能力层（4 个，单一技能入口）
+    ├── task-architecture/      # 路由层 LAYER.md
+    ├── project-depth-core/     # 主动理解内核 CORE.md
+    ├── architecture-json/      # 架构物化层 SCHEMA.md
+    └── agent-protocol/         # 外围协议层 PROTOCOL.md
 ```
 
 ---
@@ -93,7 +91,7 @@
 
 #### 4.1.1 注意力保护区（核心能力 3 项）
 
-| 能力 | 子技能 | 目标 |
+| 能力 | 子能力层 | 目标 |
 |------|--------|------|
 | 主动理解 | `project-depth-core` | 想得深 |
 | 物化架构 | `architecture-json` | 落得稳 |
@@ -137,7 +135,7 @@
 
 > 适配层**只写差异**，**不复制规则**。
 
-### 4.2 子技能详细说明
+### 4.2 子能力层详细说明
 
 #### 4.2.1 `task-architecture` — 总入口
 
@@ -221,7 +219,7 @@
 **明确不做的**：
 - ✗ **不**做代码实现的"中央调度"
 - ✗ **不**在技能目录持久化项目业务状态
-- ✗ **不**复制子技能细则到总入口
+- ✗ **不**复制子能力层细则到总入口
 - ✗ **不**让 `agent-protocol` 抢占 `project-depth-core` 入口
 - ✗ **不**做功能簇展开的"中央判断"（这是认知层职责）
 - ✗ **不**维护分叉规则（所有 Agent 读同一份）
@@ -237,7 +235,7 @@
 
 | 指标 | 数值 |
 |------|------|
-| 子技能数 | 4 |
+| 子能力层数 | 4 |
 | 参考文档数 | 21 |
 | 工具脚本数 | 10 |
 | 平台适配数 | 4 |
@@ -245,7 +243,7 @@
 | Schema 数 | 2 |
 | 资产模板数 | 7 |
 | 历史归档 | 3 |
-| 顶层入口文件 | 3（SKILL.md / AGENT-USAGE.md / architecture.json） |
+| 顶层入口文件 | 2（SKILL.md / AGENT-USAGE.md） |
 | 总文件数 | ~80 |
 
 ### 4.6 适用场景评估
@@ -327,7 +325,7 @@ cp -r <rwgj-源目录>/<项目根>/   # Windows: xcopy /E
 
 ### 5.2 用户使用方式
 
-用户**不需要**直接调用任何子技能或脚本，只需要：
+用户**不需要**直接调用任何子能力层或脚本，只需要：
 
 ```text
 使用任务架构做 XXX
@@ -450,7 +448,7 @@ python shared/scripts/taskarch_cli.py gate-file --architecture architecture.json
 
 **注意**：
 - 不得把项目状态、恢复点、变更记录写入**全局**技能目录
-- 子技能中的 `../../shared/` 路径按同一规则解析
+- 子能力层中的 `../../shared/` 路径按同一规则解析
 
 ### 5.7 典型工作流示例
 
@@ -504,7 +502,7 @@ python shared/scripts/taskarch_cli.py gate-file --architecture architecture.json
 | architecture.json 不一致 | 跑 `python shared/scripts/validate_architecture.py architecture.json` 看具体错误 |
 | 代码和架构 drift | 跑 `python shared/scripts/scan_code_drift.py` 看具体 drift 列表 |
 | 跨平台输出异常 | 读 `shared/adapters/<platform>.md` 适配说明 |
-| 子技能路径找不到 | 检查 `../../shared/` 解析：项目根目录 vs 全局目录 |
+| 子能力层路径找不到 | 检查 `../../shared/` 解析：项目根目录 vs 全局目录 |
 
 ### 5.10 辅助参考链接
 
@@ -549,7 +547,7 @@ git push origin main
 ### 6.3 不要做
 
 - ✗ 在本仓库存项目业务状态（真相源在调用方）
-- ✗ 把子技能细则复制到总入口
+- ✗ 把子能力层细则复制到总入口
 - ✗ 让 `agent-protocol` 抢占 `project-depth-core` 入口优先级
 - ✗ 维护分叉规则（所有 Agent 读同一份）
 

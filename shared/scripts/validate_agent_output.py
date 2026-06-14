@@ -14,9 +14,10 @@ import sys
 from pathlib import Path
 from typing import Any
 
-if hasattr(sys.stdout, "reconfigure"):
-    sys.stdout.reconfigure(encoding="utf-8")
-    sys.stderr.reconfigure(encoding="utf-8")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import _archlib  # noqa: E402
+
+_archlib.configure_utf8_stdout()
 
 
 VALID_TYPES = {"模块提案", "接口提案", "风险报告", "验证报告", "阻塞报告", "门禁结果"}
@@ -86,11 +87,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.json:
         print(json.dumps({"错误": errors, "警告": warnings}, ensure_ascii=False, indent=2))
     else:
-        print(f"智能体输出校验: 错误 {len(errors)} 项, 警告 {len(warnings)} 项")
-        for item in errors:
-            print(f"ERROR: {item}")
-        for item in warnings:
-            print(f"WARN: {item}")
+        _archlib.emit_validation_text("智能体输出校验", errors, warnings)
     return 1 if errors else 0
 
 

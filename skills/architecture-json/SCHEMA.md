@@ -1,7 +1,3 @@
----
-name: architecture-json
-description: 将 project-depth-core 的理解结果物化为 architecture/ 架构文件夹，继承 1.2 的功能树、模块树、模块详情、实现清单、验证证据和工具链。
----
 # Architecture JSON
 
 本技能负责“落得稳”。

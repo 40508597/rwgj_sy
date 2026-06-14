@@ -9,53 +9,11 @@ import sys
 from pathlib import Path
 from typing import Any
 
-if hasattr(sys.stdout, "reconfigure"):
-    sys.stdout.reconfigure(encoding="utf-8")
-    sys.stderr.reconfigure(encoding="utf-8")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import _archlib  # noqa: E402
 
+_archlib.configure_utf8_stdout()
 
-def _project_root_for_architecture(path: Path) -> Path:
-    if path.name == "index.json" and path.parent.name == "architecture":
-        return path.parent.parent
-    return path.parent
-
-
-def hydrate_slices(data: Any, architecture_path: Path) -> Any:
-    if not isinstance(data, dict):
-        return data
-    slice_state = data.get("架构切片", {})
-    if not isinstance(slice_state, dict) or not slice_state.get("启用"):
-        return data
-    slice_items = slice_state.get("切片清单", [])
-    if not isinstance(slice_items, list) or not slice_items:
-        return data
-    project_root = _project_root_for_architecture(architecture_path)
-    hydrated = dict(data)
-    for item in slice_items:
-        if not isinstance(item, dict) or not isinstance(item.get("路径"), str):
-            continue
-        slice_path = project_root / item["路径"]
-        if not slice_path.exists():
-            continue
-        with slice_path.open("r", encoding="utf-8-sig") as handle:
-            slice_data = json.load(handle)
-        if not isinstance(slice_data, dict):
-            continue
-        for key, value in slice_data.items():
-            if key != "切片元信息":
-                hydrated[key] = value
-    return hydrated
-
-
-def load_json(path: Path) -> Any:
-    with path.open("r", encoding="utf-8-sig") as handle:
-        data = json.load(handle)
-    if isinstance(data, dict) and isinstance(data.get("指向"), str):
-        target = path.parent / data["指向"]
-        with target.open("r", encoding="utf-8-sig") as handle:
-            data = json.load(handle)
-        return hydrate_slices(data, target)
-    return hydrate_slices(data, path)
 
 
 def flatten(value: Any, prefix: str = "") -> dict[str, Any]:
@@ -119,8 +77,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        old_data = load_json(args.old)
-        new_data = load_json(args.new)
+        old_data = _archlib.load_architecture_json(args.old)
+        new_data = _archlib.load_architecture_json(args.new)
     except FileNotFoundError as exc:
         print(f"ERROR: 文件不存在: {exc.filename}", file=sys.stderr)
         return 2

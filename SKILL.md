@@ -14,16 +14,16 @@ description: 任务架构能力体系全局入口。安装一次即可在多个�
 4. 当前项目没有能力文件时，从本技能安装目录读取 `skills/`、`shared/`。
 5. 不得把项目状态、恢复点、变更记录或架构切片写入全局技能目录。
 
-子技能中的 `../../shared/` 路径按同一规则解析：先看当前项目根目录是否有 `shared/`，没有则回到本技能安装目录的 `shared/`。
+子能力层中的 `../../shared/` 路径按同一规则解析：先看当前项目根目录是否有 `shared/`，没有则回到本技能安装目录的 `shared/`。
 
 ## 路由顺序
 
 ```text
 用户需求
-→ skills/task-architecture/SKILL.md
-→ skills/project-depth-core/SKILL.md
-→ skills/architecture-json/SKILL.md
-→ skills/agent-protocol/SKILL.md（仅在需要时）
+→ skills/task-architecture/LAYER.md
+→ skills/project-depth-core/CORE.md
+→ skills/architecture-json/SCHEMA.md
+→ skills/agent-protocol/PROTOCOL.md（仅在需要时）
 ```
 
 多个项目共用全局能力包时，只共享规则、脚本、模板和参考文档；每个项目的 `architecture/` 目录、验证证据和恢复点互相独立。

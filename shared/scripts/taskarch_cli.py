@@ -14,50 +14,10 @@ import sys
 from pathlib import Path
 from typing import Any
 
-if hasattr(sys.stdout, "reconfigure"):
-    sys.stdout.reconfigure(encoding="utf-8")
-    sys.stderr.reconfigure(encoding="utf-8")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import _archlib  # noqa: E402
 
-
-def load_json(path: Path) -> Any:
-    data = json.loads(path.read_text(encoding="utf-8-sig"))
-    if isinstance(data, dict) and isinstance(data.get("指向"), str):
-        target = path.parent / data["指向"]
-        data = json.loads(target.read_text(encoding="utf-8-sig"))
-        return hydrate_slices(data, target)
-    return hydrate_slices(data, path)
-
-
-def _project_root_for_architecture(path: Path) -> Path:
-    if path.name == "index.json" and path.parent.name == "architecture":
-        return path.parent.parent
-    return path.parent
-
-
-def hydrate_slices(data: Any, architecture_path: Path) -> Any:
-    if not isinstance(data, dict):
-        return data
-    slice_state = data.get("架构切片", {})
-    if not isinstance(slice_state, dict) or not slice_state.get("启用"):
-        return data
-    slice_items = slice_state.get("切片清单", [])
-    if not isinstance(slice_items, list) or not slice_items:
-        return data
-    project_root = _project_root_for_architecture(architecture_path)
-    hydrated = dict(data)
-    for item in slice_items:
-        if not isinstance(item, dict) or not isinstance(item.get("路径"), str):
-            continue
-        slice_path = project_root / item["路径"]
-        if not slice_path.exists():
-            continue
-        slice_data = json.loads(slice_path.read_text(encoding="utf-8-sig"))
-        if not isinstance(slice_data, dict):
-            continue
-        for key, value in slice_data.items():
-            if key != "切片元信息":
-                hydrated[key] = value
-    return hydrated
+_archlib.configure_utf8_stdout()
 
 
 def emit(data: Any) -> None:
@@ -77,7 +37,7 @@ def get_path(data: Any, dotted_path: str) -> Any:
 
 
 def cmd_slice(args: argparse.Namespace) -> int:
-    data = load_json(args.architecture)
+    data = _archlib.load_architecture_json(args.architecture)
     if args.path:
         emit({"路径": args.path, "结果": get_path(data, args.path)})
         return 0
@@ -89,24 +49,10 @@ def cmd_slice(args: argparse.Namespace) -> int:
     return 2
 
 
-def iter_declared_files(data: dict[str, Any]) -> set[str]:
-    declared: set[str] = set()
-    implementation = data.get("实现清单", {})
-    if not isinstance(implementation, dict):
-        return declared
-    for item in implementation.values():
-        if not isinstance(item, dict):
-            continue
-        for file_item in (item.get("文件列表") or item.get("文件") or []):
-            if isinstance(file_item, dict) and isinstance(file_item.get("路径"), str):
-                declared.add(file_item["路径"].replace("\\", "/"))
-    return declared
-
-
 def cmd_gate_file(args: argparse.Namespace) -> int:
-    data = load_json(args.architecture)
-    declared = iter_declared_files(data)
-    target = args.file.replace("\\", "/")
+    data = _archlib.load_architecture_json(args.architecture)
+    declared = _archlib.collect_implementation_files(data)
+    target = args.file.replace("\\", "/").rstrip("/")
     if target in declared:
         emit({"通过": True, "文件": target})
         return 0

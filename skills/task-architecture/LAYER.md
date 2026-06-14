@@ -1,9 +1,3 @@
----
-name: task-architecture
-description: 任务架构总入口。新项目从零、已有代码纳管、需求变更、功能扩展、架构重构、排查代码漂移、多模块系统设计时调用。强制按"深度理解→架构落位→协议执行"三层路由执行不跳步骤，把模糊需求翻译成可验收可落位可测试的功能树+模块详情+architecture/ 切片真相源。触发关键词：任务架构、架构、功能簇、模块设计、architecture、受管项目、/创建架构、/分析架构、/修改架构、/追加架构、/校验架构、rwgj。
-license: MIT
----
-
 # 任务架构总入口
 
 > 这是薄入口，不是能力全集。**加载本技能即进入强约束模式**：项目级任务必须按三层路由执行，禁止跳过任何一层。
@@ -36,11 +30,11 @@ license: MIT
 ```text
 用户需求
   ↓
-1. skills/project-depth-core/SKILL.md     ← 想得深：功能簇展开、反薄Demo、智能关联
+1. skills/project-depth-core/CORE.md     ← 想得深：功能簇展开、反薄Demo、智能关联
   ↓
-2. skills/architecture-json/SKILL.md      ← 落得稳：写入 architecture/ 切片、模块详情、实现清单
+2. skills/architecture-json/SCHEMA.md    ← 落得稳：写入 architecture/ 切片、模块详情、实现清单
   ↓
-3. skills/agent-protocol/SKILL.md         ← 仅按需：跨平台适配、硬门禁、标准输出、能力降级
+3. skills/agent-protocol/PROTOCOL.md     ← 仅按需：跨平台适配、硬门禁、标准输出、能力降级
 ```
 
 - **project-depth-core**：任何需求先进入，除非只是概念问答或单条命令。

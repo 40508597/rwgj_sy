@@ -1,7 +1,3 @@
----
-name: agent-protocol
-description: 任务架构外围协议层，继承 1.3 的跨智能体适配、虚拟模块审议、硬门禁、标准输出和能力降级。
----
 # Agent Protocol
 
 本技能负责“跑得广”，不能压住 `project-depth-core`。

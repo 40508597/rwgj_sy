@@ -1,7 +1,3 @@
----
-name: project-depth-core
-description: 任务架构的主动理解内核，继承 1.1 的最大主动性、功能簇展开、交互完整性、多层递进、分治设计和智能关联路由。
----
 # Project Depth Core
 
 本技能负责“想得深”，不负责跨平台适配和工具门禁。
