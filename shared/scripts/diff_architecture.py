@@ -76,15 +76,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--max-items", type=int, default=80, help="Max text items per section")
     args = parser.parse_args(argv)
 
-    try:
-        old_data = _archlib.load_architecture_json(args.old)
-        new_data = _archlib.load_architecture_json(args.new)
-    except FileNotFoundError as exc:
-        print(f"ERROR: 文件不存在: {exc.filename}", file=sys.stderr)
-        return 2
-    except json.JSONDecodeError as exc:
-        print(f"ERROR: JSON 语法错误: {exc}", file=sys.stderr)
-        return 2
+    def _load_both() -> tuple[Any, Any]:
+        return (
+            _archlib.load_architecture_json(args.old),
+            _archlib.load_architecture_json(args.new),
+        )
+
+    pair, io_error, io_exit = _archlib.run_with_io_errors(_load_both)
+    if io_error is not None:
+        print(f"ERROR: {io_error}", file=sys.stderr)
+        return io_exit
+    old_data, new_data = pair
 
     diff = diff_architecture(old_data, new_data)
     if args.json:

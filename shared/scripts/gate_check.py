@@ -58,17 +58,7 @@ def _run_script(name: str, args: list[str]) -> tuple[int, dict | None, str]:
 
 def _count_impl_files(project: Path) -> int:
     """统计磁盘真实实现代码文件数（排除架构目录、依赖、缓存）。"""
-    n = 0
-    for path in project.rglob("*"):
-        if not path.is_file() or path.suffix.lower() not in CODE_EXTS:
-            continue
-        parts = set(path.relative_to(project).parts)
-        if parts & IGNORE_DIRS:
-            continue
-        if path.stat().st_size == 0:
-            continue
-        n += 1
-    return n
+    return len(_archlib.collect_actual_files(project, CODE_EXTS, IGNORE_DIRS))
 
 
 def _load_recovery_stage(project: Path) -> tuple[str | None, list[str]]:

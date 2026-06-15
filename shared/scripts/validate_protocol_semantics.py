@@ -127,14 +127,13 @@ def main(argv: list[str] | None = None) -> int:
     root = args.project.resolve()
     architecture = args.architecture if args.architecture.is_absolute() else root / args.architecture
 
-    try:
-        errors, warnings = validate_protocol(root, architecture)
-    except FileNotFoundError as exc:
-        print(f"ERROR: 文件不存在: {exc.filename}", file=sys.stderr)
-        return 2
-    except json.JSONDecodeError as exc:
-        print(f"ERROR: JSON 语法错误: {exc}", file=sys.stderr)
-        return 2
+    result, io_error, io_exit = _archlib.run_with_io_errors(
+        lambda: validate_protocol(root, architecture)
+    )
+    if io_error is not None:
+        print(f"ERROR: {io_error}", file=sys.stderr)
+        return io_exit
+    errors, warnings = result
 
     if args.json:
         print(json.dumps({"错误": errors, "警告": warnings}, ensure_ascii=False, indent=2))

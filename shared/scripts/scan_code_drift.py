@@ -76,13 +76,6 @@ def looks_like_file_path(value: str, root: Path) -> bool:
     return False
 
 
-def _normalize(path: Path, root: Path) -> str:
-    try:
-        return path.resolve().relative_to(root.resolve()).as_posix()
-    except ValueError:
-        return path.as_posix()
-
-
 def _iter_values(value: Any) -> list[Any]:
     values: list[Any] = []
     if isinstance(value, dict):
@@ -116,18 +109,12 @@ def collect_declared_files(data: dict[str, Any], root: Path) -> set[str]:
 
 
 def collect_actual_files(root: Path, extensions: set[str], ignore_dirs: set[str]) -> set[str]:
-    actual: set[str] = set()
-    for path in root.rglob("*"):
-        if not path.is_file():
-            continue
-        if any(part in ignore_dirs for part in path.parts):
-            continue
-        if path.name.startswith(DEFAULT_IGNORE_FILE_PREFIXES):
-            continue
-        if path.suffix.lower() not in extensions:
-            continue
-        actual.add(_normalize(path, root))
-    return actual
+    return _archlib.collect_actual_files(
+        root,
+        extensions,
+        ignore_dirs,
+        ignore_file_prefixes=DEFAULT_IGNORE_FILE_PREFIXES,
+    )
 
 
 def scan_code_drift(project_root: Path, architecture_path: Path, extensions: set[str]) -> dict[str, list[str]]:

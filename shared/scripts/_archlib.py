@@ -149,3 +149,33 @@ def run_with_io_errors(func: Callable[[], T]) -> tuple[T | None, str | None, int
         return None, f"文件不存在: {name}", 2
     except json.JSONDecodeError as exc:
         return None, f"JSON 语法错误: {exc}", 2
+
+
+def collect_actual_files(root: Path, extensions: set[str], ignore_dirs: set[str],
+                         ignore_file_prefixes: tuple[str, ...] = (".tmp-",)) -> set[str]:
+    """Collect real files under ``root`` whose suffix is in ``extensions``.
+
+    Forward-slash relative paths. Skips directories in ``ignore_dirs``, files whose
+    name starts with any ``ignore_file_prefixes``, files with a suffix outside
+    ``extensions`` (case-insensitive), and empty files. Mirrors the logic that
+    ``scan_code_drift.collect_actual_files`` and ``gate_check._count_impl_files``
+    used to keep in two places.
+    """
+    actual: set[str] = set()
+    for path in root.rglob("*"):
+        if not path.is_file():
+            continue
+        if any(part in ignore_dirs for part in path.parts):
+            continue
+        if path.name.startswith(ignore_file_prefixes):
+            continue
+        if path.suffix.lower() not in extensions:
+            continue
+        if path.stat().st_size == 0:
+            continue
+        try:
+            relative = path.resolve().relative_to(root.resolve()).as_posix()
+        except ValueError:
+            relative = path.as_posix()
+        actual.add(relative)
+    return actual

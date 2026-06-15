@@ -1,0 +1,4 @@
+# `optional/` is reserved for components that are distributed as part of the skill
+# package but are not part of the core protocol (e.g. the legacy MCP server that
+# has since been removed). The directory is kept so future optional deliverables
+# have a stable, well-known location.

@@ -245,14 +245,12 @@ def main(argv: list[str] | None = None) -> int:
                         help="Validation stage: 'skeleton' tolerates missing detail keys (模块详情/接口契约/实现清单/完整细节/测试责任矩阵)")
     args = parser.parse_args(argv)
 
-    try:
-        data = _archlib.load_architecture_json(args.architecture)
-    except FileNotFoundError:
-        print(f"ERROR: 文件不存在: {args.architecture}", file=sys.stderr)
-        return 2
-    except json.JSONDecodeError as exc:
-        print(f"ERROR: JSON 语法错误: {exc}", file=sys.stderr)
-        return 2
+    data, io_error, io_exit = _archlib.run_with_io_errors(
+        lambda: _archlib.load_architecture_json(args.architecture)
+    )
+    if io_error is not None:
+        print(f"ERROR: {io_error}", file=sys.stderr)
+        return io_exit
 
     if not isinstance(data, dict):
         print("ERROR: architecture 根节点必须是对象", file=sys.stderr)
