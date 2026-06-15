@@ -82,7 +82,7 @@
 
 ### project-depth-core 层
 
-- 模糊需求、功能簇、反薄 Demo、展开停止规则：`../../shared/references/function-clusters.md`
+- 模糊需求、功能簇、反薄 Demo、展开停止规则、实现期循环展开：`../../shared/references/function-clusters.md`
 - 组件、接口、API、CLI、后台任务、交付物、交互闭环：`../../shared/references/interaction-completeness.md`
 - 多层递进、逐块深度设计、状态流转：`../../shared/references/progressive-decomposition.md`
 - 功能/模块/文件拆分粒度和停止规则：`../../shared/references/splitting-guide.md`

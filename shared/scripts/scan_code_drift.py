@@ -49,6 +49,7 @@ DEFAULT_IGNORE_DIRS = {
     ".next",
     ".turbo",
     ".pytest_cache",
+    "architecture",
 }
 
 DEFAULT_IGNORE_FILE_PREFIXES = (".tmp-",)
@@ -124,6 +125,12 @@ def scan_code_drift(project_root: Path, architecture_path: Path, extensions: set
 
     declared = collect_declared_files(data, project_root)
     actual = collect_actual_files(project_root, extensions, DEFAULT_IGNORE_DIRS)
+    # 架构入口文件本身是元数据指针，不属于业务实现，不计入漂移
+    try:
+        arch_rel = architecture_path.resolve().relative_to(project_root.resolve()).as_posix()
+        actual.discard(arch_rel)
+    except ValueError:
+        pass
     declared_files = {item for item in declared if Path(item).suffix.lower() in extensions}
 
     missing_declared = sorted(item for item in declared_files if not (project_root / item).exists())
