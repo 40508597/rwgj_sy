@@ -19,7 +19,6 @@ REQUIRED_PATHS = [
     "docs/version-lineage.md",
     "docs/capability-map.md",
     "docs/regression-assertions.md",
-    "docs/mcp-tools.md",
     "shared/references/function-clusters.md",
     "shared/references/progressive-decomposition.md",
     "shared/references/agent-output-contract.md",
@@ -36,8 +35,6 @@ REQUIRED_PATHS = [
     "skills/project-depth-core/CORE.md",
     "skills/architecture-json/SCHEMA.md",
     "skills/agent-protocol/PROTOCOL.md",
-    "optional/mcp/taskarch_mcp_server.py",
-    "optional/mcp/mcp.json",
 ]
 
 # 这 4 个路径必须不存在（已重命名为 LAYER/CORE/SCHEMA/PROTOCOL，打破 SKILL.md 魔法名）
@@ -126,17 +123,6 @@ def main(argv: list[str] | None = None) -> int:
         errors.append("plugin directory should not exist in universal package")
     if (root / "portable").exists():
         errors.append("portable directory should not exist in universal package")
-
-    mcp_config = root / "optional/mcp/mcp.json"
-    if mcp_config.exists():
-        try:
-            data = json.loads(mcp_config.read_text(encoding="utf-8-sig"))
-        except json.JSONDecodeError as exc:
-            errors.append(f"optional/mcp/mcp.json invalid: {exc}")
-        else:
-            servers = data.get("mcpServers")
-            if not isinstance(servers, dict) or "task-architecture" not in servers:
-                errors.append("optional/mcp/mcp.json must expose task-architecture server")
 
     for rel in [
         "shared/references/function-clusters.md",

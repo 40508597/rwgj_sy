@@ -25,7 +25,7 @@
 - 读取 `../../shared/references/agent-output-contract.md`。
 - 读取 `../../shared/adapters/` 中的平台适配说明。
 
-MCP/CLI 只做查验，不做认知判断。
+CLI 只做查验，不做认知判断。
 
 ## 交叉审计
 

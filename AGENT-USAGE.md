@@ -66,9 +66,9 @@ shared/adapters/
 
 不要让不同平台维护多份分叉规则。Codex、Claude Code、Trae、Cursor、Windsurf、Cline 和自研 Agent 都读取同一套能力来源。
 
-## MCP/CLI 边界
+## CLI 边界
 
-MCP/CLI 只做查验，不做认知判断。功能簇展开、架构归位和模块详情设计仍由技能文本完成。
+CLI 只做查验，不做认知判断。功能簇展开、架构归位和模块详情设计仍由技能文本完成。
 
 ## 工具可用时
 

@@ -65,10 +65,8 @@
 ├── AGENT-USAGE.md              # Agent 通用入口
 ├── docs/                       # 设计文档
 │   ├── capability-map.md       # 能力地图
-│   ├── mcp-tools.md            # MCP 工具清单
 │   ├── regression-assertions.md
 │   └── version-lineage.md
-├── optional/                   # 可选组件（MCP 服务）
 ├── scripts/                    # 顶层验证脚本
 ├── shared/                     # 共享资源（Agent 加载）
 │   ├── adapters/               # 平台适配（4 个）
