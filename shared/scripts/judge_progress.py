@@ -17,7 +17,13 @@ _archlib.configure_utf8_stdout()
 
 
 def run_command(cmd: list[str]) -> tuple[int, str, str]:
-    """运行命令并返回结果"""
+    """运行命令并返回结果。
+
+    转调 _archlib.run_subprocess_json，但保留 (code, stdout, stderr) 元组形态，
+    以便调用方沿用既有解析逻辑。新代码应直接用 _archlib.run_subprocess_json
+    获取结构化 (code, parsed_json, err)。
+    """
+    import subprocess
     try:
         result = subprocess.run(
             cmd,
@@ -27,8 +33,8 @@ def run_command(cmd: list[str]) -> tuple[int, str, str]:
             errors='replace'
         )
         return result.returncode, result.stdout, result.stderr
-    except Exception as e:
-        return 1, "", str(e)
+    except OSError as exc:
+        return 1, "", str(exc)
 
 
 def check_placeholders(arch_path: Path) -> dict[str, Any]:

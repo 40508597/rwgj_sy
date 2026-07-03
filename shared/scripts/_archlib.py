@@ -179,3 +179,37 @@ def collect_actual_files(root: Path, extensions: set[str], ignore_dirs: set[str]
             relative = path.as_posix()
         actual.add(relative)
     return actual
+
+
+def run_subprocess_json(cmd: list[str]) -> tuple[int, Any, str]:
+    """Run a subprocess that is expected to emit a JSON document on stdout.
+
+    Returns ``(returncode, parsed_json_or_None, stderr_or_error_text)``:
+    * success + valid JSON -> ``(0, obj, "")``
+    * subprocess returns non-zero but stdout is valid JSON -> ``(code, obj, stderr)``
+      (caller decides whether code is an error; some tools use non-zero as
+      advisory signal while still emitting JSON, e.g. detect_should_trigger)
+    * stdout not JSON -> ``(code, None, stderr or stdout)``
+
+    Replaces the three bespoke subprocess wrappers that used to live in
+    judge_progress.run_command / gate_check._run_script / run_with_progress.
+    UTF-8 + errors=replace keeps Chinese output legible on any host.
+    """
+    import subprocess
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+    except OSError as exc:
+        return 1, None, str(exc)
+    parsed: Any = None
+    try:
+        parsed = json.loads(result.stdout) if result.stdout else None
+    except json.JSONDecodeError:
+        parsed = None
+    err_text = result.stderr if parsed is None else result.stderr
+    return result.returncode, parsed, err_text
