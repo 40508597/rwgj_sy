@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://local.task-architecture/architecture.schema.json",
   "标题": "任务架构 architecture.json 结构底线",
-  "说明": "本 schema 只约束 architecture.json 的顶层中文字段和关键容器类型；完整工程语义仍以 SKILL.md、references/ 和 21 项一致性校验为准。",
+  "说明": "本 schema 约束 architecture.json 的顶层中文字段和关键容器类型，并通过 x-importance 自定义 keyword 标注字段重要性分级（core/important/optional），供 check_placeholders.py / validate_architecture.py 等工具作为分级与完整性的唯一真相源。完整工程语义仍以 SKILL.md、references/ 和 21 项一致性校验为准。",
   "type": "object",
   "required": [
     "项目",
@@ -28,65 +28,117 @@
     "变更记录"
   ],
   "properties": {
-    "项目": {"type": "object"},
-    "运行形态": {"type": "array"},
-    "功能树": {"type": "array"},
-    "专业能力索引": {"type": "array"},
+    "项目": {
+      "type": "object",
+      "x-importance": "core",
+      "required": ["名称", "类型"],
+      "说明": "项目元信息，名称与类型是核心必填。",
+      "properties": {
+        "名称": {"type": "string", "x-importance": "core"},
+        "类型": {"type": "string", "x-importance": "core"},
+        "语言": {"type": "string", "x-importance": "important"},
+        "框架": {"type": "string", "x-importance": "important"},
+        "说明": {"type": "string", "x-importance": "important"},
+        "目录约定": {"type": "string", "x-importance": "important"},
+        "创建时间": {"type": "string", "x-importance": "optional"},
+        "更新时间": {"type": "string", "x-importance": "optional"}
+      }
+    },
+    "运行形态": {"type": "array", "x-importance": "important"},
+    "功能树": {"type": "array", "x-importance": "core"},
+    "专业能力索引": {"type": "array", "x-importance": "important"},
     "入口": {
       "type": "object",
+      "x-importance": "core",
       "required": ["用户入口", "接口入口", "事件入口", "系统入口"],
       "properties": {
-        "用户入口": {"type": "array"},
-        "接口入口": {"type": "array"},
-        "命令入口": {"type": "array"},
-        "事件入口": {"type": "array"},
-        "系统入口": {"type": "array"},
-        "资源入口": {"type": "array"}
+        "用户入口": {"type": "array", "x-importance": "core"},
+        "接口入口": {"type": "array", "x-importance": "core"},
+        "命令入口": {"type": "array", "x-importance": "optional"},
+        "事件入口": {"type": "array", "x-importance": "core"},
+        "系统入口": {"type": "array", "x-importance": "core"},
+        "资源入口": {"type": "array", "x-importance": "optional"}
       }
     },
     "模块拓扑": {
       "type": "object",
+      "x-importance": "core",
       "required": ["节点", "依赖图"],
       "properties": {
-        "节点": {"type": "array"},
-        "依赖图": {"type": "array"}
+        "节点": {"type": "array", "x-importance": "core"},
+        "依赖图": {"type": "array", "x-importance": "core"}
       }
     },
-    "模块树": {"type": "array"},
-    "模块详情": {"type": "object"},
-    "页面拓扑": {"type": ["array", "object"]},
-    "数据拓扑": {"type": ["array", "object"]},
-    "交付物": {"type": "array"},
-    "系统集成": {"type": "array"},
-    "接口契约": {"type": "object"},
-    "实现清单": {"type": "object"},
-    "完整细节": {"type": "object"},
-    "测试责任矩阵": {"type": "array"},
+    "模块树": {"type": "array", "x-importance": "core"},
+    "模块详情": {
+      "type": "object",
+      "x-importance": "core",
+      "说明": "每个实现模块必须有完整详情，子字段底线见 模块详情子字段底线。空对象 {} 视为 critical 缺失。",
+      "x-required-subfields": ["职责", "非职责", "所属功能树节点", "上游依赖", "下游消费者", "内部结构", "状态机", "数据读写责任", "错误边界", "配置", "安全", "日志审计", "性能", "测试责任"],
+      "x-subfield-importance": "core"
+    },
+    "页面拓扑": {"type": ["array", "object"], "x-importance": "important"},
+    "数据拓扑": {"type": ["array", "object"], "x-importance": "important"},
+    "交付物": {"type": "array", "x-importance": "important"},
+    "系统集成": {"type": "array", "x-importance": "important"},
+    "接口契约": {"type": "object", "x-importance": "important"},
+    "实现清单": {
+      "type": "object",
+      "x-importance": "core",
+      "说明": "每个实现模块必须有实现清单，列出文件清单/入口文件/依赖模块/已完成/未完成。"
+    },
+    "完整细节": {"type": "object", "x-importance": "optional"},
+    "测试责任矩阵": {"type": "array", "x-importance": "core"},
     "验证证据": {
       "type": "object",
+      "x-importance": "core",
+      "说明": "验证证据必须至少包含六类一项，每类记录命令/截图/手检/未验证项。全空视为 critical 缺失。",
       "properties": {
-        "自动化测试": {"type": "array"},
-        "架构校验": {"type": "array"},
-        "浏览器验收": {"type": "array"},
-        "截图": {"type": "array"},
-        "手动检查": {"type": "array"},
-        "未验证项": {"type": "array"}
+        "自动化测试": {"type": "array", "x-importance": "core"},
+        "架构校验": {"type": "array", "x-importance": "core"},
+        "浏览器验收": {"type": "array", "x-importance": "core"},
+        "截图": {"type": "array", "x-importance": "core"},
+        "手动检查": {"type": "array", "x-importance": "core"},
+        "未验证项": {"type": "array", "x-importance": "core"}
       }
     },
     "架构切片": {
       "type": "object",
+      "x-importance": "important",
+      "说明": "切片清单需与磁盘 architecture/ 目录实际文件双向对账（校验21）。",
       "properties": {
-        "启用": {"type": "boolean"},
-        "架构模式": {"type": "string"},
-        "总索引文件": {"type": "string"},
-        "根入口文件": {"type": "string"},
-        "切片目录": {"type": "string"},
-        "切片清单": {"type": "array"},
-        "同步规则": {"type": "array"}
+        "启用": {"type": "boolean", "x-importance": "important"},
+        "架构模式": {"type": "string", "x-importance": "important"},
+        "总索引文件": {"type": "string", "x-importance": "important"},
+        "根入口文件": {"type": "string", "x-importance": "important"},
+        "切片目录": {"type": "string", "x-importance": "important"},
+        "切片清单": {"type": "array", "x-importance": "core"},
+        "同步规则": {"type": "array", "x-importance": "important"}
       }
     },
-    "上下文恢复点": {"type": "object"},
-    "未决问题": {"type": "array"},
-    "变更记录": {"type": "array"}
+    "上下文恢复点": {
+      "type": "object",
+      "x-importance": "core",
+      "说明": "上下文恢复点是断点续跑的依据，核心子字段缺失视为 critical。",
+      "properties": {
+        "当前任务": {"type": "string", "x-importance": "core"},
+        "当前阶段": {"type": "string", "x-importance": "core"},
+        "继续位置": {"type": "string", "x-importance": "core"},
+        "下一步": {"type": "string", "x-importance": "core"},
+        "已触碰文件": {"type": "array", "x-importance": "core"},
+        "用户明确约束": {"type": "array", "x-importance": "core"},
+        "剩余风险": {"type": "array", "x-importance": "core"},
+        "最近完成": {"type": "string", "x-importance": "important"},
+        "进行中模块": {"type": "string", "x-importance": "important"},
+        "待确认问题": {"type": "array", "x-importance": "important"},
+        "未验证项": {"type": "array", "x-importance": "important"},
+        "已运行命令": {"type": "array", "x-importance": "important"},
+        "压缩摘要": {"type": "string", "x-importance": "optional"},
+        "用户明确不要": {"type": "array", "x-importance": "important"},
+        "更新时间": {"type": "string", "x-importance": "optional"}
+      }
+    },
+    "未决问题": {"type": "array", "x-importance": "important"},
+    "变更记录": {"type": "array", "x-importance": "important"}
   }
 }
