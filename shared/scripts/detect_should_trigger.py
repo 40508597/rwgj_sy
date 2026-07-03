@@ -13,6 +13,35 @@ import _archlib  # noqa: E402
 _archlib.configure_utf8_stdout()
 
 
+def is_capability_package_itself(project_root: Path) -> bool:
+    """判断当前目录是否是任务架构能力包仓库自身。
+
+    能力包的特征（任一即认定）：
+    - 根 SKILL.md 存在且 YAML frontmatter 的 name 字段为「任务架构」
+    - 根 AGENT-USAGE.md 存在（这是能力包的通用入口说明文件，普通项目一般没有）
+
+    命中即豁免：能力包不应被自己触发任务架构，也不应被当作受管项目来管理。
+    """
+    skill_md = project_root / "SKILL.md"
+    if skill_md.is_file():
+        try:
+            text = skill_md.read_text(encoding="utf-8")
+        except OSError:
+            text = ""
+        # 解析 YAML frontmatter（仅前几行，不引入 yaml 依赖）
+        if text.startswith("---"):
+            end = text.find("---", 3)
+            if end != -1:
+                front = text[3:end]
+                for line in front.splitlines():
+                    stripped = line.strip()
+                    if stripped.startswith("name:") and "任务架构" in stripped:
+                        return True
+    if (project_root / "AGENT-USAGE.md").is_file():
+        return True
+    return False
+
+
 def should_trigger_task_architecture(project_root: Path) -> tuple[bool, list[str]]:
     """
     检测项目是否应该触发任务架构技能
@@ -20,6 +49,14 @@ def should_trigger_task_architecture(project_root: Path) -> tuple[bool, list[str
     Returns:
         (should_trigger: bool, reasons: list[str])
     """
+    # 自指豁免：本能力包仓库自身不是受管项目，永远不触发任务架构。
+    # 判据——当前目录是任务架构能力包：根 SKILL.md 的 YAML frontmatter name=任务架构，
+    # 或根 AGENT-USAGE.md 存在（能力包的通用入口文件）。命中即直接豁免。
+    # 与 validate_task_architecture_system.py 的「根 architecture.json 不应在能力包存在」
+    # 约束对账，避免能力包自身被误判为受管项目而陷入自管自的死循环。
+    if is_capability_package_itself(project_root):
+        return False, ["ℹ️  此为任务架构能力包仓库，不参与触发检测（能力包自管自身不在适用场景内）"]
+
     reasons = []
 
     # 检查1：是否存在 architecture.json 或 architecture/ 目录
@@ -62,7 +99,8 @@ def should_trigger_task_architecture(project_root: Path) -> tuple[bool, list[str
             code_files.extend(project_root.rglob(f"*{ext}"))
             if len(code_files) > 20:  # 早停优化
                 break
-    except:
+    except OSError:
+        # 目录扫描遇权限错误等不可读目录时降级处理，用已扫到的部分继续
         pass
 
     if len(code_files) > 10:
