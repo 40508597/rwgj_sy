@@ -19,7 +19,10 @@ python ../../shared/scripts/manage_state.py init --project-name “项目名” 
 ```
 
 状态文件会追踪以下阶段的完成情况，确保不遗漏：
-- 需求理解 / 功能树 / 模块树 / 模块详情 / 入口定义 / 数据拓扑 / 接口契约 / 实现清单 / 测试责任 / 验证证据
+- 需求理解 / 功能树 / 模块树 / 模块详情 / 入口定义 / 数据拓扑 / 实现清单 / 测试责任 / 验证证据（9 个必需）
+- 接口契约（可选，跨模块调用业务才需要）
+
+真相源：`shared/scripts/manage_state.py` 的 STANDARD_STAGES（required=True 共 9 项）。
 
 ## 固定落位顺序
 

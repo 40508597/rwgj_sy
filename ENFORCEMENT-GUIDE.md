@@ -60,17 +60,19 @@ python shared/scripts/check_placeholders.py architecture/index.json
 
 **原理**：把"完成度"从 LLM 主观判断变成文件里的客观记录
 
-**标准阶段**：
-1. 需求理解
-2. 功能树
-3. 模块树
-4. 模块详情
-5. 入口定义
-6. 数据拓扑
-7. 接口契约
-8. 实现清单
-9. 测试责任
-10. 验证证据
+**标准阶段**（10 个，其中 9 个必需 + 1 个可选）：
+1. 需求理解（必需）
+2. 功能树（必需）
+3. 模块树（必需）
+4. 模块详情（必需）
+5. 入口定义（必需）
+6. 数据拓扑（必需）
+7. 接口契约（可选，跨模块调用业务才需要）
+8. 实现清单（必需）
+9. 测试责任（必需）
+10. 验证证据（必需）
+
+真相源：`shared/scripts/manage_state.py` 的 STANDARD_STAGES（required=True 共 9 项）。
 
 **使用**：
 
@@ -85,11 +87,14 @@ python shared/scripts/manage_state.py show
 # 📊 架构生成进度 - 我的项目
 # 当前阶段: 功能树
 # 整体完成度: 20% (2/10)
-# 必需阶段: 2/8
+# 必需阶段: 2/9
 # 
 # 下一步行动：
 # ⏳ 继续完成 功能树 阶段
 #    检查功能簇是否完整展开
+
+# 结构化输出（供 judge_progress 等工具取数据，取代文本解析）：
+python shared/scripts/manage_state.py show --json
 
 # 3. 更新阶段状态
 python shared/scripts/manage_state.py update 功能树 in_progress

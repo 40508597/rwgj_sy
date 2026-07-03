@@ -71,7 +71,11 @@ def check_placeholders(arch_path: Path) -> dict[str, Any]:
 
 
 def check_state(state_path: Path) -> dict[str, Any]:
-    """检查进度状态"""
+    """检查进度状态。
+
+    改用 manage_state.py show --json 取结构化数据，取代脆弱的 stdout 文本解析
+    （此前为按 '当前阶段:/'整体完成度:' split 文本，manage_state 输出格式一调即失效）。
+    """
     script_dir = Path(__file__).parent
     state_script = script_dir / "manage_state.py"
 
@@ -91,7 +95,8 @@ def check_state(state_path: Path) -> dict[str, Any]:
         sys.executable,
         str(state_script),
         "show",
-        "--state-path", str(state_path)
+        "--state-path", str(state_path),
+        "--json"
     ])
 
     if code != 0:
@@ -100,24 +105,23 @@ def check_state(state_path: Path) -> dict[str, Any]:
             "message": stderr or stdout
         }
 
-    # 解析状态信息（简单文本解析）
-    current_stage = None
-    percentage = 0
+    try:
+        result = json.loads(stdout)
+    except json.JSONDecodeError:
+        return {"status": "error", "message": stderr or stdout}
 
-    for line in stdout.split('\n'):
-        if "当前阶段:" in line:
-            current_stage = line.split(":", 1)[1].strip()
-        elif "整体完成度:" in line:
-            try:
-                percentage = float(line.split(":")[1].split("%")[0].strip())
-            except:
-                pass
-
+    # 契约依赖 manage_state.py 的 JSON 字段（见 manage_state.cmd_show --json 注释）。
+    # 缺失字段视为不完整，触发 warning 而非 error。
     return {
         "status": "ok",
-        "current_stage": current_stage,
-        "percentage": percentage,
-        "output": stdout
+        "project_name": result.get("project_name", "未命名项目"),
+        "current_stage": result.get("current_stage"),
+        "percentage": result.get("overall_percentage", 0),
+        "required_completed": result.get("required_completed", 0),
+        "required_total": result.get("required_total", 0),
+        "blockers": result.get("blockers", []),
+        "stages": result.get("stages", []),
+        "next_actions": result.get("next_actions", []),
     }
 
 
@@ -191,11 +195,41 @@ def generate_verdict(
     elif state_result["status"] == "ok":
         percentage = state_result.get("percentage", 0)
         current_stage = state_result.get("current_stage", "未知")
+        required_done = state_result.get("required_completed", 0)
+        required_total = state_result.get("required_total", 0)
 
         if percentage < 100:
             verdict["warnings"].append(
                 f"ℹ️  当前完成度 {percentage}%，正在进行 {current_stage} 阶段"
             )
+
+        # 必需阶段必须全部完成才能继续（C 机制硬约束：进度状态门禁）。
+        # manage_state 的 required_total=9（含验证证据，接口契约可选），与
+        # hard-gates.md「必需阶段 9 个」+ SCHEMA.md 流程注释一致。
+        if required_total > 0 and required_done < required_total:
+            verdict["can_proceed"] = False
+            verdict["blocking_issues"].append(
+                f"⛔ 必需阶段未全部完成：{required_done}/{required_total}"
+            )
+            pending_required = []
+            for stage in state_result.get("stages", []):
+                if stage.get("required") and stage.get("status") != "completed":
+                    pending_required.append(stage["id"])
+            if pending_required:
+                verdict["blocking_issues"].append(
+                    f"   待完成：{', '.join(pending_required)}"
+                )
+            verdict["next_actions"].append(
+                f"运行: python shared/scripts/manage_state.py show 查看进度，"
+                f"补齐 {required_total - required_done} 个必需阶段"
+            )
+
+        # 阻塞项存在则禁止继续
+        if state_result.get("blockers"):
+            verdict["can_proceed"] = False
+            for blocker in state_result["blockers"]:
+                content = blocker.get("content", str(blocker)) if isinstance(blocker, dict) else str(blocker)
+                verdict["blocking_issues"].append(f"⛔ 阻塞项：{content}")
 
     # 3. 检查架构一致性
     if arch_result["status"] == "failed":
@@ -258,26 +292,29 @@ def main(argv: list[str] | None = None) -> int:
         else:
             state_path = arch_dir / "architecture" / "_state.json"
 
-    print("=" * 60)
-    print("⚖️  事中验证裁判")
-    print("=" * 60)
-    print()
+    # 人类模式进度提示走 stdout；--json 模式下走 stderr，避免污染机器可读 JSON 输出
+    progress_out = sys.stderr if args.json else sys.stdout
+
+    print("=" * 60, file=progress_out)
+    print("⚖️  事中验证裁判", file=progress_out)
+    print("=" * 60, file=progress_out)
+    print(file=progress_out)
 
     # 运行三重检查
-    print("🔍 检查 1/3: 占位符检测...")
+    print("🔍 检查 1/3: 占位符检测...", file=progress_out)
     placeholder_result = check_placeholders(arch_path)
 
-    print("🔍 检查 2/3: 进度状态...")
+    print("🔍 检查 2/3: 进度状态...", file=progress_out)
     state_result = check_state(state_path)
 
-    print("🔍 检查 3/3: 架构一致性...")
+    print("🔍 检查 3/3: 架构一致性...", file=progress_out)
     arch_result = check_architecture(arch_path)
 
-    print()
-    print("-" * 60)
-    print("📊 检查结果汇总")
-    print("-" * 60)
-    print()
+    print(file=progress_out)
+    print("-" * 60, file=progress_out)
+    print("📊 检查结果汇总", file=progress_out)
+    print("-" * 60, file=progress_out)
+    print(file=progress_out)
 
     # 生成裁判结论
     verdict = generate_verdict(placeholder_result, state_result, arch_result)

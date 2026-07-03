@@ -165,8 +165,33 @@ def cmd_show(args: argparse.Namespace) -> int:
     """显示当前状态"""
     state = load_state(args.state_path)
     if state is None:
-        print(f"ERROR: 状态文件不存在: {args.state_path}", file=sys.stderr)
+        if getattr(args, "json", False):
+            print(json.dumps({"status": "missing", "state_path": str(args.state_path)}, ensure_ascii=False))
+        else:
+            print(f"ERROR: 状态文件不存在: {args.state_path}", file=sys.stderr)
         return 1
+
+    # 结构化 JSON 输出：供 judge_progress.py 等工具取数据，取代脆弱 stdout 文本解析。
+    # 字段契约在此固定，judge_progress 依赖这些 key，改字段名需同步 judge_progress。
+    if getattr(args, "json", False):
+        result = {
+            "status": "ok",
+            "project_name": state["_meta"]["project_name"],
+            "current_stage": state["current_stage"],
+            "overall_percentage": state["completion"]["percentage"],
+            "completed_stages": state["completion"]["completed_stages"],
+            "total_stages": state["completion"]["total_stages"],
+            "required_completed": state["completion"]["required_completed"],
+            "required_total": state["completion"]["required_total"],
+            "next_actions": generate_next_actions(state),
+            "blockers": state.get("blockers", []),
+            "stages": [
+                {"id": s["id"], "status": s["status"], "required": s["required"]}
+                for s in state["stages"]
+            ],
+        }
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 0
 
     print("=" * 60)
     print(f"📊 架构生成进度 - {state['_meta']['project_name']}")
@@ -270,6 +295,7 @@ def main(argv: list[str] | None = None) -> int:
 
     # show 命令
     p_show = subparsers.add_parser("show", help="显示当前状态")
+    p_show.add_argument("--json", action="store_true", help="输出机器可读的 JSON 格式（供 judge_progress 等工具取数据）")
 
     # update 命令
     p_update = subparsers.add_parser("update", help="更新阶段状态")
