@@ -64,8 +64,16 @@ python ../../shared/scripts/init_architecture.py --mode init --output .
 **占位符机制**：
 - 所有必填字段包含 `__待填__` 占位符
 - 可选字段包含 `__待选填__` 占位符
+- 自动生成字段（如时间戳）使用 `__自动生成__`，由工具填充
+- 容器内说明性 key 使用 `__注释__`，完成后必须删除
+- 模块详情/接口契约/实现清单的示例 key 使用 `__示例模块名__` / `__示例接口名__`，使用前必须替换为真实名称
 - 填写时逐步替换占位符为实际内容
-- 完成前必须运行 `check_placeholders.py` 确保核心占位符已清空
+- 完成前必须运行 `check_placeholders.py`：
+  - 检测所有 `__待` 开头的 value 占位符，按 schema `x-importance` 分级报 critical/important/optional
+  - 检测所有 `__示例*__` / `__注释__` / `__占位符说明__` 残留 key 一律判 critical（防止生成「假模块」）
+  - 检测 schema 标 core 的顶层字段是否整段缺失
+  - 检测每个模块详情对象是否含 14 项底线子字段
+- `init_architecture.py` 写盘前自动剥离模板所有 `__` 开头 key，因此 init 后模块详情/接口契约/实现清单容器是空 `{}`，由用户填入真实模块名再补子字段
 
 单文件 `architecture.json` 已废弃。若项目只有单文件，第一步必须迁移为 `architecture/` 切片目录，再继续实现。
 

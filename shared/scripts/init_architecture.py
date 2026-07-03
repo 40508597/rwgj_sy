@@ -34,8 +34,37 @@ def load_template(path: Path) -> dict[str, Any]:
     return data
 
 
+def strip_template_metadata(data: dict[str, Any]) -> None:
+    """剥离模板里所有 __ 开头的顶层元数据 key（双保险）。
+
+    模板可能携带 __占位符说明__ / __注释__ 等说明性字段——这些是人类说明，
+    不应进入实际架构。即便模板未来意外混入新元数据，也由本函数统一拦截。
+    递归剥离 dict 中 key 以 __ 开头的项（容器内的 __注释__ / __示例模块名__
+    等示例 key 也一并清掉，避免生成名为 __示例模块名__ 的「假模块」）。
+    """
+    if not isinstance(data, dict):
+        return
+    # 顶层先剥离 __ 开头 key
+    for key in list(data.keys()):
+        if isinstance(key, str) and key.startswith("__"):
+            data.pop(key, None)
+    # 递归清理容器内的 __ 示例/注释 key（保留其内部真实数据若有）
+    def _clean(node: Any) -> None:
+        if isinstance(node, dict):
+            for key in list(node.keys()):
+                if isinstance(key, str) and key.startswith("__"):
+                    node.pop(key, None)
+            for value in node.values():
+                _clean(value)
+        elif isinstance(node, list):
+            for item in node:
+                _clean(item)
+    _clean(data)
+
+
 def build_architecture(template: dict[str, Any], args: argparse.Namespace) -> dict[str, Any]:
     data = copy.deepcopy(template)
+    strip_template_metadata(data)
     timestamp = args.time or now_iso()
 
     project = data.setdefault("项目", {})
