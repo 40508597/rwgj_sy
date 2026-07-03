@@ -28,6 +28,10 @@ description: 任务架构能力体系全局入口。安装一次即可在多个�
 
 多个项目共用全局能力包时，只共享规则、脚本、模板和参考文档；每个项目的 `architecture/` 目录、验证证据和恢复点互相独立。
 
+## 可见回执
+
+加载后必须按 `skills/task-architecture/LAYER.md` 输出主会话启动回执；禁止静默调用。
+
 ## 辅助参考
 
 - 命令速查（给人看）：`shared/references/commands-cheatsheet.md`

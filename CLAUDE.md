@@ -49,6 +49,7 @@
 
 ## 关键约束速查
 
+- **禁止静默调用技能**：加载任务架构后必须先在主会话输出「已启用任务架构技能」回执，列出入口链路、触发原因、本次初判、受管状态与下一步；不进入完整流程时也必须说明原因
 - **schema 是分级与字段完整性真相源**：`shared/assets/schema/architecture.schema.json` 用 `x-importance` 标注 core/important；`check_placeholders.py` 与 `validate_architecture.py` 读 schema 派生规则，不再硬编码
 - **必需阶段 9 个**（含验证证据，接口契约可选）：`shared/scripts/manage_state.py` 的 `STANDARD_STAGES` 是真相源；`hard-gates.md`/`ENFORCEMENT-GUIDE.md`/`SCHEMA.md`/`LAYER.md` 都引用脚本值
 - **占位符 + 示例 key 双扫**：`check_placeholders.py` 同时检测 `__待` value 与 `__示例*__`/`__注释__`/`__占位符说明__` key，防止生成「假模块」
