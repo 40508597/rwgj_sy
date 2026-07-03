@@ -68,7 +68,7 @@ def cmd_gate_file(args: argparse.Namespace) -> int:
 def cmd_lineage(args: argparse.Namespace) -> int:
     root = args.root.resolve()
     # 版本继承与能力地图已合并进 README §二（版本演进）与 §4.1/4.2，
-    # 原先的 docs/version-lineage.md 与 docs/capability-map.md 已删除避免三处重复。
+    # 避免能力来源与子能力说明在多份文档中重复维护。
     readme = root / "README.md"
     emit({
         "version_lineage_source": "README.md §二 版本演进",

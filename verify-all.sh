@@ -55,7 +55,9 @@ run_check() {
     local name="$1"
     local cmd="$2"
     local description="$3"
+    local expected_rc="${4:-0}"
     local log="${TMPDIR_VERIFY}/verify_${TOTAL_CHECKS}.log"
+    local rc=0
 
     TOTAL_CHECKS=$((TOTAL_CHECKS + 1))
 
@@ -63,10 +65,14 @@ run_check() {
     echo "[$TOTAL_CHECKS] $name"
     echo "说明: $description"
     echo "命令: $cmd"
+    echo "期望退出码: $expected_rc"
     echo ""
 
-    if eval "$cmd" > "$log" 2>&1; then
-        echo "✓ 通过"
+    eval "$cmd" > "$log" 2>&1
+    rc=$?
+
+    if [ "$rc" -eq "$expected_rc" ]; then
+        echo "✓ 通过（退出码 $rc）"
         PASSED_CHECKS=$((PASSED_CHECKS + 1))
         {
             echo ""
@@ -74,13 +80,14 @@ run_check() {
             echo ""
             echo "**状态**: 通过"
             echo "**说明**: $description"
+            echo "**退出码**: $rc（期望 $expected_rc）"
             echo ""
             echo '```'
             tail -20 "$log"
             echo '```'
         } >> "$REPORT_FILE"
     else
-        echo "✗ 失败"
+        echo "✗ 失败（退出码 $rc，期望 $expected_rc）"
         FAILED_CHECKS=$((FAILED_CHECKS + 1))
         {
             echo ""
@@ -88,6 +95,7 @@ run_check() {
             echo ""
             echo "**状态**: 失败"
             echo "**说明**: $description"
+            echo "**退出码**: $rc（期望 $expected_rc）"
             echo ""
             echo "**错误信息**:"
             echo '```'
@@ -117,6 +125,24 @@ skip_check() {
     } >> "$REPORT_FILE"
 }
 
+# 检测当前目录是否为任务架构能力包仓库自身。
+# 能力包自检模式下，项目级 architecture/ 检查应跳过，改跑能力包样例/系统一致性检查；
+# 受管项目模式下，继续按 architecture.json / architecture/index.json 严格验证项目状态。
+IS_CAPABILITY_PACKAGE=0
+if [ -f "SKILL.md" ] && grep -q "name: 任务架构" SKILL.md 2>/dev/null; then
+    IS_CAPABILITY_PACKAGE=1
+elif [ -f "AGENT-USAGE.md" ]; then
+    IS_CAPABILITY_PACKAGE=1
+fi
+
+if [ "$IS_CAPABILITY_PACKAGE" -eq 1 ]; then
+    echo "检测模式: 能力包自检模式（跳过调用方项目级 architecture/ 检查）"
+else
+    echo "检测模式: 受管项目验证模式"
+fi
+
+echo ""
+
 # 检查是否存在 architecture.json
 ARCH_FILE=""
 if [ -f "architecture.json" ]; then
@@ -135,7 +161,9 @@ fi
 # === F+B+C 三件套强制检查（最高优先级） ===
 
 # 0a. 占位符检查（强制，核心占位符未清空禁止继续）
-if [ -n "$ARCH_FILE" ]; then
+if [ "$IS_CAPABILITY_PACKAGE" -eq 1 ]; then
+    skip_check "占位符检查（F）" "能力包自检模式：无调用方 architecture/ 真相源"
+elif [ -n "$ARCH_FILE" ]; then
     run_check \
         "占位符检查（F）" \
         "python '${SCRIPT_DIR}/shared/scripts/check_placeholders.py' '${ARCH_FILE}'" \
@@ -145,7 +173,9 @@ else
 fi
 
 # 0b. 进度状态检查（B）
-if [ -f "architecture/_state.json" ]; then
+if [ "$IS_CAPABILITY_PACKAGE" -eq 1 ]; then
+    skip_check "进度状态检查（B）" "能力包自检模式：状态文件属于调用方项目，不在能力包仓库持久化"
+elif [ -f "architecture/_state.json" ]; then
     run_check \
         "进度状态检查（B）" \
         "python '${SCRIPT_DIR}/shared/scripts/manage_state.py' show --state-path architecture/_state.json" \
@@ -155,7 +185,9 @@ else
 fi
 
 # 0c. 事中验证裁判（C - 综合三重检查）
-if [ -n "$ARCH_FILE" ]; then
+if [ "$IS_CAPABILITY_PACKAGE" -eq 1 ]; then
+    skip_check "事中验证裁判（C）" "能力包自检模式：无调用方 architecture/ 可裁决"
+elif [ -n "$ARCH_FILE" ]; then
     run_check \
         "事中验证裁判（C）" \
         "python '${SCRIPT_DIR}/shared/scripts/judge_progress.py' '${ARCH_FILE}'" \
@@ -164,11 +196,31 @@ else
     skip_check "事中验证裁判（C）" "未找到架构文件"
 fi
 
-# 0d. 触发检测（自指豁免验证：能力包自身应返回「不需要」）
-run_check \
-    "触发检测" \
-    "python '${SCRIPT_DIR}/shared/scripts/detect_should_trigger.py'" \
-    "检测当前项目是否应使用任务架构（能力包仓库自身应被豁免）"
+# 0d. 触发检测
+if [ "$IS_CAPABILITY_PACKAGE" -eq 1 ]; then
+    run_check \
+        "触发检测（能力包自指豁免）" \
+        "python '${SCRIPT_DIR}/shared/scripts/detect_should_trigger.py' | grep -q '能力包仓库'" \
+        "能力包仓库自身应被识别并豁免，不进入受管项目流程"
+else
+    run_check \
+        "触发检测" \
+        "python '${SCRIPT_DIR}/shared/scripts/detect_should_trigger.py'; rc=\$?; test \$rc -eq 0 -o \$rc -eq 1" \
+        "检测当前项目是否应使用任务架构；触发/不触发都是有效结果，命令可运行即可"
+fi
+
+# 能力包自检专属：用示例与模板双锚验证 F 机制。
+if [ "$IS_CAPABILITY_PACKAGE" -eq 1 ]; then
+    run_check \
+        "示例架构占位符检查" \
+        "python '${SCRIPT_DIR}/shared/scripts/check_placeholders.py' '${SCRIPT_DIR}/shared/assets/example-architecture.json'" \
+        "example-architecture.json 应完整填写，占位符检查应通过"
+    run_check \
+        "模板占位符检查" \
+        "python '${SCRIPT_DIR}/shared/scripts/check_placeholders.py' '${SCRIPT_DIR}/shared/assets/architecture-template-with-placeholders.json'" \
+        "带占位符模板应被拦截（期望退出码 1），证明 F 机制有效" \
+        1
+fi
 
 echo ""
 echo "========================================"
@@ -179,13 +231,27 @@ echo ""
 # === 传统验证工具 ===
 
 # 1. 验证协议语义
-run_check \
-    "协议语义验证" \
-    "python '${SCRIPT_DIR}/shared/scripts/validate_protocol_semantics.py'" \
-    "验证跨 Agent 协议的语义一致性"
+if [ "$IS_CAPABILITY_PACKAGE" -eq 1 ]; then
+    run_check \
+        "协议语义验证" \
+        "python '${SCRIPT_DIR}/shared/scripts/validate_protocol_semantics.py' '${SCRIPT_DIR}' --architecture '${SCRIPT_DIR}/shared/assets/example-architecture.json'" \
+        "能力包自检：使用 example-architecture.json 验证跨 Agent 协议语义"
+elif [ -n "$ARCH_FILE" ]; then
+    run_check \
+        "协议语义验证" \
+        "python '${SCRIPT_DIR}/shared/scripts/validate_protocol_semantics.py' . --architecture '${ARCH_FILE}'" \
+        "验证跨 Agent 协议的语义一致性"
+else
+    skip_check "协议语义验证" "未找到架构文件"
+fi
 
-# 2. 验证架构完整性（如果存在架构文件）
-if [ -n "$ARCH_FILE" ]; then
+# 2. 验证架构完整性（能力包模式用示例架构；项目模式用项目架构）
+if [ "$IS_CAPABILITY_PACKAGE" -eq 1 ]; then
+    run_check \
+        "架构完整性验证（示例架构）" \
+        "python '${SCRIPT_DIR}/shared/scripts/validate_architecture.py' '${SCRIPT_DIR}/shared/assets/example-architecture.json'" \
+        "能力包自检：验证 example-architecture.json 与 schema/校验脚本保持一致"
+elif [ -n "$ARCH_FILE" ]; then
     run_check \
         "架构完整性验证" \
         "python '${SCRIPT_DIR}/shared/scripts/validate_architecture.py' '${ARCH_FILE}'" \
@@ -194,8 +260,10 @@ else
     skip_check "架构完整性验证" "未找到架构文件"
 fi
 
-# 3. 扫描代码偏移（如果存在架构文件）
-if [ -n "$ARCH_FILE" ]; then
+# 3. 扫描代码偏移（只对受管项目有意义）
+if [ "$IS_CAPABILITY_PACKAGE" -eq 1 ]; then
+    skip_check "代码架构偏移扫描" "能力包自检模式：本仓库不是受管项目，不做代码-架构漂移扫描"
+elif [ -n "$ARCH_FILE" ]; then
     run_check \
         "代码架构偏移扫描" \
         "python '${SCRIPT_DIR}/shared/scripts/scan_code_drift.py' . --architecture '${ARCH_FILE}' --max-items 50" \
@@ -204,17 +272,21 @@ else
     skip_check "代码架构偏移扫描" "未找到架构文件"
 fi
 
-# 4. 门禁检查
-run_check \
-    "硬门禁检查" \
-    "python '${SCRIPT_DIR}/shared/scripts/gate_check.py'" \
-    "执行硬约束门禁规则检查"
+# 4. 门禁检查（只对受管项目有意义）
+if [ "$IS_CAPABILITY_PACKAGE" -eq 1 ]; then
+    skip_check "硬门禁检查" "能力包自检模式：无调用方 architecture/ 状态，不运行项目级门禁"
+else
+    run_check \
+        "硬门禁检查" \
+        "python '${SCRIPT_DIR}/shared/scripts/gate_check.py'" \
+        "执行硬约束门禁规则检查"
+fi
 
 # 5. 任务姿态检测
 run_check \
     "任务姿态检测" \
-    "python '${SCRIPT_DIR}/shared/scripts/detect_task_posture.py'" \
-    "分析当前项目的任务姿态（dynamic/linear/reactive）"
+    "python '${SCRIPT_DIR}/shared/scripts/detect_task_posture.py' --request '使用任务架构检查当前项目' --project-root '${SCRIPT_DIR}'" \
+    "分析当前请求的任务姿态（dynamic/linear/reactive）"
 
 # 6. 验证整体系统
 if [ -f "${SCRIPT_DIR}/scripts/validate_task_architecture_system.py" ]; then
