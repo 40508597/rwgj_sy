@@ -1,8 +1,25 @@
 # Architecture JSON
 
-本技能负责“落得稳”。
+本技能负责”落得稳”。
 
 `architecture/` 架构文件夹是项目唯一真相源。根 `architecture.json` 只允许作为轻量指针，指向 `architecture/index.json`；不得再把完整项目真相写成单文件。
+
+## 进入本层前必做：读取进度状态
+
+进入本层时，**第一步必须读取并显示进度状态**：
+
+```bash
+python ../../shared/scripts/manage_state.py show --state-path architecture/_state.json
+```
+
+若状态文件不存在，**必须先创建**：
+
+```bash
+python ../../shared/scripts/manage_state.py init --project-name “项目名” --state-path architecture/_state.json
+```
+
+状态文件会追踪以下阶段的完成情况，确保不遗漏：
+- 需求理解 / 功能树 / 模块树 / 模块详情 / 入口定义 / 数据拓扑 / 接口契约 / 实现清单 / 测试责任 / 验证证据
 
 ## 固定落位顺序
 
@@ -25,13 +42,30 @@
 ```text
 architecture.json              # 轻量指针，只指向 architecture/index.json
 architecture/
-  index.json                   # 当前项目真相源总索引
+  index.json                   # 当前项目真相源总索引（必须使用带占位符的模板）
+  _state.json                  # 进度状态文件（由 manage_state.py 生成）
   features/
   modules/
   data/
   pages/
   tasks/
 ```
+
+### 创建新架构时必须使用带占位符的模板
+
+```bash
+# 使用带占位符的模板（推荐）
+cp ../../shared/assets/architecture-template-with-placeholders.json architecture/index.json
+
+# 或使用 init_architecture.py（已集成占位符模板）
+python ../../shared/scripts/init_architecture.py --mode init --output .
+```
+
+**占位符机制**：
+- 所有必填字段包含 `__待填__` 占位符
+- 可选字段包含 `__待选填__` 占位符
+- 填写时逐步替换占位符为实际内容
+- 完成前必须运行 `check_placeholders.py` 确保核心占位符已清空
 
 单文件 `architecture.json` 已废弃。若项目只有单文件，第一步必须迁移为 `architecture/` 切片目录，再继续实现。
 
@@ -63,13 +97,25 @@ python shared/scripts/validate_architecture.py architecture.json
 
 ## 工具链
 
-可用时优先运行共享脚本：
+### 强制执行工具（每次修改后必跑）
 
-```text
-../../shared/scripts/validate_architecture.py
-../../shared/scripts/scan_code_drift.py
-../../shared/scripts/diff_architecture.py
-../../shared/scripts/init_architecture.py
+```bash
+# 1. 占位符检查（强制，核心占位符未清空禁止继续）
+python ../../shared/scripts/check_placeholders.py architecture/index.json
+
+# 2. 状态更新（每完成一个阶段）
+python ../../shared/scripts/manage_state.py update <阶段名> completed --note "完成说明"
+
+# 3. 事中验证裁判（综合三重检查）
+python ../../shared/scripts/judge_progress.py architecture/index.json
+```
+
+### 传统验证工具（可用时优先运行）
+
+```bash
+python ../../shared/scripts/validate_architecture.py architecture/index.json
+python ../../shared/scripts/scan_code_drift.py . --architecture architecture/index.json
+python ../../shared/scripts/diff_architecture.py old.json new.json
 ```
 
 工具只做校验、扫描、对比和骨架生成，不替代需求理解。

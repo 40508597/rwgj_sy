@@ -18,7 +18,8 @@ _archlib.configure_utf8_stdout()
 
 
 ASSETS_DIR = Path(__file__).resolve().parents[1] / "assets"
-DEFAULT_TEMPLATE = ASSETS_DIR / "architecture-template.json"
+DEFAULT_TEMPLATE = ASSETS_DIR / "architecture-template-with-placeholders.json"
+LEGACY_TEMPLATE = ASSETS_DIR / "architecture-template.json"
 
 
 def now_iso() -> str:
@@ -260,7 +261,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--mode", choices=["init", "migrate"], default="init", help="init creates a new architecture folder; migrate converts an old single architecture.json")
     parser.add_argument("--from", dest="from_path", type=Path, help="Old single-file architecture.json used with --mode migrate")
     parser.add_argument("--output", type=Path, default=Path("."), help="Output project root, architecture.json, or architecture/index.json path")
-    parser.add_argument("--template", type=Path, default=DEFAULT_TEMPLATE, help="Template JSON path")
+    parser.add_argument("--template", type=Path, default=DEFAULT_TEMPLATE, help="Template JSON path (默认使用带占位符的模板)")
+    parser.add_argument("--legacy", action="store_true", help="使用旧版不带占位符的模板")
     parser.add_argument("--force", action="store_true", help="Overwrite output when it already exists")
     parser.add_argument("--name", help="项目.名称")
     parser.add_argument("--project-type", help="项目.类型")
@@ -272,6 +274,11 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         args.time = args.time or now_iso()
+
+        # 如果指定 --legacy，使用旧模板
+        if args.legacy and args.template == DEFAULT_TEMPLATE:
+            args.template = LEGACY_TEMPLATE
+
         if args.mode == "migrate":
             if args.from_path is None:
                 raise ValueError("--mode migrate 需要 --from 指向旧单文件 architecture.json")
@@ -289,11 +296,16 @@ def main(argv: list[str] | None = None) -> int:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
 
-    print(f"已创建架构指针: {pointer_path}")
-    print(f"已创建架构总索引: {index_path}")
+    print(f"✅ 已创建架构指针: {pointer_path}")
+    print(f"✅ 已创建架构总索引: {index_path}")
     if archive_path is not None:
-        print(f"已归档旧单文件: {archive_path}")
-    print(f"建议下一步: python shared/scripts/validate_architecture.py {pointer_path}")
+        print(f"📦 已归档旧单文件: {archive_path}")
+    print()
+    print("📋 下一步操作:")
+    print(f"   1. 填写占位符: 编辑 {index_path}，将 __待填__ 替换为实际内容")
+    print(f"   2. 检查占位符: python shared/scripts/check_placeholders.py {index_path}")
+    print(f"   3. 初始化状态: python shared/scripts/manage_state.py init --project-name '项目名'")
+    print(f"   4. 验证架构: python shared/scripts/validate_architecture.py {pointer_path}")
     return 0
 
 

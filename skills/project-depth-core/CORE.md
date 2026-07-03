@@ -1,11 +1,31 @@
 # Project Depth Core
 
-本技能负责“想得深”，不负责跨平台适配和工具门禁。
+本技能负责”想得深”，不负责跨平台适配和工具门禁。
 
 第一原则：
 
 ```text
 用户描述的是想要什么，AI 的职责是思考它在真实软件中应该是什么。
+```
+
+## 进入本层前提示：关注进度状态
+
+进入本层时，建议先了解当前架构生成进度：
+
+```bash
+python ../../shared/scripts/manage_state.py show --state-path architecture/_state.json
+```
+
+这会告诉你：
+- 当前在哪个阶段（需求理解/功能树/模块树/模块详情...）
+- 哪些阶段已完成，哪些还在进行中
+- 下一步应该做什么
+
+**重要提示**：完成本层的关键阶段后（如功能树展开完成），记得更新状态：
+
+```bash
+# 标记功能树阶段完成
+python ../../shared/scripts/manage_state.py update 功能树 completed --note “已完成功能簇展开”
 ```
 
 ## 六大机制

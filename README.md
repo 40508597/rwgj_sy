@@ -106,7 +106,18 @@
 | 历史档案 | 3 个 | `shared/legacy/` |
 | Schema | 2 个 | `shared/assets/schema/` |
 
-#### 4.1.3 工具能力（10 个 CLI）
+#### 4.1.3 工具能力（15 个 CLI）
+
+##### 强制执行工具（F+B+C 三件套）🆕
+
+| 工具 | 类型 | 主要功能 |
+|------|------|----------|
+| `check_placeholders.py` | **强制执行** | 检测占位符，核心字段未填写返回错误码 |
+| `manage_state.py` | **强制执行** | 管理进度状态文件（10个标准阶段追踪）|
+| `judge_progress.py` | **强制执行** | 事中验证裁判（综合三重检查）|
+| `detect_should_trigger.py` | **强制触发** | 检测项目是否应使用任务架构 |
+
+##### 传统验证工具
 
 | 工具 | 类型 | 主要功能 |
 |------|------|----------|
@@ -117,10 +128,17 @@
 | `scan_code_drift.py` | 扫描 | 代码与架构 drift 检测 |
 | `diff_architecture.py` | 对比 | 两个 architecture.json 差异 |
 | `gate_check.py` | 门禁 | 硬门禁规则检查 |
-| `init_architecture.py` | 初始化 | 单文件迁移 / 新建切片 |
+| `init_architecture.py` | 初始化 | 单文件迁移 / 新建切片（默认使用占位符模板）|
 | `detect_task_posture.py` | 姿态 | 任务姿态分类（dynamic/linear/reactive） |
 | `check_regression_assertions.py` | 回归 | 21 项回归断言 |
 | `taskarch_cli.py` | 聚合 | 顶层 CLI（lineage/slice/gate-file 等） |
+
+**F+B+C 三件套机制**：
+- **F（占位符）**：让缺失可见 - `__待填__` 强制填写
+- **B（状态文件）**：让进度可查 - 客观记录完成度
+- **C（事中裁判）**：让缺失被拦截 - 不通过禁止继续
+
+完整使用指南：[ENFORCEMENT-GUIDE.md](ENFORCEMENT-GUIDE.md)
 
 #### 4.1.4 平台适配（4 个）
 
@@ -320,6 +338,128 @@ cp -r <rwgj-源目录>/<项目根>/   # Windows: xcopy /E
 | 项目真相源（architecture/）| 每个项目独立 | 跟随项目 |
 | 适配层差异（adapters/）| 跟随全局 | 跟随项目（可定制）|
 | 适合 | 标准化工作流 | 项目特化需求 |
+
+#### Proma Agent 专属集成指南
+
+**Proma** 是由 Claude Agent SDK 驱动的桌面应用，本技能包完全兼容 Proma Agent。
+
+##### 安装到 Proma 工作区
+
+```bash
+# 方式 1：全局安装（推荐）
+# 将本目录复制到 Proma 工作区的 skills 目录
+cp -r <本目录> ~/.proma/agent-workspaces/<workspace-id>/skills/rwgj/
+
+# 方式 2：作为附加目录
+# 在 Proma 工作区设置中添加本目录作为附加工作目录
+# 路径: C:\Users\<用户名>\Desktop\AI项目\技能\技能架构
+```
+
+##### Proma 特定功能集成
+
+**1. 协作子 Agent**
+```text
+与 Proma 内置的 collaboration MCP 工具集成，可以：
+- 创建并行验证子会话（多个独立验证任务）
+- 跨模块审议（不同子 Agent 审查不同模块）
+- 对抗性验证（一个实现，一个审查）
+
+示例：
+使用任务架构做架构设计，并创建 3 个子 Agent 分别验证功能完整性、性能风险和安全问题
+```
+
+**2. 定时架构验证**
+```text
+与 Proma 内置的 automation MCP 工具集成，可以：
+- 创建每日架构一致性检查任务
+- 定期扫描代码与架构偏移
+- 自动生成架构健康度报告
+
+示例：
+创建定时任务，每天早上 9 点自动运行架构验证并生成报告
+```
+
+**3. 一键验证脚本**
+```bash
+# 本技能包提供 Proma 友好的一键验证脚本
+bash verify-all.sh
+
+# 或在 Proma Agent 对话中：
+运行一键验证脚本，检查项目架构完整性
+```
+
+**4. Proma Cloud API 集成**
+```text
+如果需要在验证流程中调用 AI 模型（如生成架构建议、智能分析），
+可以使用 Proma 内置的 proma_cloud MCP 工具获取 API 凭据。
+```
+
+##### Proma Agent 触发方式
+
+在 Proma Agent 对话中直接输入：
+
+```text
+使用任务架构做 XXX
+```
+
+Proma Agent 会自动：
+1. 加载 SKILL.md 薄入口
+2. 按三层顺序执行（project-depth-core → architecture-json → agent-protocol）
+3. 生成或更新 architecture/ 切片目录
+4. 运行验证工具并提供反馈
+
+##### Proma 工作区文件组织
+
+```text
+~/.proma/agent-workspaces/<workspace-id>/
+├── skills/
+│   └── rwgj/                    # 本技能包（全局安装）
+├── workspace-files/
+│   └── .context/                # 工作区级知识沉淀
+│       └── note.md              # 架构分析、方案对比
+└── <session-id>/
+    ├── .context/                # 会话级临时文档
+    │   ├── plan/                # 执行计划
+    │   └── todo.md              # 任务清单
+    └── architecture/            # 项目架构真相源（如果在会话中创建）
+```
+
+**关键原则**：
+- **能力文件**（本技能包）→ 工作区 skills/ 目录
+- **项目架构**（architecture/）→ 项目根目录或会话目录
+- **知识沉淀**（分析报告）→ workspace-files/.context/
+- **临时文档**（计划、TODO）→ 会话 .context/
+
+##### 快速验证工具增强
+
+本技能包为 Proma 提供了增强的工具脚本包装器：
+
+```bash
+# 使用增强版工具（提供进度反馈和友好错误提示）
+python shared/scripts/run_with_progress.py validate_architecture.py '验证架构文件' architecture.json
+```
+
+特性：
+- ✓ 实时进度反馈
+- ✓ 友好的错误提示
+- ✓ 智能问题诊断
+- ✓ 解决方案建议
+
+##### 与 Proma 内置工具协同
+
+| Proma 工具 | 任务架构协同场景 |
+|-----------|----------------|
+| `mcp__collaboration__delegate_agent` | 创建并行架构验证子会话 |
+| `mcp__collaboration__delegate_agents` | 批量创建模块审议子会话 |
+| `mcp__automation__create_automation` | 定期架构健康检查 |
+| `mcp__proma_cloud__get_credentials` | AI 辅助架构分析 |
+
+##### Proma 最佳实践
+
+1. **工作区级使用**：在同一工作区的多个项目中共享本技能包
+2. **知识沉淀**：重要的架构分析输出到 workspace-files/.context/note.md
+3. **定时验证**：设置每日自动架构检查任务
+4. **协作验证**：复杂项目使用子 Agent 并行验证不同维度
 
 ### 5.2 用户使用方式
 
