@@ -19,7 +19,6 @@ _archlib.configure_utf8_stdout()
 
 ASSETS_DIR = Path(__file__).resolve().parents[1] / "assets"
 DEFAULT_TEMPLATE = ASSETS_DIR / "architecture-template-with-placeholders.json"
-LEGACY_TEMPLATE = ASSETS_DIR / "architecture-template.json"
 
 
 def now_iso() -> str:
@@ -291,7 +290,6 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--from", dest="from_path", type=Path, help="Old single-file architecture.json used with --mode migrate")
     parser.add_argument("--output", type=Path, default=Path("."), help="Output project root, architecture.json, or architecture/index.json path")
     parser.add_argument("--template", type=Path, default=DEFAULT_TEMPLATE, help="Template JSON path (默认使用带占位符的模板)")
-    parser.add_argument("--legacy", action="store_true", help="使用旧版不带占位符的模板")
     parser.add_argument("--force", action="store_true", help="Overwrite output when it already exists")
     parser.add_argument("--name", help="项目.名称")
     parser.add_argument("--project-type", help="项目.类型")
@@ -303,10 +301,6 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         args.time = args.time or now_iso()
-
-        # 如果指定 --legacy，使用旧模板
-        if args.legacy and args.template == DEFAULT_TEMPLATE:
-            args.template = LEGACY_TEMPLATE
 
         if args.mode == "migrate":
             if args.from_path is None:

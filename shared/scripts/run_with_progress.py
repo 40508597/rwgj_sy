@@ -121,7 +121,7 @@ def _get_suggestions(script_name: str, error_msg: str) -> str:
     if script_name == "validate_architecture.py":
         suggestions.append("• 确认 architecture.json 文件存在")
         suggestions.append("• 检查 JSON 结构是否符合 schema")
-        suggestions.append("• 参考 shared/assets/architecture-template.json")
+        suggestions.append("• 参考 shared/assets/architecture-template-with-placeholders.json")
 
     elif script_name == "scan_code_drift.py":
         suggestions.append("• 确认已创建 architecture.json")
@@ -139,7 +139,7 @@ def _get_suggestions(script_name: str, error_msg: str) -> str:
 
     if not suggestions:
         suggestions.append("• 查看脚本帮助: python <script> --help")
-        suggestions.append("• 查看 CLAUDE.md 了解工具使用说明")
+        suggestions.append("• 查看 SKILL.md 与 ENFORCEMENT-GUIDE.md 了解工具使用说明")
 
     return "\n".join(suggestions)
 

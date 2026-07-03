@@ -7,9 +7,12 @@ import json
 import sys
 from pathlib import Path
 
-if hasattr(sys.stdout, "reconfigure"):
-    sys.stdout.reconfigure(encoding="utf-8")
-    sys.stderr.reconfigure(encoding="utf-8")
+# 与 shared/scripts/ 下的脚本一致：统一通过 archlib 做 UTF-8 stdout 重配，
+# 避免自带 if reconfigure 片段在体系内分叉。
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "shared" / "scripts"))
+import _archlib  # noqa: E402
+
+_archlib.configure_utf8_stdout()
 
 
 REQUIRED_PATHS = [
@@ -146,9 +149,19 @@ def main(argv: list[str] | None = None) -> int:
     if (root / "architecture").exists() and (root / "architecture").is_dir():
         warnings.append("根 architecture/ 仍存在：本仓库是技能包，不应携带自描述架构切片")
 
-    pycache_dirs = [p for p in root.rglob("__pycache__") if p.is_dir()]
-    if pycache_dirs:
-        errors.append("__pycache__ directories must not be included in distribution tree")
+    # __pycache__ 检查：只针对「被 git 跟踪入库」的目录，而非磁盘物理存在。
+    # 原因：本脚本 import _archlib 会触发 Python 生成 shared/scripts/__pycache__，
+    # 若扫磁盘会自己报错自己。.gitignore 已忽略 __pycache__，所以"是否入库"
+    # 是正确的判据——只要不被 commit 进库就合规。
+    try:
+        import subprocess as _sp
+        git_ls = _sp.run(["git", "ls-files", "*__pycache__*", "*.pyc"],
+                         cwd=str(root), capture_output=True, text=True, encoding="utf-8")
+        tracked_pycache = [line for line in git_ls.stdout.splitlines() if line.strip()]
+    except (OSError, _sp.SubprocessError):
+        tracked_pycache = []  # git 不可用时降级跳过此检查
+    if tracked_pycache:
+        errors.append(f"__pycache__/.pyc 文件被 git 跟踪入库（应被 .gitignore 忽略）: {', '.join(tracked_pycache[:3])}")
 
     print(f"能力体系校验: 错误 {len(errors)} 项, 警告 {len(warnings)} 项")
     for item in errors:
