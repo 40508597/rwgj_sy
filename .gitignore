@@ -1,0 +1,11 @@
+# Python 字节码缓存
+__pycache__/
+*.pyc
+
+# verify-all.sh 生成的一次性验证报告
+verification-report-*.md
+
+# 项目级运行时状态：能力包仓库不携带任何调用方项目的真相源/恢复点
+architecture/
+architecture.json
+architecture/_state.json
