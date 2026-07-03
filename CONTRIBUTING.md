@@ -153,8 +153,8 @@ git commit -m "docs: clarify installation steps in README"
 
 ## 九、相关资源
 
-- [README](README.md) — 仓库总览
-- [架构版本继承](docs/version-lineage.md) — 能力来源追溯
+- [README](README.md) — 仓库总览（含版本演进 §二、能力地图 §4.1/4.2）
+- [回归断言](docs/regression-assertions.md) — 场景守护项
 - [Conventional Commits](https://www.conventionalcommits.org/)
 - [Choose a License](https://choosealicense.com/) — 协议选择
 - [Keep a Changelog](https://keepachangelog.com/) — 变更日志规范

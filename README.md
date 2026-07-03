@@ -59,21 +59,26 @@
 ```text
 任务架构/
 ├── .git/                       # git 仓库
+├── .gitignore                  # 忽略 __pycache__/报告/项目状态
 ├── .source.json                # 技能来源元数据
 ├── README.md                   # 本文件（仓库门面 + 完整能力 + 详细使用）
 ├── SKILL.md                    # Agent 薄入口
 ├── AGENT-USAGE.md              # Agent 通用入口
+├── CLAUDE.md                   # AI 在本仓库工作须知（瘦身版）
+├── ENFORCEMENT-GUIDE.md        # F+B+C 强制执行机制指南
+├── CONTRIBUTING.md             # 贡献指南
+├── LICENSE                     # MIT
+├── verify-all.sh               # 一键验证脚本
 ├── docs/                       # 设计文档
-│   ├── capability-map.md       # 能力地图
-│   ├── regression-assertions.md
-│   └── version-lineage.md
+│   └── regression-assertions.md  # 回归断言场景清单
 ├── scripts/                    # 顶层验证脚本
+│   └── validate_task_architecture_system.py
 ├── shared/                     # 共享资源（Agent 加载）
 │   ├── adapters/               # 平台适配（4 个）
-│   ├── assets/                 # 资产模板 + Schema
-│   ├── legacy/                 # 历史 SKILL 归档
+│   ├── assets/                 # 资产模板（4）+ Schema（2）+ folder-template 样张
+│   ├── legacy/                 # 历史 SKILL 归档（3）
 │   ├── references/             # 参考文档（21 篇）
-│   └── scripts/                # 工具脚本（10 个）
+│   └── scripts/                # 工具脚本（17 个，含 _archlib 内部辅助）
 └── skills/                     # 能力层（4 个，单一技能入口）
     ├── task-architecture/      # 路由层 LAYER.md
     ├── project-depth-core/     # 主动理解内核 CORE.md

@@ -67,15 +67,13 @@ def cmd_gate_file(args: argparse.Namespace) -> int:
 
 def cmd_lineage(args: argparse.Namespace) -> int:
     root = args.root.resolve()
-    lineage = root / "docs" / "version-lineage.md"
-    capability = root / "docs" / "capability-map.md"
+    # 版本继承与能力地图已合并进 README §二（版本演进）与 §4.1/4.2，
+    # 原先的 docs/version-lineage.md 与 docs/capability-map.md 已删除避免三处重复。
+    readme = root / "README.md"
     emit({
-        "version_lineage": str(lineage),
-        "capability_map": str(capability),
-        "exists": {
-            "version_lineage": lineage.exists(),
-            "capability_map": capability.exists(),
-        },
+        "version_lineage_source": "README.md §二 版本演进",
+        "capability_map_source": "README.md §4.1/4.2 子能力层",
+        "readme_exists": readme.exists(),
         "执行顺序": ["project-depth-core", "architecture-json", "agent-protocol"],
     })
     return 0

@@ -19,8 +19,6 @@ REQUIRED_PATHS = [
     "SKILL.md",
     "AGENT-USAGE.md",
     "README.md",
-    "docs/version-lineage.md",
-    "docs/capability-map.md",
     "docs/regression-assertions.md",
     "shared/references/function-clusters.md",
     "shared/references/progressive-decomposition.md",
