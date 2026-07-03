@@ -24,7 +24,7 @@
 
 本仓库以 **17 个历史版本** + 当前 rwgj 入口为时间线，按目录内文件夹的 mtime 顺序**逐个 commit** 形成完整演进链。
 
-完整 commit 历史：`git log --reverse --oneline`（共 22 个 commit）
+完整 commit 历史：`git log --reverse --oneline`
 
 **版本阶段**：
 - **任务架构 1.0 ~ 1.1.9**（11 个版本）：早期演进
@@ -105,20 +105,22 @@
 | 资源类型 | 数量 | 路径 |
 |----------|------|------|
 | 参考文档 | 21 篇 | `shared/references/` |
-| 脚本工具 | 10 个 | `shared/scripts/` + `scripts/` |
-| 资产模板 | 7 个 | `shared/assets/` |
+| 脚本工具 | 17 个 | `shared/scripts/` + `scripts/`（含 2 个内部辅助：`_archlib`、`run_with_progress`，15 个面向用户 CLI）|
+| 资产模板 | 4 个 | `shared/assets/`（顶层 .json）|
 | 平台适配 | 4 个 | `shared/adapters/` |
 | 历史档案 | 3 个 | `shared/legacy/` |
 | Schema | 2 个 | `shared/assets/schema/` |
 
-#### 4.1.3 工具能力（15 个 CLI）
+#### 4.1.3 工具能力（15 个面向用户 CLI + 2 个内部辅助）
+
+> 共 17 个 .py 脚本：下表 15 个面向用户 CLI，另含 `_archlib.py` 共享底座、`run_with_progress.py` 工具包装器（不计入用户工具表）。
 
 ##### 强制执行工具（F+B+C 三件套）🆕
 
 | 工具 | 类型 | 主要功能 |
 |------|------|----------|
 | `check_placeholders.py` | **强制执行** | 检测占位符，核心字段未填写返回错误码 |
-| `manage_state.py` | **强制执行** | 管理进度状态文件（10个标准阶段追踪）|
+| `manage_state.py` | **强制执行** | 管理进度状态文件（9 个必需阶段 + 1 个可选追踪）|
 | `judge_progress.py` | **强制执行** | 事中验证裁判（综合三重检查）|
 | `detect_should_trigger.py` | **强制触发** | 检测项目是否应使用任务架构 |
 
@@ -254,18 +256,21 @@
 
 ### 4.5 技术指标
 
+> 真相源：脚本/文件以仓库实际盘点为准，文档对账用。下列数值与 §4.1.2 表保持一致。
+
 | 指标 | 数值 |
 |------|------|
 | 子能力层数 | 4 |
 | 参考文档数 | 21 |
-| 工具脚本数 | 10 |
+| 工具脚本数 | 17（shared/scripts 16 + scripts/1；其中 2 个内部辅助不计入用户工具表）|
+| 必需阶段数 | 9（manage_state.STANDARD_STAGES required=True）|
 | 平台适配数 | 4 |
-| 设计文档数 | 4 |
 | Schema 数 | 2 |
-| 资产模板数 | 7 |
+| 资产模板数 | 4（shared/assets 顶层 .json）|
 | 历史归档 | 3 |
-| 顶层入口文件 | 2（SKILL.md / AGENT-USAGE.md） |
-| 总文件数 | ~80 |
+| 设计文档数 | 1（docs/regression-assertions.md）|
+| 顶层入口文件 | 2（SKILL.md / AGENT-USAGE.md）|
+| 总文件数 | ~50（不含 .git/）|
 
 ### 4.6 适用场景评估
 
@@ -521,7 +526,7 @@ python shared/scripts/run_with_progress.py validate_architecture.py '验证架�
 
 ### 5.4 工具链使用
 
-技能自带 10 个 Python 工具，**工具不可用时按文本规则降级执行**。
+技能自带 17 个 Python 脚本（15 个面向用户 CLI + 2 个内部辅助），**工具不可用时按文本规则降级执行**。
 
 #### 5.4.1 架构验证类
 
@@ -700,4 +705,4 @@ git push origin main
 
 - **Agent 入口**：`SKILL.md`（薄入口）/ `AGENT-USAGE.md`（通用入口）
 - **架构真相源**：`architecture.json` → `architecture/index.json`
-- **共享资源**：`shared/references/`（21 篇）、`shared/scripts/`（10 个）、`shared/adapters/`（4 个）
+- **共享资源**：`shared/references/`（21 篇）、`shared/scripts/` + `scripts/`（17 个）、`shared/adapters/`（4 个）、`shared/assets/`（资产模板 4 + Schema 2）
