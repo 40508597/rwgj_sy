@@ -82,7 +82,7 @@
 │   ├── assets/                 # 资产模板（4）+ Schema（2）+ folder-template 样张
 │   ├── legacy/                 # 历史 SKILL 归档（3）
 │   ├── references/             # 参考文档（21 篇）
-│   └── scripts/                # 工具脚本（17 个，含 _archlib 内部辅助）
+│   └── scripts/                # 工具脚本（18 个，含 _archlib 等内部辅助）
 └── skills/                     # 能力层（4 个，单一技能入口）
     ├── task-architecture/      # 路由层 LAYER.md
     ├── project-depth-core/     # 主动理解内核 CORE.md
@@ -109,15 +109,15 @@
 | 资源类型 | 数量 | 路径 |
 |----------|------|------|
 | 参考文档 | 21 篇 | `shared/references/` |
-| 脚本工具 | 17 个 | `shared/scripts/` + `scripts/`（含 2 个内部辅助：`_archlib`、`run_with_progress`，15 个面向用户 CLI）|
+| 脚本工具 | 18 个 | `shared/scripts/` + `scripts/`（含 3 个内部辅助：`_archlib`、`run_with_progress`、`check_doc_counts`，15 个面向用户 CLI）|
 | 资产模板 | 4 个 | `shared/assets/`（顶层 .json）|
 | 平台适配 | 4 个 | `shared/adapters/` |
-| 历史档案 | 3 个 | `shared/legacy/` |
+| 历史档案 | 4 个 | `shared/legacy/` |
 | Schema | 2 个 | `shared/assets/schema/` |
 
 #### 4.1.3 工具能力（15 个面向用户 CLI + 2 个内部辅助）
 
-> 共 17 个 .py 脚本：下表 15 个面向用户 CLI，另含 `_archlib.py` 共享底座、`run_with_progress.py` 工具包装器（不计入用户工具表）。
+> 共 18 个 .py 脚本：下表 15 个面向用户 CLI，另含 `_archlib.py` 共享底座、`run_with_progress.py` 工具包装器、`check_doc_counts.py` 文档数字对账（开发自检，不计入用户工具表）。
 
 ##### 强制执行工具（F+B+C 三件套）🆕
 
@@ -266,15 +266,15 @@
 |------|------|
 | 子能力层数 | 4 |
 | 参考文档数 | 21 |
-| 工具脚本数 | 17（shared/scripts 16 + scripts/1；其中 2 个内部辅助不计入用户工具表）|
+| 工具脚本数 | 18（shared/scripts 16 + scripts/2；其中 3 个内部辅助不计入用户工具表，由 check_doc_counts.py 自动对账）|
 | 必需阶段数 | 9（manage_state.STANDARD_STAGES required=True）|
 | 平台适配数 | 4 |
 | Schema 数 | 2 |
 | 资产模板数 | 4（shared/assets 顶层 .json）|
-| 历史归档 | 3 |
+| 历史归档 | 4（shared/legacy/ 下含 README.md 索引 + 3 份历史 SKILL）|
 | 设计文档数 | 1（docs/regression-assertions.md）|
 | 顶层入口文件 | 2（SKILL.md / AGENT-USAGE.md）|
-| 单元测试 | 3（tests/，stdlib unittest，20 用例）|
+| 单元测试 | 6（tests/，stdlib unittest，用例数由 check_doc_counts.py 动态统计）|
 | CI 工作流 | 1（.github/workflows/verify.yml）|
 | 总文件数 | ~90（不含 .git/，含测试与 CI）|
 
@@ -532,7 +532,7 @@ python shared/scripts/run_with_progress.py validate_architecture.py '验证架�
 
 ### 5.4 工具链使用
 
-技能自带 17 个 Python 脚本（15 个面向用户 CLI + 2 个内部辅助），**工具不可用时按文本规则降级执行**。
+技能自带 18 个 Python 脚本（15 个面向用户 CLI + 3 个内部辅助），**工具不可用时按文本规则降级执行**。
 
 #### 5.4.1 架构验证类
 
@@ -711,4 +711,4 @@ git push origin main
 
 - **Agent 入口**：`SKILL.md`（薄入口）/ `AGENT-USAGE.md`（通用入口）
 - **架构真相源**：`architecture.json` → `architecture/index.json`
-- **共享资源**：`shared/references/`（21 篇）、`shared/scripts/` + `scripts/`（17 个）、`shared/adapters/`（4 个）、`shared/assets/`（资产模板 4 + Schema 2）
+- **共享资源**：`shared/references/`（21 篇）、`shared/scripts/` + `scripts/`（18 个）、`shared/adapters/`（4 个）、`shared/assets/`（资产模板 4 + Schema 2）

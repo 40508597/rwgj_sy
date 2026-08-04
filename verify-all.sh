@@ -319,10 +319,20 @@ fi
 if [ -d "${SCRIPT_DIR}/tests" ]; then
     run_check \
         "单元测试" \
-        "python -m unittest discover -s '${SCRIPT_DIR}/tests'" \
-        "核心脚本（check_placeholders/manage_state/validate_architecture）单元测试"
+        "python -m unittest discover -s '${SCRIPT_DIR}/tests' > /dev/null" \
+        "核心脚本（check_placeholders/manage_state/validate_architecture 等）单元测试；stdout 静音，失败时展示 stderr 明细"
 else
     skip_check "单元测试" "tests/ 目录不存在"
+fi
+
+# 8. 文档数字对账（README §4.5 与仓库实际盘点一致，防口径漂移）
+if [ -f "${SCRIPT_DIR}/README.md" ]; then
+    run_check \
+        "文档数字对账" \
+        "python '${SCRIPT_DIR}/scripts/check_doc_counts.py'" \
+        "README 技术指标表与仓库实际盘点一致（参考文档/工具脚本/必需阶段/适配/归档等）"
+else
+    skip_check "文档数字对账" "README.md 不存在"
 fi
 
 # 生成摘要
