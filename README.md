@@ -74,9 +74,12 @@
 ├── verify-all.sh               # 一键验证脚本
 ├── tests/                      # 单元测试（stdlib unittest）
 ├── docs/                       # 设计文档
-│   └── regression-assertions.md  # 回归断言场景清单
-├── scripts/                    # 顶层验证脚本
-│   └── validate_task_architecture_system.py
+│   ├── regression-assertions.md  # 回归断言场景清单
+│   └── adr/                      # 架构决策记录（4 篇）
+├── scripts/                    # 顶层脚本
+│   ├── validate_task_architecture_system.py
+│   ├── check_doc_counts.py       # 文档数字/引用对账
+│   └── demo_project.py           # 端到端演示（临时受管项目全验证链）
 ├── shared/                     # 共享资源（Agent 加载）
 │   ├── adapters/               # 平台适配（4 个）
 │   ├── assets/                 # 资产模板（4）+ Schema（2）+ folder-template 样张
@@ -109,7 +112,7 @@
 | 资源类型 | 数量 | 路径 |
 |----------|------|------|
 | 参考文档 | 21 篇 | `shared/references/` |
-| 脚本工具 | 18 个 | `shared/scripts/` + `scripts/`（含 3 个内部辅助：`_archlib`、`run_with_progress`、`check_doc_counts`，15 个面向用户 CLI）|
+| 脚本工具 | 19 个 | `shared/scripts/` + `scripts/`（含 3 个内部辅助：`_archlib`、`run_with_progress`、`check_doc_counts`，16 个面向用户 CLI）|
 | 资产模板 | 4 个 | `shared/assets/`（顶层 .json）|
 | 平台适配 | 4 个 | `shared/adapters/` |
 | 历史档案 | 4 个 | `shared/legacy/` |
@@ -117,7 +120,7 @@
 
 #### 4.1.3 工具能力（15 个面向用户 CLI + 2 个内部辅助）
 
-> 共 18 个 .py 脚本：下表 15 个面向用户 CLI，另含 `_archlib.py` 共享底座、`run_with_progress.py` 工具包装器、`check_doc_counts.py` 文档数字对账（开发自检，不计入用户工具表）。
+> 共 19 个 .py 脚本：下表 16 个面向用户 CLI，另含 `_archlib.py` 共享底座、`run_with_progress.py` 工具包装器、`check_doc_counts.py` 文档数字与引用对账（开发自检，不计入用户工具表）。
 
 ##### 强制执行工具（F+B+C 三件套）🆕
 
@@ -143,6 +146,7 @@
 | `detect_task_posture.py` | 姿态 | 任务姿态分类（dynamic/linear/reactive） |
 | `check_regression_assertions.py` | 回归 | 21 项回归断言 |
 | `taskarch_cli.py` | 聚合 | 顶层 CLI（lineage/slice/gate-file 等） |
+| `demo_project.py` | 演示 | 临时受管项目端到端验证链（接入 verify-all） |
 
 **F+B+C 三件套机制**：
 - **F（占位符）**：让缺失可见 - `__待填__` 强制填写
@@ -266,17 +270,17 @@
 |------|------|
 | 子能力层数 | 4 |
 | 参考文档数 | 21 |
-| 工具脚本数 | 18（shared/scripts 16 + scripts/2；其中 3 个内部辅助不计入用户工具表，由 check_doc_counts.py 自动对账）|
+| 工具脚本数 | 19（shared/scripts 16 + scripts/3；其中 3 个内部辅助不计入用户工具表，由 check_doc_counts.py 自动对账）|
 | 必需阶段数 | 9（manage_state.STANDARD_STAGES required=True）|
 | 平台适配数 | 4 |
 | Schema 数 | 2 |
 | 资产模板数 | 4（shared/assets 顶层 .json）|
 | 历史归档 | 4（shared/legacy/ 下含 README.md 索引 + 3 份历史 SKILL）|
-| 设计文档数 | 1（docs/regression-assertions.md）|
+| 设计文档数 | 5（docs/ 下 1 篇回归断言 + docs/adr/ 4 篇决策记录）|
 | 顶层入口文件 | 2（SKILL.md / AGENT-USAGE.md）|
-| 单元测试 | 6（tests/，stdlib unittest，用例数由 check_doc_counts.py 动态统计）|
+| 单元测试 | 9（tests/，stdlib unittest，用例数由 check_doc_counts.py 动态统计）|
 | CI 工作流 | 1（.github/workflows/verify.yml）|
-| 总文件数 | ~90（不含 .git/，含测试与 CI）|
+| 总文件数 | ~100（不含 .git/，含测试与 CI）|
 
 ### 4.6 适用场景评估
 
@@ -532,9 +536,9 @@ python shared/scripts/run_with_progress.py validate_architecture.py '验证架�
 
 ### 5.4 工具链使用
 
-技能自带 18 个 Python 脚本（15 个面向用户 CLI + 3 个内部辅助），**工具不可用时按文本规则降级执行**。
+技能自带 19 个 Python 脚本（16 个面向用户 CLI + 3 个内部辅助），**工具不可用时按文本规则降级执行**。
 
-**运行环境**：脚本要求 Python 3.9+（使用 `list[...]` / `X | None` 类型语法）；`verify-all.sh` 一键验证需 Git Bash / WSL 环境（或直接依赖 GitHub Actions CI，push/PR 自动运行）。
+**运行环境**：脚本要求 Python 3.9+（使用 `list[...]` / `X | None` 类型语法）；`verify-all.sh` 一键验证需 Git Bash / WSL 环境（或直接依赖 GitHub Actions CI，push/PR 自动运行，含 3.9/3.10/3.11 版本矩阵）。
 
 #### 5.4.1 架构验证类
 
@@ -578,6 +582,15 @@ python shared/scripts/taskarch_cli.py lineage --root .                # 查看�
 python shared/scripts/taskarch_cli.py slice --architecture architecture.json --path 功能树  # 切片查看
 python shared/scripts/taskarch_cli.py gate-file --architecture architecture.json --file README.md  # 文档门禁
 ```
+
+#### 5.4.6 端到端演示（快速看全貌）
+
+```bash
+python scripts/demo_project.py               # 临时目录生成受管示例项目，跑通完整验证链
+python scripts/demo_project.py --keep demo/  # 保留项目目录便于查看
+```
+
+演示流程：生成指针 + 架构 + 代码文件 + 状态文件 → 依次运行 占位符检查 / 架构校验 / 状态查看 / 事中裁判 / 漂移扫描 / 收尾门禁。全部通过返回 0，已接入 `verify-all.sh` 作为端到端回归。
 
 ### 5.5 平台适配说明
 
@@ -713,4 +726,4 @@ git push origin main
 
 - **Agent 入口**：`SKILL.md`（薄入口）/ `AGENT-USAGE.md`（通用入口）
 - **架构真相源**：`architecture.json` → `architecture/index.json`
-- **共享资源**：`shared/references/`（21 篇）、`shared/scripts/` + `scripts/`（18 个）、`shared/adapters/`（4 个）、`shared/assets/`（资产模板 4 + Schema 2）
+- **共享资源**：`shared/references/`（21 篇）、`shared/scripts/` + `scripts/`（19 个）、`shared/adapters/`（4 个）、`shared/assets/`（资产模板 4 + Schema 2）

@@ -3,6 +3,21 @@
 本仓库以「17 个历史版本 + 当前 rwgj 入口」为时间线；完整提交历史见 `git log --reverse --oneline`。
 本文件只记录影响使用方的里程碑变更，遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 规范。
 
+## [Unreleased]
+
+### Added
+
+- 文档引用完整性自动检查（check_doc_counts.py 扩展：全仓库 .md 相对路径引用对账）
+- 端到端演示脚本 `scripts/demo_project.py`（临时受管项目跑通完整验证链）
+- 决策记录 `docs/adr/`（真相源分离 / FBC 强制机制 / 薄入口 / schema 驱动分级）
+- Issue/PR 模板（.github/ISSUE_TEMPLATE + PULL_REQUEST_TEMPLATE）
+- CI 支持 Python 3.9/3.10/3.11 版本矩阵
+
+### Fixed
+
+- `scan_code_drift.py`：切片模式下 `architecture.json` 指针被误报为「存在但未登记」漂移
+- `check_doc_counts.py`：引用检查误报规则描述路径（`../../shared/`）与示例 JSON 虚构文件（tests/）
+
 ## [1.1.0] - 2026-08-04
 
 > v1.0.0 tag 已发布于旧提交（GitHub 徽章），本次正式里程碑以 v1.1.0 承接。
