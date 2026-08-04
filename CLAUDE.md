@@ -31,18 +31,17 @@
 
 ## 三层路由（固定执行顺序）
 
-详细说明见 [README.md §5.3](README.md#53-三层执行顺序核心)。
+唯一权威：`skills/task-architecture/LAYER.md`「三层路由」一节（README.md §5.3 为给人看的图示，本文件不再复述，避免多源漂移）。一句话概要：
 
 ```text
-用户需求
-  → [1] project-depth-core   想得深（功能簇展开、反薄 Demo、智能关联）
-  → [2] architecture-json    落得稳（写入 architecture/ 切片、模块详情）
-  → [3] agent-protocol       跑得广（仅按需：跨平台、门禁、标准输出）
+[1] project-depth-core 想得深（功能簇展开、反薄 Demo、智能关联）
+  → [2] architecture-json 落得稳（写入 architecture/ 切片、模块详情）
+  → [3] agent-protocol 跑得广（仅按需：跨平台、门禁、标准输出）
 ```
 
 ## 工具脚本
 
-- **17 个 Python 脚本**（`shared/scripts/` 16 + `scripts/` 1；其中 2 个内部辅助：`_archlib.py`、`run_with_progress.py`，15 个面向用户 CLI）
+- **18 个 Python 脚本**（`shared/scripts/` 16 + `scripts/` 2；其中 3 个内部辅助：`_archlib.py`、`run_with_progress.py`、`check_doc_counts.py`，15 个面向用户 CLI）
 - **必读**：[ENFORCEMENT-GUIDE.md](ENFORCEMENT-GUIDE.md) —— F+B+C 三件套强制执行机制
 - 命令速查、工作流：`shared/references/commands-cheatsheet.md`、`commands-workflows.md`
 - 一键验证：`bash verify-all.sh`
