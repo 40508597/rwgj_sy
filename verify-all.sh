@@ -222,6 +222,23 @@ if [ "$IS_CAPABILITY_PACKAGE" -eq 1 ]; then
         1
 fi
 
+# 能力包自检专属：B/C 机制冒烟锚点（临时目录构造样例状态文件，不触碰仓库工作区）。
+if [ "$IS_CAPABILITY_PACKAGE" -eq 1 ]; then
+    run_check \
+        "进度状态工具冒烟（B）" \
+        "python '${SCRIPT_DIR}/shared/scripts/manage_state.py' init --project-name '自检样例' --state-path '${TMPDIR_VERIFY}/state.json' && python '${SCRIPT_DIR}/shared/scripts/manage_state.py' show --state-path '${TMPDIR_VERIFY}/state.json' --json > /dev/null" \
+        "manage_state init/show 最小链路可用（状态文件写入临时目录）"
+    run_check \
+        "事中裁判冒烟（C-放行路径）" \
+        "ok=1; for s in 需求理解 功能树 模块树 模块详情 入口定义 数据拓扑 实现清单 测试责任 验证证据; do python '${SCRIPT_DIR}/shared/scripts/manage_state.py' update \"\$s\" completed --state-path '${TMPDIR_VERIFY}/state.json' > /dev/null || ok=0; done; test \"\$ok\" = 1 && python '${SCRIPT_DIR}/shared/scripts/judge_progress.py' '${SCRIPT_DIR}/shared/assets/example-architecture.json' --state-path '${TMPDIR_VERIFY}/state.json' > /dev/null" \
+        "全部必需阶段完成后裁判应放行（期望退出码 0）"
+    run_check \
+        "事中裁判冒烟（C-阻塞路径）" \
+        "python '${SCRIPT_DIR}/shared/scripts/judge_progress.py' '${SCRIPT_DIR}/shared/assets/architecture-template-with-placeholders.json' --state-path '${TMPDIR_VERIFY}/state.json' > /dev/null" \
+        "占位符模板应被裁判拦截（期望退出码 1），证明 C 机制端到端有效" \
+        1
+fi
+
 echo ""
 echo "========================================"
 echo "F+B+C 三件套检查完成"
@@ -296,6 +313,16 @@ if [ -f "${SCRIPT_DIR}/scripts/validate_task_architecture_system.py" ]; then
         "验证任务架构系统的整体一致性"
 else
     skip_check "整体系统验证" "验证脚本不存在"
+fi
+
+# 7. 单元测试（能力包自带 tests/ 时运行）
+if [ -d "${SCRIPT_DIR}/tests" ]; then
+    run_check \
+        "单元测试" \
+        "python -m unittest discover -s '${SCRIPT_DIR}/tests'" \
+        "核心脚本（check_placeholders/manage_state/validate_architecture）单元测试"
+else
+    skip_check "单元测试" "tests/ 目录不存在"
 fi
 
 # 生成摘要
