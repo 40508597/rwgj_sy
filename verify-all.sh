@@ -369,6 +369,16 @@ else
     skip_check "文档数字对账" "README.md 不存在"
 fi
 
+# 9. 端到端演示（临时受管项目跑通完整验证链）
+if [ -f "${SCRIPT_DIR}/scripts/demo_project.py" ]; then
+    run_check \
+        "端到端演示" \
+        "python '${SCRIPT_DIR}/scripts/demo_project.py'" \
+        "临时受管项目跑通 占位符→架构校验→状态→裁判→漂移→门禁 全链路"
+else
+    skip_check "端到端演示" "scripts/demo_project.py 不存在"
+fi
+
 # 生成摘要
 echo "======================================"
 echo "验证完成"

@@ -125,12 +125,16 @@ def scan_code_drift(project_root: Path, architecture_path: Path, extensions: set
 
     declared = collect_declared_files(data, project_root)
     actual = collect_actual_files(project_root, extensions, DEFAULT_IGNORE_DIRS)
-    # 架构入口文件本身是元数据指针，不属于业务实现，不计入漂移
+    # 架构元数据文件（根指针 / 总索引 / 进度状态）不属于业务实现，不计入漂移。
+    # 单文件模式下 --architecture 恰好是 architecture.json，discard 掩盖了指针问题；
+    # 切片模式下指针文件与索引分离，必须显式排除，否则误报「存在但未登记」。
     try:
         arch_rel = architecture_path.resolve().relative_to(project_root.resolve()).as_posix()
         actual.discard(arch_rel)
     except ValueError:
         pass
+    for meta_rel in ("architecture.json", "architecture/index.json", "architecture/_state.json"):
+        actual.discard(meta_rel)
     declared_files = {item for item in declared if Path(item).suffix.lower() in extensions}
 
     missing_declared = sorted(item for item in declared_files if not (project_root / item).exists())
