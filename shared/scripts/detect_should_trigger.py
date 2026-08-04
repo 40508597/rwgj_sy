@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -123,6 +124,15 @@ def should_trigger_task_architecture(project_root: Path) -> tuple[bool, list[str
 
 def main() -> int:
     """CLI 入口"""
+    # 自动触发开关：TASK_ARCH_AUTO_TRIGGER=off|0|false|no 时跳过检测（返回 2），
+    # 供常驻型工具（如 ZCode）按用户偏好关闭「每次新任务主动提醒」的摩擦。
+    auto_trigger = os.environ.get("TASK_ARCH_AUTO_TRIGGER", "1").strip().lower()
+    if auto_trigger in ("0", "false", "off", "no"):
+        print("🔍 任务架构技能触发检测：已通过环境变量 TASK_ARCH_AUTO_TRIGGER=off 关闭自动检测")
+        print()
+        print("需要时仍可显式触发：「使用任务架构做 XXX」或 /创建架构 | /分析架构 | /校验架构")
+        return 2
+
     project_root = Path.cwd()
 
     print("=" * 60)
