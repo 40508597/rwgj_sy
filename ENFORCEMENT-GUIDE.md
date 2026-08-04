@@ -201,6 +201,12 @@ python shared/scripts/audit_architecture.py report audit-report.json
 
 审计问题覆盖功能树深度、模块边界、依赖语义、交互五态、数据拓扑、接口契约、测试责任、验证证据、横切关注点、架构与代码一致性——这些是启发式工具无法自动判断的语义维度。
 
+### 架构可视化（单向渲染，只读不写）
+
+`render_architecture.py` 把架构真相源渲染为 Mermaid 报告 / 单文件交互 HTML / 结构化 JSON。
+
+**铁律**：`architecture/index.json` + 切片是**唯一真相源**；可视化产物是派生视图，随时可重新生成，**禁止反向编辑 JSON**。对架构的任何修改走命令链（/修改架构 → JSON → 校验），可视化永远不写回。
+
 ## 三、完整工作流示例
 
 ### 场景 1：从零创建新项目
@@ -332,6 +338,7 @@ python shared/scripts/validate_architecture.py architecture/index.json
 | `check_quality_redlines.py` | 无质量红线（豁免后） | 有质量红线（未豁免） |
 | `audit_architecture.py generate` | 问卷已生成 | 参数错误 |
 | `audit_architecture.py report` | 报告完整可归档 | 结论缺失/非法；2=文件不可读 |
+| `render_architecture.py` | 视图已渲染 | 架构文件不可读（2） |
 | `demo_project.py` | 端到端全链路通过 | 存在失败项 |
 
 **Shell 脚本示例**：

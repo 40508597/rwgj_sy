@@ -41,7 +41,7 @@
 
 ## 工具脚本
 
-- **21 个 Python 脚本**（`shared/scripts/` 18 + `scripts/` 3；其中 3 个内部辅助：`_archlib.py`、`run_with_progress.py`、`check_doc_counts.py`，18 个面向用户 CLI）
+- **22 个 Python 脚本**（`shared/scripts/` 19 + `scripts/` 3；其中 3 个内部辅助：`_archlib.py`、`run_with_progress.py`、`check_doc_counts.py`，19 个面向用户 CLI）
 - **运行要求**：Python 3.9+（`list[...]` / `X | None` 类型语法）；`bash verify-all.sh` 需 Git Bash / WSL
 - **必读**：[ENFORCEMENT-GUIDE.md](ENFORCEMENT-GUIDE.md) —— F+B+C 三件套强制执行机制
 - 命令速查、工作流：`shared/references/commands-cheatsheet.md`、`commands-workflows.md`

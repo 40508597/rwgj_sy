@@ -7,6 +7,7 @@
 
 ### Added
 
+- 架构可视化 `render_architecture.py`：单向渲染真相源（md=Mermaid 依赖图/功能树/进度/模块摘要/数据拓扑 + 质量标注；html=单文件零依赖交互版；json=结构化）
 - 文档引用完整性自动检查（check_doc_counts.py 扩展：全仓库 .md 相对路径引用对账）
 - 端到端演示脚本 `scripts/demo_project.py`（临时受管项目跑通完整验证链）
 - 决策记录 `docs/adr/`（真相源分离 / FBC 强制机制 / 薄入口 / schema 驱动分级）

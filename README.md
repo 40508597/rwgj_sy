@@ -86,7 +86,7 @@
 │   ├── assets/                 # 资产模板（4）+ Schema（2）+ folder-template 样张
 │   ├── legacy/                 # 历史 SKILL 归档（3）
 │   ├── references/             # 参考文档（21 篇）
-│   └── scripts/                # 工具脚本（21 个，含 _archlib 等内部辅助）
+│   └── scripts/                # 工具脚本（22 个，含 _archlib 等内部辅助）
 └── skills/                     # 能力层（4 个，单一技能入口）
     ├── task-architecture/      # 路由层 LAYER.md
     ├── project-depth-core/     # 主动理解内核 CORE.md
@@ -113,7 +113,7 @@
 | 资源类型 | 数量 | 路径 |
 |----------|------|------|
 | 参考文档 | 21 篇 | `shared/references/` |
-| 脚本工具 | 21 个 | `shared/scripts/` + `scripts/`（含 3 个内部辅助：`_archlib`、`run_with_progress`、`check_doc_counts`，18 个面向用户 CLI）|
+| 脚本工具 | 22 个 | `shared/scripts/` + `scripts/`（含 3 个内部辅助：`_archlib`、`run_with_progress`、`check_doc_counts`，19 个面向用户 CLI）|
 | 资产模板 | 4 个 | `shared/assets/`（顶层 .json）|
 | 平台适配 | 4 个 | `shared/adapters/` |
 | 历史档案 | 4 个 | `shared/legacy/` |
@@ -121,7 +121,7 @@
 
 #### 4.1.3 工具能力（15 个面向用户 CLI + 2 个内部辅助）
 
-> 共 21 个 .py 脚本：下表 18 个面向用户 CLI，另含 `_archlib.py` 共享底座、`run_with_progress.py` 工具包装器、`check_doc_counts.py` 文档数字与引用对账（开发自检，不计入用户工具表）。
+> 共 22 个 .py 脚本：下表 19 个面向用户 CLI，另含 `_archlib.py` 共享底座、`run_with_progress.py` 工具包装器、`check_doc_counts.py` 文档数字与引用对账（开发自检，不计入用户工具表）。
 
 ##### 强制执行工具（F+B+C 三件套）🆕
 
@@ -149,6 +149,7 @@
 | `taskarch_cli.py` | 聚合 | 顶层 CLI（lineage/slice/gate-file 等） |
 | `check_quality_redlines.py` | 质量 | 质量红线检查（交互完整性/可验收/导出类安全信号/空壳模块） |
 | `audit_architecture.py` | 审计 | 独立审计问卷（generate 生成 10 问 / report 核验完整性） |
+| `render_architecture.py` | 可视化 | 单向渲染真相源（md=Mermaid 报告 / html=单文件交互 / json=结构化） |
 | `demo_project.py` | 演示 | 临时受管项目端到端验证链（接入 verify-all） |
 
 **F+B+C 三件套机制**：
@@ -273,7 +274,7 @@
 |------|------|
 | 子能力层数 | 4 |
 | 参考文档数 | 21 |
-| 工具脚本数 | 21（shared/scripts 18 + scripts/3；其中 3 个内部辅助不计入用户工具表，由 check_doc_counts.py 自动对账）|
+| 工具脚本数 | 22（shared/scripts 19 + scripts/3；其中 3 个内部辅助不计入用户工具表，由 check_doc_counts.py 自动对账）|
 | 必需阶段数 | 9（manage_state.STANDARD_STAGES required=True）|
 | 平台适配数 | 4 |
 | Schema 数 | 2 |
@@ -281,7 +282,7 @@
 | 历史归档 | 4（shared/legacy/ 下含 README.md 索引 + 3 份历史 SKILL）|
 | 设计文档数 | 6（docs/ 下 1 篇回归断言 + docs/adr/ 5 篇决策记录含索引）|
 | 顶层入口文件 | 2（SKILL.md / AGENT-USAGE.md）|
-| 单元测试 | 11（tests/，stdlib unittest，用例数由 check_doc_counts.py 动态统计）|
+| 单元测试 | 12（tests/，stdlib unittest，用例数由 check_doc_counts.py 动态统计）|
 | CI 工作流 | 1（.github/workflows/verify.yml）|
 | 总文件数 | ~105（不含 .git/，含测试与 CI）|
 
@@ -539,7 +540,7 @@ python shared/scripts/run_with_progress.py validate_architecture.py '验证架�
 
 ### 5.4 工具链使用
 
-技能自带 21 个 Python 脚本（18 个面向用户 CLI + 3 个内部辅助），**工具不可用时按文本规则降级执行**。
+技能自带 22 个 Python 脚本（19 个面向用户 CLI + 3 个内部辅助），**工具不可用时按文本规则降级执行**。
 
 **运行环境**：脚本要求 Python 3.9+（使用 `list[...]` / `X | None` 类型语法）；`verify-all.sh` 一键验证需 Git Bash / WSL 环境（或直接依赖 GitHub Actions CI，push/PR 自动运行，含 3.9/3.10/3.11 版本矩阵）。
 
@@ -612,6 +613,26 @@ python shared/scripts/audit_architecture.py report audit-report.json
 ```
 
 原则：**质量红线拦截明显坏，独立审计记录质量判断，最终权威永远是人的工程判断。验证全绿 ≠ 架构正确。**
+
+#### 5.4.8 架构可视化（单向渲染，只读不写）
+
+把架构真相源渲染成人类可读产物——依赖图、功能树、进度、模块摘要、数据拓扑、质量标注：
+
+```bash
+# Mermaid Markdown 报告（GitHub 原生渲染，可直接贴 PR/README/审计报告）
+python shared/scripts/render_architecture.py architecture/index.json
+
+# 单文件零依赖交互版（浏览器打开：SVG 依赖图/可折叠功能树/模块详情面板）
+python shared/scripts/render_architecture.py architecture/index.json --format html --output arch.html
+
+# 结构化 JSON（供其他工具消费）
+python shared/scripts/render_architecture.py architecture/index.json --format json --output arch.json
+
+# 大项目截断保护
+python shared/scripts/render_architecture.py architecture/index.json --max-nodes 40
+```
+
+**铁律（单向渲染）**：`architecture/index.json` + 切片是唯一真相源；可视化产物是**派生视图**，随时可重新生成，**禁止反向编辑 JSON**。任何架构修改仍走命令链（/修改架构 → JSON → 校验）。
 
 ### 5.5 平台适配说明
 
@@ -747,4 +768,4 @@ git push origin main
 
 - **Agent 入口**：`SKILL.md`（薄入口）/ `AGENT-USAGE.md`（通用入口）
 - **架构真相源**：`architecture.json` → `architecture/index.json`
-- **共享资源**：`shared/references/`（21 篇）、`shared/scripts/` + `scripts/`（21 个）、`shared/adapters/`（4 个）、`shared/assets/`（资产模板 4 + Schema 2）
+- **共享资源**：`shared/references/`（21 篇）、`shared/scripts/` + `scripts/`（22 个）、`shared/adapters/`（4 个）、`shared/assets/`（资产模板 4 + Schema 2）
