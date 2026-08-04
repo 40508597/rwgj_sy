@@ -413,6 +413,22 @@ PYEOF
         1
 fi
 
+# 11. 架构可视化渲染（md/html/json 三种格式冒烟）
+if [ -f "${SCRIPT_DIR}/shared/scripts/render_architecture.py" ]; then
+    run_check \
+        "可视化渲染（md）" \
+        "python '${SCRIPT_DIR}/shared/scripts/render_architecture.py' '${SCRIPT_DIR}/shared/assets/example-architecture.json' | grep -q 'mermaid'" \
+        "Markdown 视图应含 Mermaid 代码块"
+    run_check \
+        "可视化渲染（html）" \
+        "python '${SCRIPT_DIR}/shared/scripts/render_architecture.py' '${SCRIPT_DIR}/shared/assets/example-architecture.json' --format html --output '${TMPDIR_VERIFY}/arch.html' && grep -q 'const DATA = ' '${TMPDIR_VERIFY}/arch.html'" \
+        "单文件交互版应生成且内嵌架构数据"
+    run_check \
+        "可视化渲染（json）" \
+        "python '${SCRIPT_DIR}/shared/scripts/render_architecture.py' '${SCRIPT_DIR}/shared/assets/example-architecture.json' --format json --output '${TMPDIR_VERIFY}/arch.json' && python -c \"import json,sys; d=json.load(open(sys.argv[1],encoding='utf-8')); assert d['模块'] and d['依赖边']\" '${TMPDIR_VERIFY}/arch.json'" \
+        "JSON 视图应含模块与依赖边结构"
+fi
+
 # 生成摘要
 echo "======================================"
 echo "验证完成"

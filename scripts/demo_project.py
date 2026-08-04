@@ -8,7 +8,7 @@
     1. 生成 architecture.json 轻量指针 + architecture/index.json（示例架构，已完整填写）
     2. 创建实现清单声明的全部代码文件
     3. 初始化进度状态并标记 9 个必需阶段全部完成
-    4. 依次运行 占位符检查 → 架构校验 → 状态查看 → 事中裁判 → 漂移扫描 → 收尾门禁 → 质量红线 → 审计问卷
+    4. 依次运行 占位符检查 → 架构校验 → 状态查看 → 事中裁判 → 漂移扫描 → 收尾门禁 → 质量红线 → 审计问卷 → 架构可视化
 
 全部通过返回 0；任一步失败返回 1（接入 verify-all.sh 作为端到端回归）。
 """
@@ -107,10 +107,12 @@ def main(argv: list[str] | None = None) -> int:
     ok &= run("gate_check.py", [str(root), "--architecture", str(index)], 0)
     ok &= run("check_quality_redlines.py", [str(index)], 0)
     ok &= run("audit_architecture.py", ["generate", str(index), "--output", str(root / "audit-report.json")], 0)
+    ok &= run("render_architecture.py", [str(index), "--format", "html",
+                                         "--output", str(root / "architecture-visualization.html")], 0)
     print()
     print("=" * 60)
     if ok:
-        print("✅ 端到端演示通过：全部 8 项验证绿")
+        print("✅ 端到端演示通过：全部 9 项验证绿")
         print(f"项目保留在: {root}")
         rc = 0
     else:
