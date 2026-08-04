@@ -379,6 +379,40 @@ else
     skip_check "端到端演示" "scripts/demo_project.py 不存在"
 fi
 
+# 10. 质量红线与独立审计（example 应通过；偷工减料反例应被拦截）
+if [ -f "${SCRIPT_DIR}/shared/scripts/check_quality_redlines.py" ]; then
+    cat > "${TMPDIR_VERIFY}/make_redline_negative.py" << 'PYEOF'
+import json, sys
+d = json.load(open(sys.argv[1], encoding="utf-8"))
+d["功能树"].append({"编号": "f9", "名称": "导出数据", "类型": "功能", "子节点": [],
+                    "说明": "一键导出", "架构落位": {"模块": ["m_user"]}})
+json.dump(d, open(sys.argv[2], "w", encoding="utf-8"), ensure_ascii=False)
+PYEOF
+    python "${TMPDIR_VERIFY}/make_redline_negative.py" \
+        "${SCRIPT_DIR}/shared/assets/example-architecture.json" \
+        "${TMPDIR_VERIFY}/redline_negative.json"
+    run_check \
+        "质量红线（正例）" \
+        "python '${SCRIPT_DIR}/shared/scripts/check_quality_redlines.py' '${SCRIPT_DIR}/shared/assets/example-architecture.json'" \
+        "完整示例不应触发质量红线（格式之外的质量底线）"
+    run_check \
+        "质量红线（反例）" \
+        "python '${SCRIPT_DIR}/shared/scripts/check_quality_redlines.py' '${TMPDIR_VERIFY}/redline_negative.json'" \
+        "偷工减料节点（导出无异常路径/安全信号）应被红线拦截（期望退出码 1）" \
+        1
+    run_check \
+        "审计问卷生成" \
+        "python '${SCRIPT_DIR}/shared/scripts/audit_architecture.py' generate '${SCRIPT_DIR}/shared/assets/example-architecture.json' --output '${TMPDIR_VERIFY}/audit.json'" \
+        "独立审计问卷应可生成（10 问模板）"
+    python -c "import json,sys; q=json.load(open(sys.argv[1],encoding='utf-8')); q['问题清单'][0]['结论']=''; json.dump(q, open(sys.argv[2],'w',encoding='utf-8'), ensure_ascii=False)" \
+        "${TMPDIR_VERIFY}/audit.json" "${TMPDIR_VERIFY}/audit_missing.json"
+    run_check \
+        "审计报告核验（缺失拦截）" \
+        "python '${SCRIPT_DIR}/shared/scripts/audit_architecture.py' report '${TMPDIR_VERIFY}/audit_missing.json'" \
+        "结论缺失的审计报告应被核验拦截（期望退出码 1）" \
+        1
+fi
+
 # 生成摘要
 echo "======================================"
 echo "验证完成"
