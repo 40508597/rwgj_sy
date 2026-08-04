@@ -86,7 +86,7 @@ python ../../shared/scripts/init_architecture.py --mode init --output .
 
 ```text
 python shared/scripts/init_architecture.py --mode migrate --from architecture.json --output .
-python shared/scripts/validate_architecture.py architecture.json
+python shared/scripts/validate_architecture.py architecture/index.json
 ```
 
 迁移会把旧单文件归档到 `architecture/archive/`，并生成根指针、`architecture/index.json` 和标准物理切片。
@@ -107,6 +107,8 @@ python shared/scripts/validate_architecture.py architecture.json
 没有模块详情，不得实现。
 
 ## 工具链
+
+> 相对路径执行前按 LAYER.md「工具执行前置」规则解析：先项目根 `shared/`，再回退技能安装目录。
 
 ### 强制执行工具（每次修改后必跑）
 

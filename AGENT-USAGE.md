@@ -69,14 +69,15 @@ shared/adapters/
 ## CLI 边界
 
 CLI 只做查验，不做认知判断。功能簇展开、架构归位和模块详情设计仍由技能文本完成。
+执行任何工具前，先按「共享资源定位」规则把 `shared/scripts/...` 相对路径解析为绝对路径（项目根 `shared/` 优先，其次全局安装目录），禁止把未解析的相对路径直接交给 shell。
 
 ## 工具可用时
 
-优先运行：
+优先运行（受管项目统一指向 `architecture/index.json`；若项目仍是旧单文件 `architecture.json`，先迁移为切片目录再校验）：
 
 ```text
-python shared/scripts/validate_architecture.py architecture.json
-python shared/scripts/scan_code_drift.py . --architecture architecture.json --max-items 200
+python shared/scripts/validate_architecture.py architecture/index.json
+python shared/scripts/scan_code_drift.py . --architecture architecture/index.json --max-items 200
 python shared/scripts/taskarch_cli.py lineage --root .
 python shared/scripts/check_regression_assertions.py --scenario export --file output.md
 ```

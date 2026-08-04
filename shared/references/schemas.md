@@ -652,7 +652,7 @@
       {"命令": "python -m pytest", "结果": "通过", "时间": "2026-05-26T10:00:00+08:00"}
     ],
     "架构校验": [
-      {"命令": "python shared/scripts/validate_architecture.py architecture.json", "结果": "VALID"}
+      {"命令": "python shared/scripts/validate_architecture.py architecture/index.json", "结果": "VALID"}
     ],
     "浏览器验收": [
       {"场景": "登录并进入控制台", "结果": "通过"}

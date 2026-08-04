@@ -115,6 +115,7 @@ git commit -m "docs: clarify installation steps in README"
 
 - [ ] 代码已自测（在本地运行验证）
 - [ ] 已跑相关工具脚本（`validate_architecture.py` 等）
+- [ ] 已跑单元测试（`python -m unittest discover -s tests`）
 - [ ] 已更新对应文档（README、USAGE、CAPABILITIES）
 - [ ] 提交信息符合 Conventional Commits
 - [ ] 没有遗留的临时文件、调试代码、注释

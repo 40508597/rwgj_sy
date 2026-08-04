@@ -231,16 +231,8 @@ python shared/scripts/judge_progress.py architecture/index.json
 
 ### 第一动作：主会话回执 → 读状态 → 判定 → 行动
 
-技能被加载后，必须先在**主会话**输出可见回执，禁止静默调用：
-
-```text
-✅ 已启用任务架构技能
-入口链路：SKILL.md → skills/task-architecture/LAYER.md
-触发原因：...
-本次初判：创建 / 分析 / 追加 / 修改 / 校验 / 不进入完整流程
-受管状态：...
-下一步：读取状态文件并给出任务判定
-```
+技能被加载后，必须先在**主会话**输出可见回执，禁止静默调用。回执模板与判定流程的唯一权威是
+`skills/task-architecture/LAYER.md`「第一动作」一节——本指南不再复制模板，避免双源漂移；两处如有出入，以 LAYER.md 为准。
 
 不进入完整流程时也必须说明原因，不能只在内部读完技能后继续普通回答。
 

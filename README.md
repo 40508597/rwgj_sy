@@ -7,6 +7,7 @@
 [![GitHub stars](https://img.shields.io/github/stars/40508597/rwgj_sy?style=social)](https://github.com/40508597/rwgj_sy)
 [![GitHub forks](https://img.shields.io/github/forks/40508597/rwgj_sy?style=social)](https://github.com/40508597/rwgj_sy)
 [![GitHub release](https://img.shields.io/github/v/release/40508597/rwgj_sy)](https://github.com/40508597/rwgj_sy/releases)
+[![verify](https://github.com/40508597/rwgj_sy/actions/workflows/verify.yml/badge.svg)](https://github.com/40508597/rwgj_sy/actions/workflows/verify.yml)
 [![中文文档](https://img.shields.io/badge/文档-中文-red.svg)](README.md)
 [![跨平台](https://img.shields.io/badge/平台-Codex%20%7C%20Claude%20%7C%20Trae%20%7C%20Cursor%20%7C%20...-blue)](README.md)
 
@@ -59,6 +60,8 @@
 ```text
 任务架构/
 ├── .git/                       # git 仓库
+├── .github/                    # CI 工作流
+│   └── workflows/verify.yml    # 一键验证 + 单元测试（push/PR 自动运行）
 ├── .gitignore                  # 忽略 __pycache__/报告/项目状态
 ├── .source.json                # 技能来源元数据
 ├── README.md                   # 本文件（仓库门面 + 完整能力 + 详细使用）
@@ -69,6 +72,7 @@
 ├── CONTRIBUTING.md             # 贡献指南
 ├── LICENSE                     # MIT
 ├── verify-all.sh               # 一键验证脚本
+├── tests/                      # 单元测试（stdlib unittest）
 ├── docs/                       # 设计文档
 │   └── regression-assertions.md  # 回归断言场景清单
 ├── scripts/                    # 顶层验证脚本
@@ -156,7 +160,7 @@
 | Trae | `shared/adapters/trae.md` | ✓ |
 | 通用 CLI Agent | `shared/adapters/generic-cli-agent.md` | ✓ |
 
-> 适配层**只写差异**，**不复制规则**。
+> 适配层**只写差异**，**不复制规则**。其余平台（Cursor / Windsurf / Cline / Continue）无独立差异时走 `generic-cli-agent` 适配。
 
 ### 4.2 子能力层详细说明
 
@@ -270,7 +274,9 @@
 | 历史归档 | 3 |
 | 设计文档数 | 1（docs/regression-assertions.md）|
 | 顶层入口文件 | 2（SKILL.md / AGENT-USAGE.md）|
-| 总文件数 | ~50（不含 .git/）|
+| 单元测试 | 3（tests/，stdlib unittest，20 用例）|
+| CI 工作流 | 1（.github/workflows/verify.yml）|
+| 总文件数 | ~90（不含 .git/，含测试与 CI）|
 
 ### 4.6 适用场景评估
 
@@ -531,7 +537,7 @@ python shared/scripts/run_with_progress.py validate_architecture.py '验证架�
 #### 5.4.1 架构验证类
 
 ```bash
-python shared/scripts/validate_architecture.py architecture.json
+python shared/scripts/validate_architecture.py architecture/index.json
 python shared/scripts/validate_protocol_semantics.py
 python shared/scripts/validate_agent_output.py
 python scripts/validate_task_architecture_system.py
@@ -540,7 +546,7 @@ python scripts/validate_task_architecture_system.py
 #### 5.4.2 扫描与对比类
 
 ```bash
-python shared/scripts/scan_code_drift.py . --architecture architecture.json --max-items 200
+python shared/scripts/scan_code_drift.py . --architecture architecture/index.json --max-items 200
 python shared/scripts/diff_architecture.py old.json new.json
 python shared/scripts/gate_check.py
 ```
@@ -647,7 +653,7 @@ python shared/scripts/taskarch_cli.py gate-file --architecture architecture.json
 |------|------|
 | Agent 不识别技能 | 检查 SKILL.md 的 YAML frontmatter `name` 和 `description` |
 | 工具运行报错 | 先 `python <script> --help` 看参数；工具失败可按文本规则降级 |
-| architecture.json 不一致 | 跑 `python shared/scripts/validate_architecture.py architecture.json` 看具体错误 |
+| 架构文件不一致 | 跑 `python shared/scripts/validate_architecture.py architecture/index.json` 看具体错误 |
 | 代码和架构 drift | 跑 `python shared/scripts/scan_code_drift.py` 看具体 drift 列表 |
 | 跨平台输出异常 | 读 `shared/adapters/<platform>.md` 适配说明 |
 | 子能力层路径找不到 | 检查 `../../shared/` 解析：项目根目录 vs 全局目录 |
