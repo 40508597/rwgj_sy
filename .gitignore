@@ -6,6 +6,8 @@ __pycache__/
 verification-report-*.md
 
 # 项目级运行时状态：能力包仓库不携带任何调用方项目的真相源/恢复点
-architecture/
-architecture.json
-architecture/_state.json
+# 锚定仓库根目录（/ 前缀）：只忽略调用方项目根或本仓库根的 architecture/，
+# 不误伤 shared/assets/architecture-folder-template/ 下的样张资产目录
+/architecture/
+/architecture.json
+/architecture/_state.json

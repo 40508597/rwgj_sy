@@ -534,6 +534,8 @@ python shared/scripts/run_with_progress.py validate_architecture.py '验证架�
 
 技能自带 18 个 Python 脚本（15 个面向用户 CLI + 3 个内部辅助），**工具不可用时按文本规则降级执行**。
 
+**运行环境**：脚本要求 Python 3.9+（使用 `list[...]` / `X | None` 类型语法）；`verify-all.sh` 一键验证需 Git Bash / WSL 环境（或直接依赖 GitHub Actions CI，push/PR 自动运行）。
+
 #### 5.4.1 架构验证类
 
 ```bash

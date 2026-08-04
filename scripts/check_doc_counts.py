@@ -31,9 +31,6 @@ README = REPO_ROOT / "README.md"
 # 总文件数为近似口径（README 写 ~N），容差内不算漂移
 TOTAL_FILES_TOLERANCE = 5
 
-# 指标名 → 实际盘点函数
-_COUNT_FUNCS: dict[str, object] = {}
-
 
 def _count_required_stages() -> int:
     """从 manage_state.STANDARD_STAGES 源码统计必需阶段数（required=True）。"""

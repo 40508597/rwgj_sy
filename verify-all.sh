@@ -237,6 +237,18 @@ if [ "$IS_CAPABILITY_PACKAGE" -eq 1 ]; then
         "python '${SCRIPT_DIR}/shared/scripts/judge_progress.py' '${SCRIPT_DIR}/shared/assets/architecture-template-with-placeholders.json' --state-path '${TMPDIR_VERIFY}/state.json' > /dev/null" \
         "占位符模板应被裁判拦截（期望退出码 1），证明 C 机制端到端有效" \
         1
+    run_check \
+        "模板结构底线校验" \
+        "python '${SCRIPT_DIR}/shared/scripts/validate_architecture.py' '${SCRIPT_DIR}/shared/assets/architecture-template-with-placeholders.json' --stage skeleton" \
+        "带占位符模板应通过结构底线（skeleton）校验，模板本身不合格会在此暴露"
+    run_check \
+        "Agent 输出样张校验" \
+        "python '${SCRIPT_DIR}/shared/scripts/validate_agent_output.py' '${SCRIPT_DIR}/shared/assets/example-agent-output.json'" \
+        "example-agent-output.json 应符合标准输出契约"
+    run_check \
+        "folder-template 样张校验" \
+        "python '${SCRIPT_DIR}/shared/scripts/validate_architecture.py' '${SCRIPT_DIR}/shared/assets/architecture-folder-template/architecture/index.json' --stage skeleton" \
+        "切片样张应通过结构底线校验（验证证据含未验证项占位）"
 fi
 
 echo ""
@@ -277,9 +289,31 @@ else
     skip_check "架构完整性验证" "未找到架构文件"
 fi
 
-# 3. 扫描代码偏移（只对受管项目有意义）
+# 3. 扫描代码偏移（能力包自检：临时项目正反例；受管项目：真实扫描）
 if [ "$IS_CAPABILITY_PACKAGE" -eq 1 ]; then
-    skip_check "代码架构偏移扫描" "能力包自检模式：本仓库不是受管项目，不做代码-架构漂移扫描"
+    # 临时项目 = 示例架构 + 实现清单全部文件，先验证 0 漂移，再注入未登记文件验证能发现漂移
+    DRIFT_PROJ="${TMPDIR_VERIFY}/drift_proj"
+    mkdir -p "${DRIFT_PROJ}/src/user" "${DRIFT_PROJ}/tests/user"
+    cp "${SCRIPT_DIR}/shared/assets/example-architecture.json" "${DRIFT_PROJ}/architecture.json"
+    for f in src/user/service.py src/user/repository.py src/user/schema.py \
+             tests/user/test_create_user.py tests/user/test_get_user.py tests/user/test_service.py; do
+        echo "content" > "${DRIFT_PROJ}/${f}"
+    done
+    run_check \
+        "代码架构偏移扫描（正例）" \
+        "python '${SCRIPT_DIR}/shared/scripts/scan_code_drift.py' '${DRIFT_PROJ}' --architecture '${DRIFT_PROJ}/architecture.json'" \
+        "能力包自检：临时项目与示例架构实现清单完全一致，应 0 漂移"
+    echo "content" > "${DRIFT_PROJ}/src/extra.py"
+    run_check \
+        "代码架构偏移扫描（反例）" \
+        "python '${SCRIPT_DIR}/shared/scripts/scan_code_drift.py' '${DRIFT_PROJ}' --architecture '${DRIFT_PROJ}/architecture.json'" \
+        "能力包自检：注入未登记文件后应发现漂移（期望退出码 1）" \
+        1
+    rm -f "${DRIFT_PROJ}/src/extra.py"
+    run_check \
+        "收尾门禁检查（正例）" \
+        "python '${SCRIPT_DIR}/shared/scripts/gate_check.py' '${DRIFT_PROJ}' --architecture '${DRIFT_PROJ}/architecture.json'" \
+        "能力包自检：无漂移临时项目应通过收尾门禁"
 elif [ -n "$ARCH_FILE" ]; then
     run_check \
         "代码架构偏移扫描" \
@@ -289,9 +323,9 @@ else
     skip_check "代码架构偏移扫描" "未找到架构文件"
 fi
 
-# 4. 门禁检查（只对受管项目有意义）
+# 4. 门禁检查（能力包自检：gate_check 已随代码偏移正例覆盖；受管项目：真实门禁）
 if [ "$IS_CAPABILITY_PACKAGE" -eq 1 ]; then
-    skip_check "硬门禁检查" "能力包自检模式：无调用方 architecture/ 状态，不运行项目级门禁"
+    skip_check "硬门禁检查（项目级）" "能力包自检模式：gate_check 正例已在上方代码偏移自检中覆盖"
 else
     run_check \
         "硬门禁检查" \
