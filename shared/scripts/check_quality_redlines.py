@@ -13,6 +13,11 @@ F+B+C 三件套与 validate_architecture.py 只校验「形式」（占位符/�
 - 警告（🟡）→ 不阻塞，但提示明显贫瘠
 - 提示（ℹ️）→ 架构画像统计，辅助人工判断
 
+豁免出口：真实项目可能存在合理例外（如内部工具无权限体系）。对确属例外的
+条目可用 `--exempt "功能树.导出数据"` 声明豁免（可重复），并建议用
+`--exempt-reason` 记录理由；**无理由的豁免会输出警告**——豁免必须有辩护，
+防止为过检查而造假。
+
 原则：质量红线拦截明显坏，独立审计（audit_architecture.py）记录质量判断，
 最终权威永远是人的工程判断。验证全绿 ≠ 架构正确。
 """
@@ -178,7 +183,31 @@ def check_redlines(data: dict[str, Any]) -> tuple[list[str], list[str], list[str
     return errors, warnings, infos
 
 
-def emit(errors: list[str], warnings: list[str], infos: list[str]) -> None:
+def apply_exemptions(errors: list[str], warnings: list[str], exempts: list[str]) -> tuple[list[str], list[str], list[str]]:
+    """按 --exempt 过滤红线/警告，返回 (剩余 errors, 剩余 warnings, 已豁免清单)。
+
+    匹配规则：豁免项（如「功能树.导出数据」）与条目前缀精确匹配
+    （条目格式「功能树.导出数据: 描述」）。豁免是「声明不适用」的出口，
+    无理由的豁免会在输出中提示（调用方记录 --exempt-reason）。
+    """
+    remaining_errors: list[str] = []
+    remaining_warnings: list[str] = []
+    exempted: list[str] = []
+
+    for item in errors + warnings:
+        matched = [x for x in exempts if item.startswith(f"{x}:") or item.startswith(f"{x} ")]
+        if matched:
+            exempted.append(item)
+        elif item in errors:
+            remaining_errors.append(item)
+        else:
+            remaining_warnings.append(item)
+    return remaining_errors, remaining_warnings, exempted
+
+
+def emit(errors: list[str], warnings: list[str], infos: list[str],
+         exempted: list[str] | None = None, exempt_reason: str = "") -> None:
+    exempted = exempted or []
     print("=" * 60)
     print("🚦 质量红线检查")
     print("=" * 60)
@@ -190,11 +219,17 @@ def emit(errors: list[str], warnings: list[str], infos: list[str]) -> None:
         for item in items:
             print(f"  {icon} {item}")
         print()
-    print(f"结论：红线 {len(errors)} 项，警告 {len(warnings)} 项")
+    if exempted:
+        reason_note = f"（理由：{exempt_reason}）" if exempt_reason else "（未记录理由！建议补充 --exempt-reason）"
+        print(f"🟢 已豁免（声明不适用）: {len(exempted)} 项 {reason_note}")
+        for item in exempted:
+            print(f"  • {item}")
+        print()
+    print(f"结论：红线 {len(errors)} 项，警告 {len(warnings)} 项，豁免 {len(exempted)} 项")
     if errors:
         print()
         print("⛔ 存在质量红线，禁止声明完成")
-        print("💡 修复后在变更记录中说明，或运行 audit_architecture.py 做独立审计")
+        print("💡 修复后在变更记录中说明；确属例外的条目可用 --exempt 声明并记录理由")
     print("=" * 60)
 
 
@@ -202,6 +237,9 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="质量红线检查：拦截明显偷工减料的架构（补足格式校验盲区）")
     parser.add_argument("architecture", type=Path, help="Path to architecture.json 或 architecture/index.json")
+    parser.add_argument("--exempt", action="append", default=[], metavar="路径",
+                        help="豁免条目（可重复），格式如「功能树.导出数据」；豁免必须有辩护")
+    parser.add_argument("--exempt-reason", default="", help="豁免理由（建议记录，无理由会提示）")
     parser.add_argument("--json", action="store_true", help="输出机器可读 JSON")
     args = parser.parse_args(argv)
 
@@ -216,11 +254,15 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     errors, warnings, infos = check_redlines(data)
+    errors, warnings, exempted = apply_exemptions(errors, warnings, args.exempt)
+    if args.exempt and not args.exempt_reason:
+        warnings.append("存在豁免但未记录 --exempt-reason（豁免必须有理由，防止为过检查而造假）")
 
     if args.json:
-        print(json.dumps({"错误": errors, "警告": warnings, "提示": infos}, ensure_ascii=False, indent=2))
+        print(json.dumps({"错误": errors, "警告": warnings, "提示": infos, "已豁免": exempted},
+                         ensure_ascii=False, indent=2))
     else:
-        emit(errors, warnings, infos)
+        emit(errors, warnings, infos, exempted, args.exempt_reason)
     return 1 if errors else 0
 
 

@@ -329,6 +329,10 @@ python shared/scripts/validate_architecture.py architecture/index.json
 | `judge_progress.py` | 可以继续 | 有阻塞问题 |
 | `detect_should_trigger.py` | 应触发任务架构 | 不需要 |
 | `validate_architecture.py` | 验证通过 | 有错误 |
+| `check_quality_redlines.py` | 无质量红线（豁免后） | 有质量红线（未豁免） |
+| `audit_architecture.py generate` | 问卷已生成 | 参数错误 |
+| `audit_architecture.py report` | 报告完整可归档 | 结论缺失/非法；2=文件不可读 |
+| `demo_project.py` | 端到端全链路通过 | 存在失败项 |
 
 **Shell 脚本示例**：
 

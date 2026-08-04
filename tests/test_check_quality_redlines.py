@@ -89,5 +89,47 @@ class TestMainExitCode(unittest.TestCase):
             self.assertEqual(redlines.main([str(p)]), 0)
 
 
+def make_redline_fixture() -> dict:
+    """example + 「导出数据」偷工减料节点（触发 2 红线 + 2 警告）。"""
+    data = json.loads(json.dumps(EXAMPLE))
+    data["功能树"].append({
+        "编号": "f9", "名称": "导出数据", "类型": "功能", "分类": "核心功能",
+        "子节点": [], "说明": "一键导出", "架构落位": {"模块": ["m_user"]},
+    })
+    return data
+
+
+class TestApplyExemptions(unittest.TestCase):
+    def test_exempt_filters_matching_items(self):
+        data = make_redline_fixture()
+        errors, warnings, _ = redlines.check_redlines(data)
+        self.assertTrue(errors)  # 前提：确实有红线
+        errors2, warnings2, exempted = redlines.apply_exemptions(errors, warnings, ["功能树.导出数据"])
+        self.assertEqual(errors2, [])
+        self.assertEqual(len(exempted), len(errors) + len(warnings))
+
+    def test_exempt_must_match_exact_path(self):
+        data = make_redline_fixture()
+        errors, warnings, _ = redlines.check_redlines(data)
+        errors2, _, exempted = redlines.apply_exemptions(errors, warnings, ["功能树.导出"])
+        self.assertEqual(errors2, errors)  # 不匹配，红线保留
+        self.assertEqual(exempted, [])
+
+    def test_main_exempt_with_reason_returns_0(self):
+        with tempfile.TemporaryDirectory() as td:
+            p = Path(td) / "arch.json"
+            p.write_text(json.dumps(make_redline_fixture(), ensure_ascii=False), encoding="utf-8")
+            self.assertEqual(redlines.main([str(p)]), 1)
+            self.assertEqual(redlines.main(
+                [str(p), "--exempt", "功能树.导出数据", "--exempt-reason", "内部工具"]), 0)
+
+    def test_main_exempt_without_reason_warns_but_passes(self):
+        """豁免无理由：不阻塞（rc 0），但输出警告提示补理由。"""
+        with tempfile.TemporaryDirectory() as td:
+            p = Path(td) / "arch.json"
+            p.write_text(json.dumps(make_redline_fixture(), ensure_ascii=False), encoding="utf-8")
+            self.assertEqual(redlines.main([str(p), "--exempt", "功能树.导出数据"]), 0)
+
+
 if __name__ == "__main__":
     unittest.main()

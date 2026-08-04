@@ -33,6 +33,7 @@
 - **任务架构-通用智能体版**：平台无关化变体
 - **任务架构-能力体系 1.0 / 1.1.1 / 1.1.2**：能力体系化（1.1.2 = 现行入口的前身）
 - **rwgj (current)**：薄入口化、组织化
+- **rwgj v1.1.0（2026-08-04 发布）**：F+B+C 强制机制成熟 + 质量工程（质量红线、独立审计、CI/单测/数字对账）
 
 **能力继承关系**：
 
@@ -278,7 +279,7 @@
 | Schema 数 | 2 |
 | 资产模板数 | 4（shared/assets 顶层 .json）|
 | 历史归档 | 4（shared/legacy/ 下含 README.md 索引 + 3 份历史 SKILL）|
-| 设计文档数 | 5（docs/ 下 1 篇回归断言 + docs/adr/ 4 篇决策记录）|
+| 设计文档数 | 6（docs/ 下 1 篇回归断言 + docs/adr/ 5 篇决策记录含索引）|
 | 顶层入口文件 | 2（SKILL.md / AGENT-USAGE.md）|
 | 单元测试 | 11（tests/，stdlib unittest，用例数由 check_doc_counts.py 动态统计）|
 | CI 工作流 | 1（.github/workflows/verify.yml）|
@@ -592,7 +593,25 @@ python scripts/demo_project.py               # 临时目录生成受管示例项
 python scripts/demo_project.py --keep demo/  # 保留项目目录便于查看
 ```
 
-演示流程：生成指针 + 架构 + 代码文件 + 状态文件 → 依次运行 占位符检查 / 架构校验 / 状态查看 / 事中裁判 / 漂移扫描 / 收尾门禁。全部通过返回 0，已接入 `verify-all.sh` 作为端到端回归。
+演示流程：生成指针 + 架构 + 代码文件 + 状态文件 → 依次运行 占位符检查 / 架构校验 / 状态查看 / 事中裁判 / 漂移扫描 / 收尾门禁 / 质量红线 / 审计问卷。全部通过返回 0，已接入 `verify-all.sh` 作为端到端回归。
+
+#### 5.4.7 质量红线与独立审计（补格式校验盲区）
+
+格式校验（占位符/状态/结构）无法拦截劣质架构——把导出做成按钮、把后台塞进普通页面都能跑绿。两条补充机制：
+
+```bash
+# 自动：质量红线（操作类缺异常路径 / 导出类缺安全信号 / 空壳模块 / 状态机冲突）
+python shared/scripts/check_quality_redlines.py architecture/index.json
+# 真实项目存在合理例外时，声明豁免并记录理由（无理由豁免会提示）
+python shared/scripts/check_quality_redlines.py architecture/index.json \
+  --exempt "功能树.导出数据" --exempt-reason "内部工具，权限由上层统一管控"
+
+# 人工/LLM：独立审计问卷（10 问语义质量，由第二个会话填写，可留痕归档）
+python shared/scripts/audit_architecture.py generate architecture/index.json --output audit-report.json
+python shared/scripts/audit_architecture.py report audit-report.json
+```
+
+原则：**质量红线拦截明显坏，独立审计记录质量判断，最终权威永远是人的工程判断。验证全绿 ≠ 架构正确。**
 
 ### 5.5 平台适配说明
 
