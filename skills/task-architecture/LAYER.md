@@ -211,6 +211,7 @@ python shared/scripts/validate_architecture.py architecture/index.json
 - [ ] 🔴 所有必需阶段已完成：`manage_state.py show` 显示必需阶段完成度 100%
 - [ ] 🔴 架构先行：先改 `architecture/index.json` 或切片再改代码
 - [ ] 🔴 代码与架构文件夹一致：无漂移
+- [ ] 🟡 质量红线已检查：`check_quality_redlines.py` 无 🔴（验证全绿 ≠ 架构正确，红线拦截明显坏）
 - [ ] 🟡 验证证据已记录：命令/截图/手检/未验证项
 - [ ] 🟡 上下文恢复点已更新：当前任务、继续位置、下一步、约束、风险
 - [ ] 🟡 变更记录已追加：时间、操作类型、原因、影响范围、验证结果
@@ -251,6 +252,8 @@ python shared/scripts/validate_architecture.py architecture/index.json
 - 虚拟模块智能体、模块边界、跨模块提案：`../../shared/references/module-agent-protocol.md`
 - 硬约束门禁、状态跃迁、阻塞/确认/降级：`../../shared/references/hard-gates.md`
 - 标准化模块提案、门禁结果、风险/验证报告：`../../shared/references/agent-output-contract.md`
+- 质量红线（格式之外的质量底线，自动）：`../../shared/scripts/check_quality_redlines.py`
+- 独立审计问卷（语义质量，人工/LLM 留痕）：`../../shared/scripts/audit_architecture.py`（generate / report）
 
 ## 定位规则（多项目共用）
 

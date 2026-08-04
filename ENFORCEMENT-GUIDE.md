@@ -167,6 +167,40 @@ python shared/scripts/detect_should_trigger.py
 # ✅ 建议使用任务架构技能
 ```
 
+### 质量红线与独立审计（补充机制，补格式裁判的盲区）
+
+**问题**：F+B+C 三件套校验的是"形式"（占位符/状态/结构），一个填满占位符、跑绿校验的架构仍可能是劣质架构——把导出做成一个按钮、把后台塞进普通页面，工具都拦不住。
+
+**原则（永远有效）**：
+
+```text
+质量红线拦截明显坏，独立审计记录质量判断，最终权威永远是人的工程判断。
+验证全绿 ≠ 架构正确。
+```
+
+**质量红线**（`check_quality_redlines.py`，自动，接入 verify-all）：
+
+- 操作类叶子节点缺少 异常路径 → 🔴 红线（交互完整性）
+- 导出/导入/批量类功能缺少安全与可靠性信号（权限/审计/大数据量/失败/恢复等至少 2 项）→ 🔴 红线
+- 叶子节点缺验收标准/测试落位、模块详情底线填充率 < 50%、状态机与数据读写信号冲突 → 🟡 警告
+
+```bash
+python shared/scripts/check_quality_redlines.py architecture/index.json
+```
+
+**独立审计**（`audit_architecture.py`，人工/LLM，可留痕）：
+
+```bash
+# 1. 生成 10 问审计问卷
+python shared/scripts/audit_architecture.py generate architecture/index.json --output audit-report.json
+# 2. 由独立会话/模型（不是实现方）填写 结论 yes/no/na + 证据
+# 3. 核验完整性（结论缺失/非法会被拦截）
+python shared/scripts/audit_architecture.py report audit-report.json
+# 4. 把审计结果归档到 验证证据
+```
+
+审计问题覆盖功能树深度、模块边界、依赖语义、交互五态、数据拓扑、接口契约、测试责任、验证证据、横切关注点、架构与代码一致性——这些是启发式工具无法自动判断的语义维度。
+
 ## 三、完整工作流示例
 
 ### 场景 1：从零创建新项目
