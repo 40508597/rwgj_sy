@@ -41,8 +41,8 @@
 
 ## 工具脚本
 
-- **22 个 Python 脚本**（`shared/scripts/` 19 + `scripts/` 3；其中 3 个内部辅助：`_archlib.py`、`run_with_progress.py`、`check_doc_counts.py`，19 个面向用户 CLI）
-- **运行要求**：Python 3.9+（`list[...]` / `X | None` 类型语法）；`bash verify-all.sh` 需 Git Bash / WSL
+- **24 个 Python 脚本**（`shared/scripts/` 21 + `scripts/` 3；其中 3 个内部辅助：`_archlib.py`、`run_with_progress.py`、`check_doc_counts.py`，21 个面向用户 CLI）
+- **运行要求**：Python 3.9+（类型注解延迟求值）；`bash verify-all.sh` 需 Git Bash / WSL
 - **必读**：[ENFORCEMENT-GUIDE.md](ENFORCEMENT-GUIDE.md) —— F+B+C 三件套强制执行机制
 - 命令速查、工作流：`shared/references/commands-cheatsheet.md`、`commands-workflows.md`
 - 一键验证：`bash verify-all.sh`
@@ -51,7 +51,7 @@
 
 - **禁止静默调用技能**：加载任务架构后必须先在主会话输出「已启用任务架构技能」回执，列出入口链路、触发原因、本次初判、受管状态与下一步；不进入完整流程时也必须说明原因
 - **schema 是分级与字段完整性真相源**：`shared/assets/schema/architecture.schema.json` 用 `x-importance` 标注 core/important；`check_placeholders.py` 与 `validate_architecture.py` 读 schema 派生规则，不再硬编码
-- **必需阶段 9 个**（含验证证据，接口契约可选）：`shared/scripts/manage_state.py` 的 `STANDARD_STAGES` 是真相源；`hard-gates.md`/`ENFORCEMENT-GUIDE.md`/`SCHEMA.md`/`LAYER.md` 都引用脚本值
+- **必需阶段 9 个**（含验证证据，接口契约可选）：`shared/scripts/manage_state.py` 的 `STANDARD_STAGES` 是真相源；`validation-checklist.md`/`ENFORCEMENT-GUIDE.md`/`SCHEMA.md`/`LAYER.md` 都引用脚本值
 - **占位符 + 示例 key 双扫**：`check_placeholders.py` 同时检测 `__待` value 与 `__示例*__`/`__注释__`/`__占位符说明__` key，防止生成「假模块」
 - `init_architecture.py` 写盘前自动剥离模板所有 `__` 开头 key
 

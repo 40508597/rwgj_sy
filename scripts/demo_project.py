@@ -24,9 +24,13 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = REPO_ROOT / "shared" / "scripts"
+sys.path.insert(0, str(SCRIPTS))
+import _archlib  # noqa: E402
+
+_archlib.configure_utf8_stdout()
 EXAMPLE = REPO_ROOT / "shared" / "assets" / "example-architecture.json"
-REQUIRED_STAGES = ["需求理解", "功能树", "模块树", "模块详情", "入口定义", "数据拓扑",
-                   "实现清单", "测试责任", "验证证据"]
+from manage_state import STANDARD_STAGES
+REQUIRED_STAGES = [stage["id"] for stage in STANDARD_STAGES if stage["required"]]
 # 示例架构声明的全部代码文件：实现清单 5 个 + 功能树测试落位 1 个（tests/user/test_service.py）。
 MANIFEST_FILES = [
     "src/user/service.py",

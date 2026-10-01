@@ -82,12 +82,12 @@
 │   ├── check_doc_counts.py       # 文档数字/引用对账
 │   └── demo_project.py           # 端到端演示（临时受管项目全验证链）
 ├── shared/                     # 共享资源（Agent 加载）
-│   ├── adapters/               # 平台适配（4 个）
-│   ├── assets/                 # 资产模板（4）+ Schema（2）+ folder-template 样张
-│   ├── legacy/                 # 历史 SKILL 归档（3）
-│   ├── references/             # 参考文档（21 篇）
-│   └── scripts/                # 工具脚本（22 个，含 _archlib 等内部辅助）
-└── skills/                     # 能力层（4 个，单一技能入口）
+│   ├── adapters/               # 平台适配
+│   ├── assets/                 # 资产模板 + Schema + folder-template 样张
+│   ├── legacy/                 # 历史 SKILL 归档
+│   ├── references/             # 参考文档（数量见 §4.5）
+│   └── scripts/                # 工具脚本（数量见 §4.5，含 _archlib 等内部辅助）
+└── skills/                     # 能力层（单一技能入口）
     ├── task-architecture/      # 路由层 LAYER.md
     ├── project-depth-core/     # 主动理解内核 CORE.md
     ├── architecture-json/      # 架构物化层 SCHEMA.md
@@ -110,18 +110,20 @@
 
 #### 4.1.2 共享资源（6 类）
 
+> 数量口径统一由 §4.5 技术指标表维护（check_doc_counts.py 自动对账），本表不重复数字。
+
 | 资源类型 | 数量 | 路径 |
 |----------|------|------|
-| 参考文档 | 21 篇 | `shared/references/` |
-| 脚本工具 | 22 个 | `shared/scripts/` + `scripts/`（含 3 个内部辅助：`_archlib`、`run_with_progress`、`check_doc_counts`，19 个面向用户 CLI）|
-| 资产模板 | 4 个 | `shared/assets/`（顶层 .json）|
-| 平台适配 | 4 个 | `shared/adapters/` |
-| 历史档案 | 4 个 | `shared/legacy/` |
-| Schema | 2 个 | `shared/assets/schema/` |
+| 参考文档 | 见 §4.5 | `shared/references/` |
+| 脚本工具 | 见 §4.5 | `shared/scripts/` + `scripts/`（含内部辅助：`_archlib`、`run_with_progress`、`check_doc_counts`，不计入用户工具表）|
+| 资产模板 | 见 §4.5 | `shared/assets/`（顶层 .json）|
+| 平台适配 | 见 §4.5 | `shared/adapters/` |
+| 历史档案 | 见 §4.5 | `shared/legacy/` |
+| Schema | 见 §4.5 | `shared/assets/schema/` |
 
-#### 4.1.3 工具能力（15 个面向用户 CLI + 2 个内部辅助）
+#### 4.1.3 工具能力（面向用户 CLI + 内部辅助）
 
-> 共 22 个 .py 脚本：下表 19 个面向用户 CLI，另含 `_archlib.py` 共享底座、`run_with_progress.py` 工具包装器、`check_doc_counts.py` 文档数字与引用对账（开发自检，不计入用户工具表）。
+> 下表为面向用户 CLI；`_archlib.py` 共享底座、`run_with_progress.py` 工具包装器、`check_doc_counts.py` 文档数字与引用对账为开发自检，不计入用户工具表（数量口径见 §4.5）。
 
 ##### 强制执行工具（F+B+C 三件套）🆕
 
@@ -145,12 +147,14 @@
 | `gate_check.py` | 门禁 | 硬门禁规则检查 |
 | `init_architecture.py` | 初始化 | 单文件迁移 / 新建切片（默认使用占位符模板）|
 | `detect_task_posture.py` | 姿态 | 任务姿态分类（dynamic/linear/reactive） |
+| `detect_small_command.py` | 降级 | 小命令降级检测（三档 + 运行/修改分型 + 高风险词升档） |
 | `check_regression_assertions.py` | 回归 | 21 项回归断言 |
 | `taskarch_cli.py` | 聚合 | 顶层 CLI（lineage/slice/gate-file 等） |
 | `check_quality_redlines.py` | 质量 | 质量红线检查（交互完整性/可验收/导出类安全信号/空壳模块） |
 | `audit_architecture.py` | 审计 | 独立审计问卷（generate 生成 10 问 / report 核验完整性） |
 | `render_architecture.py` | 可视化 | 单向渲染真相源（md=Mermaid 报告 / html=单文件交互 / json=结构化） |
 | `demo_project.py` | 演示 | 临时受管项目端到端验证链（接入 verify-all） |
+| `resolve_tool.py` | 定位 | 解析工具脚本绝对路径（项目锚点优先 → 安装目录兜底；--json / --list） |
 
 **F+B+C 三件套机制**：
 - **F（占位符）**：让缺失可见 - `__待填__` 强制填写
@@ -159,7 +163,7 @@
 
 完整使用指南：[ENFORCEMENT-GUIDE.md](ENFORCEMENT-GUIDE.md)
 
-#### 4.1.4 平台适配（4 个）
+#### 4.1.4 平台适配
 
 | 平台 | 适配文件 | 状态 |
 |------|----------|------|
@@ -176,7 +180,7 @@
 
 - **职责**：薄路由，不承载完整规则
 - **加载时机**：所有用户需求的第一站
-- **关键能力**：决定是否进入完整三层流程
+- **关键能力**：决定是否进入完整三层流程（含小命令降级三档判定：完全跳过 / 最小闭环 / 完整流程）
 - **不做**：不直接写代码、不展开业务细节
 
 #### 4.2.2 `project-depth-core` — 主动理解内核
@@ -221,9 +225,9 @@
 - **边界**：不展开功能簇、不判断项目应是什么、不替代模块详情设计
 - **交叉审计**：支持多模型/多会话独立审计，但**不得引入中央协调智能体**
 
-### 4.3 参考文档矩阵（21 篇）
+### 4.3 参考文档矩阵
 
-按主题分组：
+按主题分组（数量口径见 §4.5）：
 
 | 类别 | 文档 | 内容 |
 |------|------|------|
@@ -236,18 +240,17 @@
 | 主动理解 | `principles-card.md` | 原理卡片与速查 |
 | 架构物化 | `schemas.md` | JSON 字段、中文化规范、四层读取 |
 | 架构物化 | `commands-workflows.md` | 5 个命令、创建/分析/修改/追加/校验 |
-| 架构物化 | `validation-checklist.md` | 21 项一致性校验 |
+| 架构物化 | `validation-checklist.md` | 21 项一致性校验 + 硬约束门禁 |
 | 架构物化 | `json-sharding.md` | 强制切片目录 |
 | 协议适配 | `universal-agent-protocol.md` | 跨 Agent 通用协议 |
 | 协议适配 | `module-agent-protocol.md` | 虚拟模块审议 |
-| 协议适配 | `hard-gates.md` | 硬约束门禁 |
 | 协议适配 | `agent-output-contract.md` | 标准化输出契约 |
-| 协议适配 | `dynamic-posture-context.md` | 动态姿势语境 |
 | 工作流 | `quickstart.md` | 快速上手 |
 | 工作流 | `commands-cheatsheet.md` | 命令速查 |
 | 工作流 | `context-recovery.md` | 上下文恢复 |
 | 工作流 | `execution-templates.md` | 执行模板 |
-| 工作流 | `task-posture.md` | 任务姿态 |
+| 工作流 | `task-posture.md` | 任务姿态与动态姿势语境 |
+| 工作流 | `small-command-degradation.md` | 小命令降级（三档/两型/回执） |
 
 ### 4.4 能力边界
 
@@ -268,23 +271,35 @@
 
 ### 4.5 技术指标
 
-> 真相源：脚本/文件以仓库实际盘点为准，文档对账用。下列数值与 §4.1.2 表保持一致。
+> 真相源：脚本/文件以仓库实际盘点为准，文档对账用。全仓库唯一数字口径表格，其余章节引用本表（check_doc_counts.py 自动对账）。
 
 | 指标 | 数值 |
 |------|------|
 | 子能力层数 | 4 |
-| 参考文档数 | 21 |
-| 工具脚本数 | 22（shared/scripts 19 + scripts/3；其中 3 个内部辅助不计入用户工具表，由 check_doc_counts.py 自动对账）|
+| 参考文档数 | 20 |
+| 工具脚本数 | 24（shared/scripts 21 + scripts/3；其中 3 个内部辅助不计入用户工具表，由 check_doc_counts.py 自动对账）|
 | 必需阶段数 | 9（manage_state.STANDARD_STAGES required=True）|
 | 平台适配数 | 4 |
 | Schema 数 | 2 |
-| 资产模板数 | 4（shared/assets 顶层 .json）|
+| 资产模板数 | 6（shared/assets 顶层 .json）|
 | 历史归档 | 4（shared/legacy/ 下含 README.md 索引 + 3 份历史 SKILL）|
 | 设计文档数 | 6（docs/ 下 1 篇回归断言 + docs/adr/ 5 篇决策记录含索引）|
 | 顶层入口文件 | 2（SKILL.md / AGENT-USAGE.md）|
-| 单元测试 | 12（tests/，stdlib unittest，用例数由 check_doc_counts.py 动态统计）|
+| 单元测试 | 16（tests/，stdlib unittest，用例数由 check_doc_counts.py 动态统计）|
 | CI 工作流 | 1（.github/workflows/verify.yml）|
-| 总文件数 | ~105（不含 .git/，含测试与 CI）|
+| 总文件数 | ~116（不含 .git/、缓存和生成的验证报告，含测试与 CI）|
+
+#### 4.5.1 分发最小运行集
+
+技能运行只需要以下内容；`tests/`、`.pytest_cache/`、`.github/`、`verify-all.sh` 与 `scripts/check_doc_counts.py` 均属开发自检资产，第三方嵌入或内嵌分发可按此裁剪：
+
+```text
+SKILL.md
+skills/task-architecture   skills/project-depth-core   skills/architecture-json   skills/agent-protocol
+shared/scripts             shared/references           shared/adapters            shared/assets
+```
+
+> 参考实现：DSH 宿主插件 dph-task-architecture v2 即按此最小集把能力树内嵌随包分发，零配置可用。
 
 ### 4.6 适用场景评估
 
@@ -314,7 +329,7 @@
 | 需求理解 | 文档/PR/口头 | 功能簇展开 + 强制停止规则 |
 | 架构设计 | 自由发挥 | 强制切片目录 + 模块详情底线 |
 | 跨平台 | 各平台独立实现 | 同一份能力 + 平台适配差异 |
-| 一致性 | 人工 review | 工具自动验证（21 项） |
+| 一致性 | 人工 review | 工具验证结构与部分一致性，21 项语义清单配合工程复核 |
 | 代码 drift | 滞后发现 | 实时扫描 |
 | 上下文恢复 | 重新看文档 | 切片目录 + 恢复点 |
 
@@ -536,11 +551,11 @@ python shared/scripts/run_with_progress.py validate_architecture.py '验证架�
 | 模糊需求、新功能、功能深度、交互闭环 | `project-depth-core` |
 | 创建/修改 `architecture/` 切片 | `architecture-json` |
 | 跨 Agent 使用、门禁、标准化输出 | `agent-protocol` |
-| 简单命令、概念问答 | **不进入**完整流程 |
+| 小命令、概念问答 | **小命令降级**：最小闭环 / 完全跳过 |
 
 ### 5.4 工具链使用
 
-技能自带 22 个 Python 脚本（19 个面向用户 CLI + 3 个内部辅助），**工具不可用时按文本规则降级执行**。
+技能自带 Python 脚本（数量口径见 §4.5），**工具不可用时按文本规则降级执行**。
 
 **运行环境**：脚本要求 Python 3.9+（使用 `list[...]` / `X | None` 类型语法）；`verify-all.sh` 一键验证需 Git Bash / WSL 环境（或直接依赖 GitHub Actions CI，push/PR 自动运行，含 3.9/3.10/3.11 版本矩阵）。
 
@@ -570,12 +585,15 @@ python shared/scripts/init_architecture.py --mode migrate --from architecture.js
 python shared/scripts/init_architecture.py --mode init --output .
 ```
 
-#### 5.4.4 任务姿态与回归
+#### 5.4.4 任务姿态与小命令降级
 
 ```bash
-python shared/scripts/detect_task_posture.py
+python shared/scripts/detect_task_posture.py --request "使用任务架构检查当前项目"
+python shared/scripts/detect_small_command.py --request "启动项目" --project-root .
 python shared/scripts/check_regression_assertions.py --scenario export --file output.md
 ```
+
+`detect_small_command.py` 三档判定：完全跳过（概念问答/一次性脚本/纯只读查看）/ 最小闭环（启动项目、运行单条命令、修改某个元素；分**运行类**与**修改类**，修改类才做三重校验）/ 完整流程（新功能、重构、漂移排查）。判定链：复合请求分句 → 区分纯问答/只读与实际操作 → 逐项判定取最严格档位 → 高风险实际操作升档（删除/支付/生产等强制完整流程）→ 受管降级；非受管项目的最小闭环自动降为完全跳过。
 
 #### 5.4.5 顶层 CLI 工具
 
@@ -720,10 +738,9 @@ python shared/scripts/render_architecture.py architecture/index.json --max-nodes
 - 快速上手：`shared/references/quickstart.md`
 - 命令速查：`shared/references/commands-cheatsheet.md`
 - 命令工作流：`shared/references/commands-workflows.md`
-- 21 项校验清单：`shared/references/validation-checklist.md`
+- 21 项校验清单与硬约束门禁：`shared/references/validation-checklist.md`
 - 能力索引：`shared/references/capability-index.md`
 - 切片规范：`shared/references/json-sharding.md`
-- 硬门禁：`shared/references/hard-gates.md`
 - 上下文恢复：`shared/references/context-recovery.md`
 - 执行模板：`shared/references/execution-templates.md`
 - 原理卡片：`shared/references/principles-card.md`
@@ -768,4 +785,4 @@ git push origin main
 
 - **Agent 入口**：`SKILL.md`（薄入口）/ `AGENT-USAGE.md`（通用入口）
 - **架构真相源**：`architecture.json` → `architecture/index.json`
-- **共享资源**：`shared/references/`（21 篇）、`shared/scripts/` + `scripts/`（22 个）、`shared/adapters/`（4 个）、`shared/assets/`（资产模板 4 + Schema 2）
+- **共享资源**：`shared/references/`、`shared/scripts/` + `scripts/`、`shared/adapters/`、`shared/assets/`（数量口径见 §4.5）

@@ -355,13 +355,13 @@ def main(argv: list[str] | None = None) -> int:
     important_count = len(categorized["important"])
     optional_count = len(categorized["optional"])
 
-    if total == 0:
+    if total == 0 and not args.json:
         print("✅ 验证通过：未发现占位符或缺失字段，架构已完整填写")
         return 0
 
     if args.json:
         result = {
-            "status": "incomplete",
+            "status": "incomplete" if total else "complete",
             "total_placeholders": total,
             "critical": categorized["critical"],
             "important": categorized["important"],

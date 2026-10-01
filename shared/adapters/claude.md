@@ -7,9 +7,9 @@ Claude 或 Claude Code 使用本协议时，应把 `SKILL.md` 作为项目级工
 - 上下文较长时，必须优先读取 `上下文恢复点`，不要凭记忆续跑。
 - 无法运行脚本时，按文本规则手工校验并记录原因。
 
-## 收尾门禁（A 档：平台 hook，零注意力）
+## 收尾门禁（A 档：可选 Stop hook）
 
-Claude Code 支持 `Stop` / `SubagentStop` hook。优先把收尾门禁挂到 hook 上，由平台自动执行——智能体的注意力里**不需要持有**"我要记得收尾校验"这条规则，脚本替它判定。
+使用 `optional/claude_stop_hook.py` 将门禁结果转换为宿主决策。不要把 `gate_check.py` 的退出码直接当成 hook 的决策协议。适配器只检查受管项目中以「【任务完成】」开头的最终声明；问答、局部运行结果和「【未通过验证】」报告可正常结束。不要将整个项目的完成门禁挂到每个子任务上。
 
 在项目 `.claude/settings.json`（或用户级 settings）配置：
 
@@ -22,7 +22,7 @@ Claude Code 支持 `Stop` / `SubagentStop` hook。优先把收尾门禁挂到 ho
         "hooks": [
           {
             "type": "command",
-            "command": "python shared/scripts/gate_check.py ."
+            "command": "python \"<技能安装目录>/optional/claude_stop_hook.py\""
           }
         ]
       }
@@ -31,8 +31,13 @@ Claude Code 支持 `Stop` / `SubagentStop` hook。优先把收尾门禁挂到 ho
 }
 ```
 
-- `gate_check.py` 退出码：`0=PASS`（可声明完成）、`1=FAIL`（架构不合规/代码漂移/流程脱轨，只能汇报"已完成实现，未通过验证"）、`2=无法判定`（项目未启用架构管理，放行）。
-- hook 返回非 0 时，平台会把门禁结论回灌给智能体，提示它先修复再收尾——这一步发生在模型上下文之外，不挤占注意力。
+- 配置前将 `<技能安装目录>` 替换为绝对路径，Windows JSON 路径建议用 `/`。这只是合并配置的示例，不覆盖已有 hooks；提供源码不代表已经启用。
+- `gate_check.py` 退出码：`0=PASS`、`1=FAIL`、`2=无法判定`；后两者均不支持声明验证通过。未受管任务由适配器在调用门禁前排除。
+- **完成宣告契约**：通过后结论首行为「【任务完成】」；未通过时首行为「【未通过验证】」（与宿主侧自动收尾门禁对接的固定格式）。
+- 适配器以退出码 0 输出 JSON：首次校验不通过返回 `decision: block` 及原因；已经因 Stop hook 续跑仍失败时，返回 `continue: false` 与「【未通过验证】」原因，停止自动重试。固定首行用于触发检测，本身没有拦截能力。
+- 输入包括 `hook_event_name`、`cwd`、`last_assistant_message`、`stop_hook_active`；路径从事件 cwd 向上寻找受管锚点。协议测试位于 `tests/test_claude_stop_hook.py`，实际宿主加载仍需在安装后验证。
 - 平台未启用 hook，或在非 Claude Code 环境（如 claude.ai 网页）时，降级到 `generic-cli-agent.md` 的 C 档一句话契约。
 
 适配层只说明 Claude 平台差异，不改变项目目标、架构先行和硬门禁。
+
+协议依据：[Claude Code Hooks reference](https://code.claude.com/docs/en/hooks#stop-decision-control)。

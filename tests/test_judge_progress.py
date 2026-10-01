@@ -1,7 +1,12 @@
 """judge_progress.py 单元测试（generate_verdict 纯函数 + 返回码契约）"""
 
+from __future__ import annotations
+
 import sys
 import unittest
+import json
+import tempfile
+from unittest.mock import patch
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -51,10 +56,10 @@ class TestGenerateVerdict(unittest.TestCase):
         self.assertFalse(v["can_proceed"])
         self.assertTrue(any("核心占位符" in i for i in v["blocking_issues"]))
 
-    def test_no_state_warns_but_proceeds(self):
+    def test_no_state_is_unknown_and_cannot_proceed(self):
         v = judge_progress.generate_verdict(ph_ok(), state_missing(), arch_ok())
-        self.assertTrue(v["can_proceed"])
-        self.assertTrue(any("进度状态" in w for w in v["warnings"]))
+        self.assertFalse(v["can_proceed"])
+        self.assertEqual(v["code"], 2)
 
     def test_required_stages_incomplete_blocks(self):
         v = judge_progress.generate_verdict(
@@ -78,6 +83,35 @@ class TestGenerateVerdict(unittest.TestCase):
         v = judge_progress.generate_verdict(ph_failed(1), state_ok(), arch_ok())
         self.assertFalse(v["can_proceed"])
         self.assertTrue(any("禁止声明完成" in a for a in v["next_actions"]))
+
+    def test_errors_and_skipped_checks_never_pass(self):
+        for status in ("error", "skipped", "unexpected"):
+            for index in range(3):
+                with self.subTest(status=status, index=index):
+                    results = [ph_ok(), state_ok(), arch_ok()]
+                    results[index] = {"status": status, "message": "unavailable"}
+                    v = judge_progress.generate_verdict(*results)
+                    self.assertFalse(v["can_proceed"])
+                    self.assertEqual(v["code"], 2)
+
+    def test_failure_wins_over_unknown(self):
+        v = judge_progress.generate_verdict(ph_failed(), {"status": "error"}, arch_ok())
+        self.assertEqual(v["code"], 1)
+
+    def test_invalid_success_output_is_unknown(self):
+        for fn in (judge_progress.check_placeholders, judge_progress.check_architecture):
+            for output in ("", "not json", "[]", "{}"):
+                with self.subTest(fn=fn.__name__, output=output):
+                    with patch.object(judge_progress, "run_command", return_value=(0, output, "")):
+                        self.assertEqual(fn(Path("example.json"))["status"], "error")
+
+    def test_missing_architecture_cli_returns_unknown(self):
+        import contextlib
+        import io
+        with tempfile.TemporaryDirectory() as td, contextlib.redirect_stdout(io.StringIO()) as buf:
+            code = judge_progress.main([str(Path(td) / "missing.json"), "--json"])
+        self.assertEqual(code, 2)
+        self.assertFalse(json.loads(buf.getvalue())["verdict"]["can_proceed"])
 
 
 if __name__ == "__main__":

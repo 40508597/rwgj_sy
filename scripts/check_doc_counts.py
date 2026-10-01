@@ -64,7 +64,8 @@ def actual_counts() -> dict[str, int]:
 
     total_files = sum(
         1 for p in REPO_ROOT.rglob("*")
-        if p.is_file() and ".git" not in p.parts and "__pycache__" not in p.parts
+        if p.is_file() and not {".git", "__pycache__", ".pytest_cache"}.intersection(p.parts)
+        and not p.match("verification-report-*.md")
     )
 
     return {
@@ -160,7 +161,8 @@ def check_doc_refs() -> tuple[int, list[str]]:
     legacy_root = REPO_ROOT / "shared" / "legacy"
     md_files = [
         p for p in REPO_ROOT.rglob("*.md")
-        if ".git" not in p.parts and not p.is_relative_to(legacy_root)
+        if not {".git", "__pycache__", ".pytest_cache"}.intersection(p.parts)
+        and not p.match("verification-report-*.md") and not p.is_relative_to(legacy_root)
     ]
     for md in md_files:
         text = md.read_text(encoding="utf-8")

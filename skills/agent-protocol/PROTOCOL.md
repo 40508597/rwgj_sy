@@ -21,7 +21,7 @@
 
 - 读取 `../../shared/references/universal-agent-protocol.md`。
 - 读取 `../../shared/references/module-agent-protocol.md`。
-- 读取 `../../shared/references/hard-gates.md`。
+- 读取 `../../shared/references/validation-checklist.md`（含硬约束门禁）。
 - 读取 `../../shared/references/agent-output-contract.md`。
 - 读取 `../../shared/adapters/` 中的平台适配说明。
 
@@ -45,9 +45,9 @@ CLI 只做查验，不做认知判断。
 按触发信号读取，不要全量加载：
 
 - 跨 Codex、Claude Code、Trae、Cursor、Windsurf、Cline、自研 Agent 使用：`../../shared/references/universal-agent-protocol.md`
-- 动态姿势语境、阶段切换、风险覆盖、退出条件：`../../shared/references/dynamic-posture-context.md`
+- 任务姿态与动态姿势语境、阶段切换、风险覆盖、退出条件：`../../shared/references/task-posture.md`
 - 虚拟模块智能体、模块边界、跨模块提案：`../../shared/references/module-agent-protocol.md`
-- 硬约束门禁、状态跃迁、阻塞/确认/降级结果：`../../shared/references/hard-gates.md`
+- 硬约束门禁、状态跃迁、阻塞/确认/降级结果：`../../shared/references/validation-checklist.md`
 - 标准化模块提案、门禁结果、风险报告、验证报告：`../../shared/references/agent-output-contract.md`
 - Codex、Claude Code、Trae、通用 CLI Agent 等平台差异：`../../shared/adapters/`
 - 任务姿态建议器和轻量规则：`../../shared/assets/task-posture-rules.json`、`../../shared/scripts/detect_task_posture.py`

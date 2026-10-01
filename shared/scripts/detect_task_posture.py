@@ -16,53 +16,38 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import _archlib  # noqa: E402
+from _archlib import collect_matches, contains_any, is_managed, unique  # noqa: E402
 
 _archlib.configure_utf8_stdout()
 
 
 DEFAULT_RULES = Path(__file__).resolve().parents[1] / "assets" / "task-posture-rules.json"
 
+# 规则文件读取复用共享底座（utf-8-sig，BOM 安全；根节点必须为对象）
+load_json = _archlib.load_json_utf8
 
-def load_json(path: Path) -> dict[str, Any]:
-    with path.open("r", encoding="utf-8") as handle:
-        data = json.load(handle)
-    if not isinstance(data, dict):
-        raise ValueError("规则文件根节点必须是对象")
+
+RISK_WORDS_PATH = Path(__file__).resolve().parents[1] / "assets" / "risk-words.json"
+
+
+def load_risk_words() -> dict[str, Any]:
+    """风险词单一真相源（shared/assets/risk-words.json）；不可读时按无风险词降级。"""
+    try:
+        data = _archlib.load_json_utf8(RISK_WORDS_PATH)
+    except (OSError, ValueError):
+        return {}
     return data
 
 
-def collect_matches(text: str, words: list[Any]) -> list[str]:
-    lowered = text.lower()
-    matches: list[str] = []
-    for word in words:
-        if not isinstance(word, str) or not word:
-            continue
-        if word.lower() in lowered:
-            matches.append(word)
-    return matches
-
-
-def contains_any(text: str, words: list[Any]) -> bool:
-    return bool(collect_matches(text, words))
-
-
-def unique(items: list[str]) -> list[str]:
-    seen: set[str] = set()
-    result: list[str] = []
-    for item in items:
-        if item not in seen:
-            seen.add(item)
-            result.append(item)
-    return result
-
-
 def detect_risk(request: str, rules: dict[str, Any]) -> str:
-    risk_words = rules.get("风险词", {})
-    if isinstance(risk_words, dict):
-        if contains_any(request, risk_words.get("高", [])):
-            return "高"
-        if contains_any(request, risk_words.get("中", [])):
-            return "中"
+    """风险词分级（单一真相源 risk-words.json，规则内「风险词」字段可覆盖）。"""
+    risk_words = rules.get("风险词")
+    if not isinstance(risk_words, dict) or not risk_words:
+        risk_words = load_risk_words()
+    if contains_any(request, risk_words.get("高", [])):
+        return "高"
+    if contains_any(request, risk_words.get("中", [])):
+        return "中"
     return "低"
 
 
@@ -75,7 +60,8 @@ def confidence_from_matches(task_types: list[str], postures: list[str], matches:
 
 
 def detect_task_posture(request: str, project_root: Path, rules: dict[str, Any]) -> dict[str, Any]:
-    managed = (project_root / "architecture.json").exists()
+    # 受管口径与 detect_small_command.py 一致（architecture.json 或 architecture/ 任一）
+    managed = is_managed(project_root)
     default = rules.get("默认输出", {})
     if not isinstance(default, dict):
         default = {}
@@ -92,7 +78,12 @@ def detect_task_posture(request: str, project_root: Path, rules: dict[str, Any])
     evidence: list[str] = []
 
     if managed:
-        required_refs.append("architecture.json")
+        # 受管项目真相源指向按实际形态：有根指针 architecture.json 时读指针，
+        # 仅 architecture/ 切片目录时直接读 architecture/index.json（与 LAYER.md 口径一致）
+        if (project_root / "architecture.json").exists():
+            required_refs.append("architecture.json")
+        else:
+            required_refs.append("architecture/index.json")
     else:
         required_refs.extend(default.get("必须加载", ["SKILL.md"]))
 

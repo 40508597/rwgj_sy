@@ -1,5 +1,7 @@
 """audit_architecture.py 单元测试（问卷生成 / 报告核验）"""
 
+from __future__ import annotations
+
 import json
 import sys
 import tempfile

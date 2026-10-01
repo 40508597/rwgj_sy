@@ -7,6 +7,19 @@
 
 ### Added
 
+- 可选 `optional/claude_stop_hook.py`：将统一门禁结果转换为 Stop JSON 决策，只检查受管项目的完成声明；连续失败明确报告未通过并停止重试。默认不安装宿主配置。
+- 回归覆盖：真实多进程状态竞争、过时快照、异常输出、未完成阶段/阻塞项、复合意图和依赖目录剪枝。CI 扩展 Windows/Linux 与 Python 3.9–3.12。
+
+- 工具路径解析器 `shared/scripts/resolve_tool.py`：把「项目锚点优先 → 安装目录兜底」的定位规则从散文变成一条命令（支持 --json / --list、路径穿越防护）；LAYER.md 工具执行前置改为一行解析器用法（v1.2 优化落地）
+- **完成宣告契约**：结论首行固定二选一——「【任务完成】」/「【未通过验证】」（写入 LAYER.md 完成前自检与 claude / generic-cli-agent 两适配器），宿主侧自动化门禁可据此做零漏报的确定性触发
+- `gate_check.py --json` 输出统一 envelope：新增稳定英文键 `code` / `verdict` / `stages[{name,status,detail}]` / `evidence.counts`，中文「结论/明细/原因」旧键继续输出，下游（hook、宿主插件、CI）向后兼容
+- `manage_state.py` 写入加固：save_state 改为临时文件 + os.replace 原子写；_meta.revision 单调递增；update/add-blocker 支持 --expect-rev 乐观锁（不符拒绝并返回退出码 3）；show --json 输出当前 revision
+- 技能瘦身优化（不触碰切片格式与切片解析）：风险词表上收 `shared/assets/risk-words.json` 单一真相源（姿态/降级两检测器共用，规则文件可用「风险词」字段覆盖）；`small-command-degradation.md` 承载小命令降级完整细则，LAYER.md 总入口瘦身只留路由与铁律；`task-posture.md` 合并动态姿势语境、`validation-checklist.md` 合并硬约束门禁（删 2 篇重复参考）；`commands-cheatsheet.md` 瘦身为路由卡；README 数字口径单点化（全仓库只留 §4.5 一张数字表）
+- 小命令降级 `detect_small_command.py`：用户需求三档自动判定（完全跳过 / 最小闭环 / 完整流程），判定链＝自指问答 → 提问句式 → 词表（完整流程优先，拿不准默认完整流程）→ 高风险词升档（删除/支付/生产等强制完整流程，中风险追加风险确认）→ 受管降级（非受管项目最小闭环降为完全跳过）；最小闭环分**运行类**（无变更不做三重校验）/ **修改类**（功能簇最小定位 → 定向修改 → 三重校验），输出自带降级回执禁止静默
+- 小命令降级规则 `shared/assets/small-command-rules.json` + LAYER.md「小命令降级」章节（三档动作表 / 三条铁律 / 双型回执模板）+ 独立审计后词表加固与 60+ 个单元测试
+- 独立审计加固：`_archlib.py` 上收 `load_json_utf8/collect_matches/contains_any/unique/is_managed` 共享底座（消除 detect 双脚本复制粘贴、BOM 安全、受管口径统一）；`detect_task_posture.py` 改用共享底座
+- 回归断言新增 `small-command` 场景（最小闭环必须保留功能簇最小定位/三重校验锚点，防铁律稀释），接入 verify-all.sh
+- verify-all.sh 新增「小命令降级检测」「小命令降级回归断言」两项冒烟检查
 - 架构可视化 `render_architecture.py`：单向渲染真相源（md=Mermaid 依赖图/功能树/进度/模块摘要/数据拓扑 + 质量标注；html=单文件零依赖交互版；json=结构化）
 - 文档引用完整性自动检查（check_doc_counts.py 扩展：全仓库 .md 相对路径引用对账）
 - 端到端演示脚本 `scripts/demo_project.py`（临时受管项目跑通完整验证链）
@@ -14,8 +27,23 @@
 - Issue/PR 模板（.github/ISSUE_TEMPLATE + PULL_REQUEST_TEMPLATE）
 - CI 支持 Python 3.9/3.10/3.11 版本矩阵
 
+### Changed
+
+- 事中裁判与收尾门禁共用完成条件；缺失/损坏/不可用的检查返回 2，明确失败返回 1，只有全部通过返回 0。状态缺失不再放行，必需阶段及 blockers 纳入收尾门禁。旧 JSON 字段保留。
+- 状态写入增加跨进程事务锁、独立临时文件与快照版本校验；过时写入返回 3，异常返回 2；完成计数按阶段清单重新计算。
+- 小命令按子句取最严格档位；纯只读与概念问答保持轻量，复合请求不能用问答掩盖操作。启动检测单次遍历、跳过依赖、达到阈值即停止。
+- 合并重复回执，校验按相关变更批次执行，通过一致性后才推进状态；统一三层按需规则、安装目录定位与宿主适配说明。
+
+- 文件扫描在进入目录前排除依赖、缓存与架构目录，并复用项目根解析结果，降低大项目扫描开销；忽略规则只作用于项目内部，避免项目放在名为 build 的父目录下时漏扫。扫描失败明确报错。
+- 收尾门禁聚合遵循 fail > unknown > pass：任一明确失败返回 1；无失败但有无法判定项返回 2；全部通过才返回 0。保留英文 envelope、中文兼容字段和「未登记代码仅提示」规则。
+- LAYER.md 再次瘦身（297 行 → 约 150 行）：三重校验命令细节与完成自检逐项展开收拢为 validation-checklist.md 指针 + 🔴/🟡 一行清单；铁律、两份启动回执模板、五命令表、三层路由图与触发判定原样保留；README §4.5.1 新增分发最小运行集说明，§4.5 数字口径同步（工具脚本 24）
+
 ### Fixed
 
+- 收尾门禁不再把子校验器异常、损坏/缺字段的 JSON、异常退出码或不可读恢复点误判为通过；复用共享子进程封装，并保留非 JSON stdout 中的诊断信息。
+- 工具路径解析与清单仅接受真实文件，避免 `.py` 同名目录遮蔽安装级工具；缺失工具复用一次候选查找结果。
+- Windows 端到端演示及一键验证统一使用 UTF-8 输出，报告生成失败返回非零退出码；文档盘点排除缓存和生成报告，重复运行不再改变统计口径。
+- `resolve_tool.py --list`：非受管目录（自 cwd 向上无 `architecture.json` / `architecture/` 锚点）下项目级脚本目录为 `None`，`None.is_dir()` 直接抛 `AttributeError`；改为跳过缺失位置并保留安装级清单，补 `tests/test_resolve_tool.py` 回归测试（7 项，覆盖非受管/受管两种 cwd、项目优先于安装、退出码 1/2 约定与路径穿越拦截）
 - `scan_code_drift.py`：切片模式下 `architecture.json` 指针被误报为「存在但未登记」漂移
 - `check_doc_counts.py`：引用检查误报规则描述路径（`../../shared/`）与示例 JSON 虚构文件（tests/）
 

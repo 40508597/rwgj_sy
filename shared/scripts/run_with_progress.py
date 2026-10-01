@@ -135,7 +135,7 @@ def _get_suggestions(script_name: str, error_msg: str) -> str:
 
     elif script_name == "gate_check.py":
         suggestions.append("• 确认项目符合硬门禁规则")
-        suggestions.append("• 查看 shared/references/hard-gates.md")
+        suggestions.append("• 查看 shared/references/validation-checklist.md（硬约束门禁）")
 
     if not suggestions:
         suggestions.append("• 查看脚本帮助: python <script> --help")

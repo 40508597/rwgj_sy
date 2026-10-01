@@ -1,6 +1,16 @@
 # 任务架构总入口
 
-> 这是薄入口，不是能力全集。**加载本技能即进入强约束模式**：项目级任务必须按三层路由执行，禁止跳过任何一层。
+> 这是薄入口，不是能力全集。**按任务范围启用约束**：完整流程依次进入深度设计和架构物化层，协议层仅按需；最小闭环与完全跳过按下文规则执行。
+
+> 下文脚本路径均为相对表述，执行前一律先用解析器取绝对路径：
+>
+> ```bash
+> python "<技能安装目录>/shared/scripts/resolve_tool.py" gate_check --json
+> ```
+>
+> 先从本次加载的 SKILL.md 绝对路径得到技能安装目录；解析器本身无需调用方拥有 shared/。命令在调用方项目目录执行，所得绝对路径记为 `<resolved>`；后续工具使用这个路径。
+>
+> 解析顺序：项目级锚点（`architecture.json` / `architecture/` 所在目录）→ 本技能安装目录 `shared/scripts/`。两处都不存在＝工具缺失：按对应参考文档文本规则降级，并在验证证据中记录「未运行原因」。（v1.2 起，此解析器取代旧版「两次存在性检查」散文流程。）
 
 ## 何时触发
 
@@ -13,40 +23,20 @@
 
 ### 自动检测机制（防止遗漏）
 
-当用户开始一个新任务但**未明确提及任务架构**时，Agent 必须先运行自动检测：
+用户已明确使用本技能，或已发现受管锚点时直接按本次范围处理。只有新项目是否适用尚不明确时运行一次自动检测；同一任务不重复扫描：
 
 ```bash
-python shared/scripts/detect_should_trigger.py
+python <resolved>/detect_should_trigger.py
 ```
 
 > 若需关闭自动检测（常驻型工具中减少提醒摩擦），设置环境变量 `TASK_ARCH_AUTO_TRIGGER=off`，
 > 此时脚本返回码 2，Agent 不得再主动提醒，但用户显式要求时仍须进入本流程。
 
-若检测结果为"建议使用任务架构"，**必须主动提醒用户**：
+检测建议不构成扩大任务范围的授权。已受管或用户已授权架构工作时不再询问；未受管且引入完整架构管理会显著扩大本次范围时，说明检测依据并询问一次。用户明确不使用时尊重该选择。
 
-```
-🔍 检测到项目符合任务架构适用场景：
-  • [检测到的特征列表]
+**不触发（完全跳过）**：一次性脚本、小 demo、临时实验、概念问答、纯只读查看，直接用编程智能体自身能力。受管项目中的「小命令」（启动项目 / 运行单条命令 / 修改某个元素）仍受管，但降级为最小闭环——见「小命令降级」一节。
 
-建议使用任务架构技能来管理本项目。
-是否使用任务架构？[是/否]
-
-如果选择是，将自动进入架构先行模式。
-```
-
-**不触发**：一次性脚本、小 demo、临时实验、概念问答、运行单条命令。直接用编程智能体自身能力即可。
-
-## 工具执行前置：先解析路径（强制）
-
-本文件与子能力层中的 `shared/scripts/...`、`../../shared/scripts/...` 均为相对路径，**执行前必须先解析为实际存在的位置**：
-
-1. 先检查当前项目根目录：`<项目根>/shared/scripts/<工具>.py` 是否存在。
-2. 不存在时，使用本技能安装目录：`<技能安装目录>/shared/scripts/<工具>.py`。
-3. 解析后用**绝对路径**执行（或先进入对应目录再执行），禁止把未解析的相对路径直接交给 shell。
-
-两处都不存在（工具缺失）时，按文本规则降级执行，并在验证证据中记录「未运行原因」。
-
-## 第一动作：主会话回执 → 读状态 → 判定 → 行动
+## 第一动作：判定范围 → 主会话回执 → 按需读状态 → 行动
 
 加载后**第一段主会话输出必须可见**，禁止静默调用、禁止只在内部读文件不反馈。
 
@@ -70,55 +60,43 @@ python shared/scripts/detect_should_trigger.py
 后续：使用普通编程智能体能力处理
 ```
 
-**无上述回执，不得声称已启用任务架构。**
-
-加载后必须按以下顺序执行：
+**无可见回执，不得声称已启用任务架构。** 同一任务只输出一次启动回执，可合并为简短一段；范围未变时不重复贴模板。纯只读/问答在此说明完全跳过后直接回答，不创建状态文件。
 
 ### 1. 强制读取进度状态（如果存在）
 
 ```bash
-python shared/scripts/manage_state.py show --state-path architecture/_state.json
+python <resolved>/manage_state.py show --state-path architecture/_state.json
 ```
 
-若状态文件存在，**必须先输出状态摘要**：
-- 当前在哪个阶段
-- 整体完成度
-- 下一步行动是什么
-
-若状态文件不存在且项目有 `architecture/` 目录，**必须先创建状态文件**：
-```bash
-python shared/scripts/manage_state.py init --project-name "项目名" --state-path architecture/_state.json
-```
+完整流程和最小闭环先读已有状态；只展示与本次任务有关的阶段、阻塞项和下一步。修改类任务缺少状态时先初始化；纯运行任务不为记录流程而创建状态，需说明状态缺失并记录执行证据。完全跳过档不读写状态。
 
 ### 2. 任务判定
 
-给出以下信息：
-
-1. 任务判定：属于 创建/分析/追加/修改/校验 中的哪一种（用户未写命令时自动判定）。
-2. 受管状态：当前项目根是否存在 `architecture.json` 或 `architecture/`。存在=受管项目，必须架构先行。
-3. 本次读取哪些层（骨架/契约/清单/细节）。
-4. 影响范围：会触碰哪些模块、文件、切片。
-5. 最小闭环：本次至少要完成什么才算交付。
-6. 任务姿态（工具可用时运行 `detect_task_posture.py` 辅助判定，并写入主会话）：
-   - `dynamic`（需求多变、反复演进）→ 进入完整三层流程，逐块确认后再推进；
-   - `linear`（顺序明确、步骤固定）→ 进入完整三层，但可批量推进、减少中途打断；
-   - `reactive`（简单修改、单条命令）→ 只走最小闭环：读状态 → 定向修改 → 三重校验，不展开功能簇。
+内部完成七项判定，主会话只说明任务类型、影响范围、执行档位和下一步，不逐项打印无变化的信息：**①** 属于 创建/分析/追加/修改/校验 哪一种（用户未写命令时自动判定）；**②** 受管状态（`architecture.json` 或 `architecture/` 存在＝受管，必须架构先行）；**③** 本次读取哪些层；**④** 影响范围（模块/文件/切片）；**⑤** 最小闭环（至少完成什么才算交付）；**⑥** 任务姿态（工具可用时运行 `detect_task_posture.py` 并写入主会话；三姿态为文档口径，见 `../../shared/references/task-posture.md`）：`dynamic` 完整流程、只确认尚未裁决的关键边界 → `linear` 完整流程可批量推进 → `reactive` 只走最小闭环（读状态→功能簇最小定位→定向修改→三重校验）；**⑦** 小命令降级（工具可用时运行 `detect_small_command.py` 三档判定并输出降级回执，禁止静默）。姿态与三档并存时**以三档判定为准**；拿不准时一律按完整流程处理。
 
 **未完成状态读取和任务判定前，不得创建文件、修改代码、扩展业务范围。**
 
 ### 3. 执行凭证（必须留痕）
 
-进入完整流程后，主会话必须持续输出可核验凭证，至少包含：
+在阶段变化、关键结果和交付时输出可核验凭证；常规逐条日志写入验证证据，不要求反复粘贴。凭证包括：已读取的能力层文件；已运行或跳过的工具（命令、返回码、跳过原因）；已创建或修改的架构文件/切片路径；当前阶段状态（`manage_state.py show/--json`）；下一步行动（任务判定或 `judge_progress.py` 裁决结果）。不得只说「已调用技能」而不给凭证。
 
-- 已读取的能力层文件：`LAYER.md` / `CORE.md` / `SCHEMA.md` / `PROTOCOL.md`（按实际读取列出）
-- 已运行或跳过的工具：命令、返回码、跳过原因
-- 已创建或修改的架构文件/切片路径
-- 当前阶段状态：来自 `manage_state.py show` 或 `show --json`
-- 下一步行动：来自任务判定或 `judge_progress.py` 裁判结果
+## 小命令降级（三档判定）
 
-不得只说「已调用技能」或「已按任务架构处理」而不给出上述凭证。
+```bash
+python <resolved>/detect_small_command.py --request "<用户需求文本>" --project-root <项目根>
+```
 
-## 三层路由（固定执行顺序，不得跳过）
+三档：**完全跳过**（概念问答/一次性脚本/纯只读查看）/ **最小闭环**（启动项目、运行单条命令、修改某个元素；分运行类与修改类）/ **完整流程**（新功能、重构、漂移排查）。判定链、词表、三档细节与回执模板详见 `../../shared/references/small-command-degradation.md`；规则真相源 `../../shared/assets/small-command-rules.json`。
+
+三条铁律：
+
+1. **最小闭环不是零架构**：必须做功能簇最小定位（小命令落到哪个功能树节点、读哪个切片），不全量展开功能簇。
+2. **非受管项目无锚点**：项目根没有 `architecture.json` 或 `architecture/` 时，最小闭环一律降为完全跳过。
+3. **高风险词禁止降级**：请求包含删除/支付/生产/权限等高风险实际操作时，强制升档完整流程；纯解释与只读查看保留轻量路径。复合请求逐项判定，问答不能掩盖后续操作。
+
+降级回执必须输出到主会话（禁止静默）：直接贴出脚本输出的「回执」字段。无回执不得声称已降级。
+
+## 三层路由（完整流程按顺序，协议层按需）
 
 ```text
 用户需求
@@ -130,9 +108,9 @@ python shared/scripts/manage_state.py init --project-name "项目名" --state-pa
 3. skills/agent-protocol/PROTOCOL.md     ← 仅按需：跨平台适配、硬门禁、标准输出、能力降级
 ```
 
-- **project-depth-core**：任何需求先进入，除非只是概念问答或单条命令。
-- **architecture-json**：需要创建/修改/校验 `architecture/` 架构文件夹、`architecture/index.json` 或切片时进入。
-- **agent-protocol**：仅在需要跨平台适配、标准化输出、硬门禁、能力降级、虚拟模块审议时进入。
+- **project-depth-core**：完整流程先进入；最小闭环只做功能簇最小定位，不全量展开。
+- **architecture-json**：需要创建/修改/校验 `architecture/` 架构文件夹或切片时进入。
+- **agent-protocol**：仅跨平台适配、标准化输出、硬门禁、能力降级、虚拟模块审议时进入。
 
 不得从本入口直接写代码、直接展开业务细节、直接判断完成。
 
@@ -154,116 +132,53 @@ python shared/scripts/manage_state.py init --project-name "项目名" --state-pa
 
 用户只说「使用任务架构做 XXX」但没写命令时，必须自动判定并选择其一，**不得跳过架构文件夹**。
 
-## 修改后必跑三重校验
+## 收尾校验与完成声明
 
-每次修改 `architecture/` 架构文件夹、总索引或切片后，**必须按顺序运行以下三重校验**：
-
-### 1. 占位符检查（强制，不通过禁止继续）
+每个相关变更批次完成后跑三重校验；同一批次无需每次落盘都重复运行。先检查占位符和一致性，通过后才推进对应阶段；不要为了让门禁变绿提前标记未完成工作：
 
 ```bash
-python shared/scripts/check_placeholders.py architecture/index.json
+python <resolved>/check_placeholders.py architecture/index.json     # ① 核心占位符
+python <resolved>/validate_architecture.py architecture/index.json  # ② 结构与一致性
+python <resolved>/manage_state.py update <阶段名> completed --note "完成说明"   # ③ 推进已验证阶段
 ```
 
-检测所有 `__待填__` 占位符。有核心占位符时返回错误码，**必须修复后才能继续**。
+阶段名为 9 个必需＋可选接口契约，真相源 `manage_state.py` 的 STANDARD_STAGES；21 项完整清单见 `../../shared/references/validation-checklist.md`（按需读取），校验结果写入变更记录。
 
-### 2. 状态更新（每完成一个阶段）
+### 完成前自检（缺一不可）
 
-```bash
-# 标记当前阶段为进行中
-python shared/scripts/manage_state.py update <阶段名> in_progress
+完整交付前统一运行 `python <resolved>/gate_check.py <项目根> --json`。它共用事中裁判的占位符、状态和架构规则，再检查漂移与脱轨；0=通过，1=明确失败，2=无法判定，后两者均不得声明验证通过。核对：
 
-# 完成后标记为已完成
-python shared/scripts/manage_state.py update <阶段名> completed --note "完成说明"
-```
+- [ ] 🔴 无核心占位符　- [ ] 🔴 所有必需阶段已完成　- [ ] 🔴 架构先行　- [ ] 🔴 代码与架构一致（无漂移）
+- [ ] 🟡 质量红线无 🔴　- [ ] 🟡 验证证据已记录　- [ ] 🟡 恢复点已更新　- [ ] 🟡 变更记录已追加　- [ ] 🟡 剩余风险已说明
 
-阶段名包括（9 个必需 + 1 个可选）：需求理解 / 功能树 / 模块树 / 模块详情 / 入口定义 / 数据拓扑 / 实现清单 / 测试责任 / 验证证据（必需），接口契约（可选，跨模块调用业务才需要）
+🔴＝硬性要求，不满足禁止声明完成；🟡＝重要但非阻塞，不满足需说明原因。逐项展开与判定细节见 `validation-checklist.md` §完成前自检。
 
-真相源：`shared/scripts/manage_state.py` 的 STANDARD_STAGES。
+**结论首行固定格式（机器可判，二选一）**：
 
-### 3. 架构一致性校验（21 项）
+- 通过后宣告：首行必须是 **`【任务完成】`** ＋一句话说明；
+- 未通过时汇报：首行必须是 **`【未通过验证】`** ＋失败项与下一步，此时只能表述「已完成设计/实现，未通过验证」，并写入恢复点与变更记录。
 
-```bash
-python shared/scripts/validate_architecture.py architecture/index.json
-```
-
-依赖完整性/路由页面对应/接口实现/数据迁移/认证/异常测试/依赖无环/交互完整性/代码漂移/变更可追踪/入口类型/验证证据/恢复点/功能树落位/模块详情/模块树/切片同步等。完整清单见 `../../shared/references/validation-checklist.md`，校验结果写入变更记录。
-
-**三重校验顺序不可颠倒**：占位符未清空时运行其他校验无意义。
-
-## 完成前自检（缺一不可）
-
-运行以下命令完成自检：
-
-```bash
-# 1. 检查占位符（强制）
-python shared/scripts/check_placeholders.py architecture/index.json
-
-# 2. 检查进度状态（强制）
-python shared/scripts/manage_state.py show
-
-# 3. 检查架构一致性（强制）
-python shared/scripts/validate_architecture.py architecture/index.json
-```
-
-自检清单：
-
-- [ ] 🔴 无核心占位符：`check_placeholders.py` 返回 0，无 `__待填__`
-- [ ] 🔴 所有必需阶段已完成：`manage_state.py show` 显示必需阶段完成度 100%
-- [ ] 🔴 架构先行：先改 `architecture/index.json` 或切片再改代码
-- [ ] 🔴 代码与架构文件夹一致：无漂移
-- [ ] 🟡 质量红线已检查：`check_quality_redlines.py` 无 🔴（验证全绿 ≠ 架构正确，红线拦截明显坏）
-- [ ] 🟡 验证证据已记录：命令/截图/手检/未验证项
-- [ ] 🟡 上下文恢复点已更新：当前任务、继续位置、下一步、约束、风险
-- [ ] 🟡 变更记录已追加：时间、操作类型、原因、影响范围、验证结果
-- [ ] 🟡 剩余风险已说明
-
-🔴 = 硬性要求，不满足禁止声明完成  
-🟡 = 重要但非阻塞，不满足需说明原因
-
-未满足完成定义时，只能汇报「已完成设计/实现，未完成验证」，并写入恢复点和变更记录。
+该首行是宿主适配器的输入契约；只有实际配置并启用适配器才会自动拦截。无 hook 时仍须主动运行门禁。启动、查看等局部任务只汇报本次执行结果，不用项目整体完成声明；未通过门禁不妨碍继续解决问题或如实汇报阻塞。
 
 ## 详细参考路由（按需加载，不全量读取）
 
-按触发信号读取对应参考，**默认不全量加载**（注意力保护）：
+按触发信号读取，**默认不全量**（注意力保护）：
 
-### project-depth-core 层
-
-- 模糊需求、功能簇、反薄 Demo、展开停止规则、实现期循环展开：`../../shared/references/function-clusters.md`
-- 组件、接口、API、CLI、后台任务、交付物、交互闭环：`../../shared/references/interaction-completeness.md`
-- 多层递进、逐块深度设计、状态流转：`../../shared/references/progressive-decomposition.md`
-- 功能/模块/文件拆分粒度和停止规则：`../../shared/references/splitting-guide.md`
-- 影响范围、智能关联、优先级冲突：`../../shared/references/association-and-priority.md`
-- UI/测试/安全/性能/部署/文档等专业能力路由：`../../shared/references/capability-index.md`
-- 受控主动性、注意力保护、日常速查：`../../shared/references/principles-card.md`
-
-### architecture-json 层
-
-- JSON 字段、中文化规范、四层读取策略、schema 底线：`../../shared/references/schemas.md`
-- 五个命令、创建/分析/修改/追加/校验工作流：`../../shared/references/commands-workflows.md`
-- 21 项一致性校验、禁止事项、完成前自检：`../../shared/references/validation-checklist.md`
-- 强制切片目录、架构文件夹、多人/多会话协作：`../../shared/references/json-sharding.md`
-- 上下文压缩、中断续跑、恢复点：`../../shared/references/context-recovery.md`
-- 任务前置输出、架构变更对比、失败恢复：`../../shared/references/execution-templates.md`
-
-### agent-protocol 层（仅按需）
-
-- 跨 Codex/Claude Code/Trae/Cursor/Windsurf/Cline/自研 Agent：`../../shared/references/universal-agent-protocol.md`
-- 动态姿势语境、阶段切换、风险覆盖：`../../shared/references/dynamic-posture-context.md`
-- 虚拟模块智能体、模块边界、跨模块提案：`../../shared/references/module-agent-protocol.md`
-- 硬约束门禁、状态跃迁、阻塞/确认/降级：`../../shared/references/hard-gates.md`
-- 标准化模块提案、门禁结果、风险/验证报告：`../../shared/references/agent-output-contract.md`
-- 质量红线（格式之外的质量底线，自动）：`../../shared/scripts/check_quality_redlines.py`
-- 独立审计问卷（语义质量，人工/LLM 留痕）：`../../shared/scripts/audit_architecture.py`（generate / report）
+- 小命令降级（规则/词表/工具）：`../../shared/references/small-command-degradation.md`｜`small-command-rules.json`｜`detect_small_command.py`
+- 功能簇/反薄Demo/交互完整性/递进拆分/拆分粒度/关联优先级/capability 索引/原则卡：`function-clusters.md` `interaction-completeness.md` `progressive-decomposition.md` `splitting-guide.md` `association-and-priority.md` `capability-index.md` `principles-card.md`
+- JSON 规范/五命令工作流/21 项校验/切片分片/上下文恢复/执行模板：`schemas.md` `commands-workflows.md` `validation-checklist.md` `json-sharding.md` `context-recovery.md` `execution-templates.md`
+- agent-protocol 层（仅按需）：跨平台 `universal-agent-protocol.md`；任务姿态 `task-posture.md`；虚拟模块 `module-agent-protocol.md`；硬约束门禁 `validation-checklist.md`；提案契约 `agent-output-contract.md`；质量红线（自动）`check_quality_redlines.py`；独立审计 `audit_architecture.py generate/report`
+（均在 `../../shared/references/` 与 `../../shared/scripts/` 下，可用 resolve_tool 定位。）
 
 ## 定位规则（多项目共用）
 
-1. 先检测当前工作项目是否存在 `architecture.json`。
-2. 若存在，项目真相源只读取当前项目的 `architecture.json -> architecture/index.json`。
+1. 检测当前项目的 `architecture.json` 或 `architecture/`。
+2. 有指针则跟随总索引；仅有目录则读取 `architecture/index.json`，缺失时报告未验证。
 3. 能力文件优先从当前项目根目录的 `skills/`、`shared/` 读取。
 4. 当前项目没有能力文件时，从本技能安装目录读取 `skills/`、`shared/`。
 5. **不得把项目状态、恢复点、变更记录或架构切片写入全局技能目录**。
 
-子技能中的 `../../shared/` 路径按同一规则解析：先看当前项目根目录是否有 `shared/`，没有则回到本技能安装目录的 `shared/`。
+子技能中的 `../../shared/` 路径按同一规则解析；也可交给 `resolve_tool.py` 统一处理。
 
 ## 辅助参考（给人看）
 

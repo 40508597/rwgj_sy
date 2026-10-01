@@ -66,7 +66,7 @@ QUESTIONS = [
      "依据": "capability-index.md 专业能力路由"},
     {"编号": "q10", "维度": "一致性",
      "问题": "架构与当前代码实现是否一致（或差异已在变更记录中说明）？",
-     "依据": "hard-gates.md 架构先行门禁"},
+     "依据": "validation-checklist.md 架构先行门禁"},
 ]
 
 VALID_CONCLUSIONS = {"yes", "no", "na"}

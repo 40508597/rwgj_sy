@@ -10,6 +10,7 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import _archlib  # noqa: E402
+from scan_code_drift import DEFAULT_IGNORE_DIRS
 
 _archlib.configure_utf8_stdout()
 
@@ -74,6 +75,9 @@ def should_trigger_task_architecture(project_root: Path) -> tuple[bool, list[str
         else:
             reasons.append("⚠ 发现 architecture/ 目录但缺少 index.json")
 
+    if reasons:
+        return True, reasons  # 已有受管锚点，无需重复扫描代码量。
+
     # 检查2：是否是多模块项目
     common_module_dirs = ["src", "lib", "modules", "packages", "services", "components"]
     module_count = sum(1 for d in common_module_dirs if (project_root / d).exists())
@@ -92,26 +96,27 @@ def should_trigger_task_architecture(project_root: Path) -> tuple[bool, list[str
         reasons.append("✓ 发现项目配置文件（非临时脚本）")
 
     # 检查4：代码规模
-    code_files = []
+    code_count = 0
     code_extensions = {".py", ".js", ".ts", ".jsx", ".tsx", ".go", ".rs", ".java", ".c", ".cpp", ".cs"}
 
     try:
-        for ext in code_extensions:
-            code_files.extend(project_root.rglob(f"*{ext}"))
-            if len(code_files) > 20:  # 早停优化
-                break
+        if module_count >= 2 and has_config:
+            for _ in _archlib.iter_actual_files(project_root, code_extensions, DEFAULT_IGNORE_DIRS):
+                code_count += 1
+                if code_count > 10:
+                    break
     except OSError:
         # 目录扫描遇权限错误等不可读目录时降级处理，用已扫到的部分继续
         pass
 
-    if len(code_files) > 10:
-        reasons.append(f"✓ 代码文件数量 {len(code_files)}+ （非小 demo）")
+    if code_count > 10:
+        reasons.append(f"✓ 代码文件数量至少 {code_count} （非小 demo）")
 
     # 判定逻辑
     should_trigger = (
         arch_json.exists() or
         (arch_dir.exists() and arch_dir.is_dir()) or
-        (module_count >= 2 and has_config and len(code_files) > 10)
+        (module_count >= 2 and has_config and code_count > 10)
     )
 
     if not should_trigger and reasons:

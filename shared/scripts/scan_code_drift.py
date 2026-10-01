@@ -185,7 +185,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         result = scan_code_drift(project_root, architecture_path, extensions)
-    except (json.JSONDecodeError, ValueError) as exc:
+    except (OSError, ValueError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
 

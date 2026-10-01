@@ -8,13 +8,13 @@ description: 任务架构能力体系全局入口。安装一次即可在多个�
 
 ## 定位规则
 
-1. 先检测当前工作项目是否存在 `architecture.json`。
-2. 若存在，项目真相源只读取当前项目的 `architecture.json -> architecture/index.json`。
+1. 先检测当前工作项目的 `architecture.json` 或 `architecture/`。
+2. 有指针时跟随到总索引；仅有目录时读取 `architecture/index.json`，缺失则报告未验证。
 3. 能力文件优先从当前项目根目录的 `skills/`、`shared/` 读取。
 4. 当前项目没有能力文件时，从本技能安装目录读取 `skills/`、`shared/`。
 5. 不得把项目状态、恢复点、变更记录或架构切片写入全局技能目录。
 
-子能力层中的 `../../shared/` 路径按同一规则解析：先看当前项目根目录是否有 `shared/`，没有则回到本技能安装目录的 `shared/`。
+解析器自身从已加载 SKILL.md 所在目录定位：`python "<技能安装目录>/shared/scripts/resolve_tool.py" <工具名>`；保持工作目录为调用方项目。子能力层中的 `../../shared/` 路径按同一规则解析：先看当前项目根目录是否有 `shared/`，没有则回到本技能安装目录的 `shared/`。
 
 ## 路由顺序
 

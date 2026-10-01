@@ -26,6 +26,7 @@ REQUIRED_PATHS = [
     "shared/scripts/validate_architecture.py",
     "shared/scripts/scan_code_drift.py",
     "shared/scripts/_archlib.py",
+    "shared/assets/risk-words.json",
     "shared/assets/schema/architecture.schema.json",
     "shared/assets/architecture-folder-template/architecture/features/core.json",
     "shared/assets/architecture-folder-template/architecture/modules/structure.json",

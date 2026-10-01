@@ -38,6 +38,22 @@ class TestDetectRisk(unittest.TestCase):
     def test_low_risk(self):
         self.assertEqual(detect_task_posture.detect_risk("添加一个查询功能", RULES), "低")
 
+    def test_risk_words_single_source_loaded(self):
+        """规则文件已不再内嵌风险词，检测器回退读 risk-words.json 单一真相源。"""
+        self.assertIn("风险词说明", RULES)
+        self.assertNotIn("风险词", RULES)
+        self.assertEqual(detect_task_posture.detect_risk("删除用户", RULES), "高")
+
+    def test_refactor_stays_medium_risk(self):
+        """兼容性回归：老规则中「重构」属中风险，单源化后不得丢失。"""
+        self.assertEqual(detect_task_posture.detect_risk("重构模块", RULES), "中")
+
+    def test_rules_risk_override_takes_precedence(self):
+        custom = json.loads(json.dumps(RULES))
+        custom["风险词"] = {"高": ["炸"], "中": []}
+        self.assertEqual(detect_task_posture.detect_risk("点个炸鸡", custom), "高")
+        self.assertEqual(detect_task_posture.detect_risk("点个炸鸡", RULES), "低")
+
 
 class TestDetectTaskPosture(unittest.TestCase):
     def test_managed_project_detected(self):
@@ -47,6 +63,15 @@ class TestDetectTaskPosture(unittest.TestCase):
             result = detect_task_posture.detect_task_posture("新增一个导出功能", root, RULES)
             self.assertTrue(result["受管项目"])
             self.assertIn("architecture.json", result["必须加载"])
+
+    def test_sliced_project_pointer_points_to_index(self):
+        """兼容性：仅 architecture/ 切片目录的老项目，必须加载指向 architecture/index.json。"""
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            (root / "architecture").mkdir()
+            result = detect_task_posture.detect_task_posture("新增一个导出功能", root, RULES)
+            self.assertTrue(result["受管项目"])
+            self.assertIn("architecture/index.json", result["必须加载"])
 
     def test_unmanaged_defaults(self):
         with tempfile.TemporaryDirectory() as td:

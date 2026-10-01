@@ -216,7 +216,7 @@ def _module_ids_from_tree(nodes: Any) -> set[str]:
 def _check_verification_evidence(data: dict[str, Any]) -> tuple[list[str], list[str]]:
     """校验13：验证证据完整。六类（自动化测试/架构校验/浏览器验收/截图/手动检查/未验证项）
     必须每项是数组；六类全空且 未验证项 也空 → error（声称完成但无证据，
-    与 hard-gates 验证证据门禁对齐：完成项必须有命令/截图/手检/未验证项记录）。
+    与 validation-checklist.md 验证证据门禁对齐：完成项必须有命令/截图/手检/未验证项记录）。
     缺失整段或不是对象由顶层 required 校验覆盖。
 
     返回 (errors, warnings)：类型错误归 warning（结构问题但非阻塞），

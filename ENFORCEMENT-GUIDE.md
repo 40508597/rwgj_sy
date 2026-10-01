@@ -296,11 +296,14 @@ python shared/scripts/manage_state.py init --project-name "项目名"
 # 1. 占位符检查（强制，不通过禁止继续）
 python shared/scripts/check_placeholders.py architecture/index.json
 
-# 2. 状态更新（每完成一个阶段）
+# 2. 架构一致性校验
+python shared/scripts/validate_architecture.py architecture/index.json
+
+# 3. 通过后推进已完成阶段
 python shared/scripts/manage_state.py update <阶段名> completed
 
-# 3. 架构一致性校验（21 项）
-python shared/scripts/validate_architecture.py architecture/index.json
+# 完成交付前运行统一门禁（0=通过，1=失败，2=无法判定）
+python shared/scripts/gate_check.py . --json
 ```
 
 ### 完成前自检清单

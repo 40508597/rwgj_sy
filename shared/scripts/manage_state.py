@@ -5,7 +5,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
+import copy
+import tempfile
+import time
+from contextlib import contextmanager
+from functools import wraps
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -73,18 +79,146 @@ def load_state(state_path: Path) -> dict[str, Any] | None:
     """加载状态文件"""
     if not state_path.exists():
         return None
-    try:
-        with open(state_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except (OSError, json.JSONDecodeError):
-        return None
+    with open(state_path, "r", encoding="utf-8-sig") as f:
+        state = json.load(f)
+    validate_state(state)
+    update_completion(state)  # 派生计数不作为真相源，避免旧缓存误报完成。
+    return state
+
+
+def validate_state(state: Any) -> None:
+    if not isinstance(state, dict) or not isinstance(state.get("_meta"), dict):
+        raise ValueError("状态必须是对象，且包含 _meta 对象")
+    stages = state.get("stages")
+    if not isinstance(stages, list) or not isinstance(state.get("blockers"), list):
+        raise ValueError("stages 和 blockers 必须是数组")
+    required = {s["id"] for s in STANDARD_STAGES if s["required"]}
+    seen = set()
+    for stage in stages:
+        if not isinstance(stage, dict) or not isinstance(stage.get("id"), str):
+            raise ValueError("阶段必须有字符串 id")
+        if stage["id"] in seen or stage.get("status") not in {"pending", "in_progress", "completed", "skipped"}:
+            raise ValueError("阶段 id 重复或状态非法")
+        if type(stage.get("required")) is not bool or (stage["id"] in required and not stage["required"]):
+            raise ValueError("必需阶段标记非法")
+        if not isinstance(stage.get("notes"), list) or not isinstance(stage.get("description"), str):
+            raise ValueError("阶段 notes/description 格式非法")
+        seen.add(stage["id"])
+    if not required.issubset(seen):
+        raise ValueError("缺少必需阶段: " + ", ".join(sorted(required - seen)))
+    if state.get("current_stage") not in seen or not isinstance(state["_meta"].get("project_name"), str):
+        raise ValueError("当前阶段或项目名称非法")
+    revision = state["_meta"].get("revision", 0)
+    if type(revision) is not int or revision < 0:
+        raise ValueError("revision 必须为非负整数")
+
+
+class RevisionConflict(ValueError):
+    """调用方必须重新读取状态后再重试。"""
+
+
+@contextmanager
+def state_lock(state_path: Path, timeout: float = 10.0):
+    """锁住完整事务；锁文件保留，防止删除后多个进程锁住不同 inode。"""
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    lock_path = state_path.with_suffix(state_path.suffix + ".lock")
+    with open(lock_path, "a+b") as lock:
+        if os.fstat(lock.fileno()).st_size == 0:
+            lock.write(b"0")
+            lock.flush()
+        deadline = time.monotonic() + timeout
+        while True:
+            try:
+                lock.seek(0)
+                if os.name == "nt":
+                    import msvcrt
+                    msvcrt.locking(lock.fileno(), msvcrt.LK_NBLCK, 1)
+                else:
+                    import fcntl
+                    fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except OSError:
+                if time.monotonic() >= deadline:
+                    raise TimeoutError(f"等待状态锁超时: {state_path}")
+                time.sleep(0.02)
+        try:
+            yield
+        finally:
+            lock.seek(0)
+            if os.name == "nt":
+                import msvcrt
+                msvcrt.locking(lock.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                import fcntl
+                fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
+
+
+def locked_command(func):
+    @wraps(func)
+    def run(args):
+        with state_lock(args.state_path):
+            return func(args)
+    return run
 
 
 def save_state(state_path: Path, state: dict[str, Any]) -> None:
-    """保存状态文件"""
-    state["_meta"]["updated_at"] = datetime.now().isoformat()
-    with open(state_path, "w", encoding="utf-8") as f:
-        json.dump(state, f, ensure_ascii=False, indent=2)
+    """库调用也做锁内版本比较，拒绝保存过时快照。"""
+    with state_lock(state_path):
+        current = load_state(state_path)
+        revision = state_revision(current) if current is not None else 0
+        if revision != state_revision(state):
+            raise RevisionConflict(f"状态已更新: 期望 {state_revision(state)}，实际 {revision}")
+        _write_state(state_path, state)
+
+
+def _write_state(state_path: Path, state: dict[str, Any]) -> None:
+    """仅由持有 state_lock 的代码调用；独立临时文件 + 原子替换。"""
+    validate_state(state)
+    snapshot = copy.deepcopy(state)
+    update_completion(snapshot)
+    meta = snapshot["_meta"]
+    meta["updated_at"] = datetime.now().isoformat()
+    meta["revision"] = state_revision(state) + 1
+    fd, name = tempfile.mkstemp(prefix=".tmp-state-", suffix=".json", dir=state_path.parent)
+    tmp_path = Path(name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(snapshot, f, ensure_ascii=False, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, state_path)
+        state.update(snapshot)
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+
+def state_revision(state: dict[str, Any]) -> int:
+    """读取状态文件的当前 revision（缺失视为 0）。"""
+    try:
+        return int((state.get("_meta") or {}).get("revision", 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def check_expected_revision(state: dict[str, Any], raw_expected: Any, action: str) -> bool:
+    """乐观锁校验：--expect-rev 给定且与当前 revision 不符时打印错误并拒绝。"""
+    if raw_expected is None:
+        return True
+    try:
+        expected = int(raw_expected)
+    except (TypeError, ValueError):
+        print(f"ERROR: --expect-rev 必须是整数，收到: {raw_expected}", file=sys.stderr)
+        return False
+    current = state_revision(state)
+    if current != expected:
+        print(
+            f"ERROR: 状态已被其他会话修改（action={action}, "
+            f"期望 revision={expected}, 当前 revision={current}）。"
+            f"请重新读取最新状态后再试。",
+            file=sys.stderr,
+        )
+        return False
+    return True
 
 
 def update_completion(state: dict[str, Any]) -> None:
@@ -147,6 +281,7 @@ def generate_next_actions(state: dict[str, Any]) -> list[str]:
     return actions
 
 
+@locked_command
 def cmd_init(args: argparse.Namespace) -> int:
     """初始化状态文件"""
     state_path = args.state_path
@@ -156,7 +291,14 @@ def cmd_init(args: argparse.Namespace) -> int:
         return 1
 
     state = create_initial_state(args.project_name)
-    save_state(state_path, state)
+    if state_path.exists():
+        try:
+            old = load_state(state_path)
+        except ValueError:
+            old = None  # 显式 --force 可重建损坏状态。
+        if old is not None:
+            state["_meta"]["revision"] = state_revision(old)
+    _write_state(state_path, state)
     print(f"✅ 状态文件已创建: {state_path}")
     return 0
 
@@ -185,6 +327,7 @@ def cmd_show(args: argparse.Namespace) -> int:
             "required_total": state["completion"]["required_total"],
             "next_actions": generate_next_actions(state),
             "blockers": state.get("blockers", []),
+            "revision": state_revision(state),
             "stages": [
                 {"id": s["id"], "status": s["status"], "required": s["required"]}
                 for s in state["stages"]
@@ -229,12 +372,16 @@ def cmd_show(args: argparse.Namespace) -> int:
     return 0
 
 
+@locked_command
 def cmd_update(args: argparse.Namespace) -> int:
     """更新阶段状态"""
     state = load_state(args.state_path)
     if state is None:
         print(f"ERROR: 状态文件不存在: {args.state_path}", file=sys.stderr)
         return 1
+
+    if not check_expected_revision(state, args.expect_rev, f"update {args.stage}"):
+        return 3
 
     stage_id = args.stage
     new_status = args.status
@@ -262,12 +409,13 @@ def cmd_update(args: argparse.Namespace) -> int:
 
     update_completion(state)
     state["next_actions"] = generate_next_actions(state)
-    save_state(args.state_path, state)
+    _write_state(args.state_path, state)
 
     print(f"✅ 阶段 '{stage_id}' 状态已更新: {old_status} → {new_status}")
     return 0
 
 
+@locked_command
 def cmd_add_blocker(args: argparse.Namespace) -> int:
     """添加阻塞项"""
     state = load_state(args.state_path)
@@ -275,11 +423,14 @@ def cmd_add_blocker(args: argparse.Namespace) -> int:
         print(f"ERROR: 状态文件不存在: {args.state_path}", file=sys.stderr)
         return 1
 
+    if not check_expected_revision(state, args.expect_rev, "add-blocker"):
+        return 3
+
     state.setdefault("blockers", []).append({
         "time": datetime.now().isoformat(),
         "content": args.blocker
     })
-    save_state(args.state_path, state)
+    _write_state(args.state_path, state)
     print(f"⛔ 已添加阻塞项: {args.blocker}")
     return 0
 
@@ -302,10 +453,14 @@ def main(argv: list[str] | None = None) -> int:
     p_update.add_argument("stage", help="阶段ID")
     p_update.add_argument("status", choices=["pending", "in_progress", "completed", "skipped"])
     p_update.add_argument("--note", help="添加备注")
+    p_update.add_argument("--expect-rev", type=int, default=None,
+                          help="乐观锁：仅当当前 revision 等于该值时才写入（不符退出码 3）")
 
     # add-blocker 命令
     p_blocker = subparsers.add_parser("add-blocker", help="添加阻塞项")
     p_blocker.add_argument("blocker", help="阻塞项描述")
+    p_blocker.add_argument("--expect-rev", type=int, default=None,
+                           help="乐观锁：仅当当前 revision 等于该值时才写入（不符退出码 3）")
 
     # 所有命令共用的参数
     for p in [p_init, p_show, p_update, p_blocker]:
@@ -314,14 +469,15 @@ def main(argv: list[str] | None = None) -> int:
 
     args = parser.parse_args(argv)
 
-    if args.command == "init":
-        return cmd_init(args)
-    elif args.command == "show":
-        return cmd_show(args)
-    elif args.command == "update":
-        return cmd_update(args)
-    elif args.command == "add-blocker":
-        return cmd_add_blocker(args)
+    try:
+        return {"init": cmd_init, "show": cmd_show, "update": cmd_update,
+                "add-blocker": cmd_add_blocker}[args.command](args)
+    except RevisionConflict as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 3
+    except (OSError, ValueError) as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
 
     return 1
 

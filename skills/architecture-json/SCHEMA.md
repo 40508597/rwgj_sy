@@ -110,17 +110,20 @@ python shared/scripts/validate_architecture.py architecture/index.json
 
 > 相对路径执行前按 LAYER.md「工具执行前置」规则解析：先项目根 `shared/`，再回退技能安装目录。
 
-### 强制执行工具（每次修改后必跑）
+### 变更批次后的校验与状态推进
 
 ```bash
 # 1. 占位符检查（强制，核心占位符未清空禁止继续）
 python ../../shared/scripts/check_placeholders.py architecture/index.json
 
-# 2. 状态更新（每完成一个阶段）
+# 2. 一致性通过后才能推进阶段
+python ../../shared/scripts/validate_architecture.py architecture/index.json
+
+# 3. 仅标记真实完成的阶段
 python ../../shared/scripts/manage_state.py update <阶段名> completed --note "完成说明"
 
-# 3. 事中验证裁判（综合三重检查）
-python ../../shared/scripts/judge_progress.py architecture/index.json
+# 完成交付前：统一收尾判定
+python ../../shared/scripts/gate_check.py . --json
 ```
 
 ### 传统验证工具（可用时优先运行）

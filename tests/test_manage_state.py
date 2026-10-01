@@ -6,6 +6,8 @@ import json
 import sys
 import tempfile
 import unittest
+import subprocess
+from unittest.mock import patch
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -76,6 +78,79 @@ class TestManageState(unittest.TestCase):
             ["add-blocker", "等待用户确认需求", "--state-path", str(self.state_path)]), 0)
         state = manage_state.load_state(self.state_path)
         self.assertEqual(len(state["blockers"]), 1)
+
+    def launch_writers(self, count=6, expected=None):
+        processes = []
+        for i in range(count):
+            cmd = [sys.executable, str(REPO_ROOT / "shared/scripts/manage_state.py"),
+                   "add-blocker", f"writer-{i}", "--state-path", str(self.state_path)]
+            if expected is not None:
+                cmd += ["--expect-rev", str(expected)]
+            processes.append(subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                               text=True, encoding="utf-8"))
+        for process in processes:
+            process.communicate(timeout=20)
+        return [p.returncode for p in processes]
+
+    def test_concurrent_updates_preserve_every_writer(self):
+        manage_state.save_state(self.state_path, manage_state.create_initial_state())
+        self.assertEqual(self.launch_writers(), [0] * 6)
+        saved = manage_state.load_state(self.state_path)
+        self.assertEqual({b["content"] for b in saved["blockers"]}, {f"writer-{i}" for i in range(6)})
+        self.assertEqual(manage_state.state_revision(saved), 7)
+
+    def test_concurrent_expected_revision_has_one_winner(self):
+        manage_state.save_state(self.state_path, manage_state.create_initial_state())
+        codes = self.launch_writers(expected=1)
+        self.assertEqual(codes.count(0), 1)
+        self.assertEqual(codes.count(3), 5)
+        saved = manage_state.load_state(self.state_path)
+        self.assertEqual(len(saved["blockers"]), 1)
+        self.assertEqual(manage_state.state_revision(saved), 2)
+
+    def test_stale_library_snapshot_is_rejected(self):
+        manage_state.save_state(self.state_path, manage_state.create_initial_state())
+        first = manage_state.load_state(self.state_path)
+        second = manage_state.load_state(self.state_path)
+        first["blockers"].append({"content": "first"})
+        manage_state.save_state(self.state_path, first)
+        with self.assertRaises(manage_state.RevisionConflict):
+            manage_state.save_state(self.state_path, second)
+        self.assertEqual(manage_state.load_state(self.state_path)["blockers"], first["blockers"])
+
+    def test_replace_failure_preserves_original_and_cleans_temp(self):
+        state = manage_state.create_initial_state()
+        manage_state.save_state(self.state_path, state)
+        old = self.state_path.read_bytes()
+        with patch.object(manage_state.os, "replace", side_effect=OSError("interrupted")):
+            with self.assertRaises(OSError):
+                manage_state.save_state(self.state_path, state)
+        self.assertEqual(self.state_path.read_bytes(), old)
+        self.assertEqual(manage_state.state_revision(state), 1)
+        self.assertEqual(list(self.state_path.parent.glob(".tmp-state-*")), [])
+
+    def test_derived_completion_is_recomputed(self):
+        state = manage_state.create_initial_state()
+        state["completion"]["required_completed"] = 9
+        self.state_path.write_text(json.dumps(state), encoding="utf-8")
+        self.assertEqual(manage_state.load_state(self.state_path)["completion"]["required_completed"], 0)
+
+    def test_missing_required_stage_and_corrupt_state_are_errors(self):
+        state = manage_state.create_initial_state()
+        state["stages"].pop(0)
+        for content in (json.dumps(state), "[]", "{broken"):
+            self.state_path.write_text(content, encoding="utf-8")
+            self.assertEqual(manage_state.main(["show", "--json", "--state-path", str(self.state_path)]), 2)
+
+    def test_os_releases_lock_when_writer_exits(self):
+        code = ("import sys,os; from pathlib import Path; sys.path.insert(0,sys.argv[1]); "
+                "import manage_state; lock=manage_state.state_lock(Path(sys.argv[2])); "
+                "lock.__enter__(); os._exit(0)")
+        proc = subprocess.run([sys.executable, "-c", code, str(REPO_ROOT / "shared/scripts"),
+                               str(self.state_path)], capture_output=True, timeout=10)
+        self.assertEqual(proc.returncode, 0)
+        with manage_state.state_lock(self.state_path, timeout=0.2):
+            pass
 
 
 if __name__ == "__main__":

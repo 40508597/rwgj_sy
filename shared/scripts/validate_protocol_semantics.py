@@ -23,9 +23,9 @@ _archlib.configure_utf8_stdout()
 
 REQUIRED_PROTOCOL_FILES = [
     "shared/references/universal-agent-protocol.md",
-    "shared/references/dynamic-posture-context.md",
+    "shared/references/task-posture.md",
     "shared/references/module-agent-protocol.md",
-    "shared/references/hard-gates.md",
+    "shared/references/validation-checklist.md",
     "shared/references/agent-output-contract.md",
 ]
 

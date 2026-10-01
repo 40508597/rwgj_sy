@@ -8,6 +8,8 @@
 # 首错即停，已执行的检查结果丢失，与目标相反。
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# 报告以 UTF-8 读取；Python 子进程（包括内联脚本）必须使用相同输出编码。
+export PYTHONIOENCODING=utf-8
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 REPORT_FILE="verification-report-${TIMESTAMP}.md"
 
@@ -310,6 +312,8 @@ if [ "$IS_CAPABILITY_PACKAGE" -eq 1 ]; then
         "能力包自检：注入未登记文件后应发现漂移（期望退出码 1）" \
         1
     rm -f "${DRIFT_PROJ}/src/extra.py"
+    mkdir -p "${DRIFT_PROJ}/architecture"
+    cp "${TMPDIR_VERIFY}/state.json" "${DRIFT_PROJ}/architecture/_state.json"
     run_check \
         "收尾门禁检查（正例）" \
         "python '${SCRIPT_DIR}/shared/scripts/gate_check.py' '${DRIFT_PROJ}' --architecture '${DRIFT_PROJ}/architecture.json'" \
@@ -339,7 +343,24 @@ run_check \
     "python '${SCRIPT_DIR}/shared/scripts/detect_task_posture.py' --request '使用任务架构检查当前项目' --project-root '${SCRIPT_DIR}'" \
     "分析当前请求的任务姿态（dynamic/linear/reactive）"
 
-# 6. 验证整体系统
+# 6. 小命令降级检测
+run_check \
+    "小命令降级检测" \
+    "python '${SCRIPT_DIR}/shared/scripts/detect_small_command.py' --request '启动项目' --project-root '${SCRIPT_DIR}' | grep -q '小命令降级'" \
+    "小命令三档判定并输出降级回执（完全跳过/最小闭环/完整流程）"
+
+# 6b. 小命令降级回归断言（修改类最小闭环必须保留功能簇最小定位+三重校验，防铁律稀释）
+mkdir -p "${TMPDIR_VERIFY}/smallcmd_proj" && echo '{}' > "${TMPDIR_VERIFY}/smallcmd_proj/architecture.json"
+if [ -f "${SCRIPT_DIR}/shared/scripts/check_regression_assertions.py" ]; then
+    run_check \
+        "小命令降级回归断言" \
+        "python '${SCRIPT_DIR}/shared/scripts/detect_small_command.py' --request '修改某个元素' --project-root '${TMPDIR_VERIFY}/smallcmd_proj' > '${TMPDIR_VERIFY}/smallcmd.json' && python '${SCRIPT_DIR}/shared/scripts/check_regression_assertions.py' --scenario small-command --file '${TMPDIR_VERIFY}/smallcmd.json'" \
+        "最小闭环回执必须保留 功能簇最小定位/三重校验 锚点（回归断言防铁律稀释）"
+else
+    skip_check "小命令降级回归断言" "check_regression_assertions.py 不存在"
+fi
+
+# 7. 验证整体系统
 if [ -f "${SCRIPT_DIR}/scripts/validate_task_architecture_system.py" ]; then
     run_check \
         "整体系统验证" \
@@ -349,7 +370,7 @@ else
     skip_check "整体系统验证" "验证脚本不存在"
 fi
 
-# 7. 单元测试（能力包自带 tests/ 时运行）
+# 8. 单元测试（能力包自带 tests/ 时运行）
 if [ -d "${SCRIPT_DIR}/tests" ]; then
     run_check \
         "单元测试" \
@@ -359,7 +380,7 @@ else
     skip_check "单元测试" "tests/ 目录不存在"
 fi
 
-# 8. 文档数字对账（README §4.5 与仓库实际盘点一致，防口径漂移）
+# 9. 文档数字对账（README §4.5 与仓库实际盘点一致，防口径漂移）
 if [ -f "${SCRIPT_DIR}/README.md" ]; then
     run_check \
         "文档数字对账" \
@@ -369,7 +390,7 @@ else
     skip_check "文档数字对账" "README.md 不存在"
 fi
 
-# 9. 端到端演示（临时受管项目跑通完整验证链）
+# 10. 端到端演示（临时受管项目跑通完整验证链）
 if [ -f "${SCRIPT_DIR}/scripts/demo_project.py" ]; then
     run_check \
         "端到端演示" \
@@ -379,7 +400,7 @@ else
     skip_check "端到端演示" "scripts/demo_project.py 不存在"
 fi
 
-# 10. 质量红线与独立审计（example 应通过；偷工减料反例应被拦截）
+# 11. 质量红线与独立审计（example 应通过；偷工减料反例应被拦截）
 if [ -f "${SCRIPT_DIR}/shared/scripts/check_quality_redlines.py" ]; then
     cat > "${TMPDIR_VERIFY}/make_redline_negative.py" << 'PYEOF'
 import json, sys
@@ -413,7 +434,7 @@ PYEOF
         1
 fi
 
-# 11. 架构可视化渲染（md/html/json 三种格式冒烟）
+# 12. 架构可视化渲染（md/html/json 三种格式冒烟）
 if [ -f "${SCRIPT_DIR}/shared/scripts/render_architecture.py" ]; then
     run_check \
         "可视化渲染（md）" \
@@ -460,6 +481,12 @@ if marker in text:
     text = text.replace(marker, marker + summary_block + "\n---\n", 1)
 Path(report).write_text(text, encoding="utf-8")
 PYEOF
+
+# 报告写入失败同样需要非零退出码，不能让后续统计掩盖错误。
+if [ "$?" -ne 0 ]; then
+    echo "报告生成失败" >&2
+    exit 1
+fi
 
 # 返回码：仅 FAILED 阻断（SKIPPED 不算失败）
 if [ "$FAILED_CHECKS" -gt 0 ]; then

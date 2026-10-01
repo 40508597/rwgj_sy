@@ -26,6 +26,7 @@ the behaviours previously hard-coded per script, so no caller regresses.
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any, Callable, Iterable, TypeVar
@@ -38,6 +39,16 @@ def configure_utf8_stdout() -> None:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
         sys.stderr.reconfigure(encoding="utf-8")
+
+
+def aggregate_status(statuses: Iterable[str]) -> str:
+    """统一门禁聚合：明确失败优先，其次未知，全部通过才通过。"""
+    values = list(statuses)
+    if "fail" in values:
+        return "fail"
+    if not values or any(value != "pass" for value in values):
+        return "unknown"
+    return "pass"
 
 
 def project_root_for_architecture(path: Path) -> Path:
@@ -153,6 +164,11 @@ def run_with_io_errors(func: Callable[[], T]) -> tuple[T | None, str | None, int
 
 def collect_actual_files(root: Path, extensions: set[str], ignore_dirs: set[str],
                          ignore_file_prefixes: tuple[str, ...] = (".tmp-",)) -> set[str]:
+    return set(iter_actual_files(root, extensions, ignore_dirs, ignore_file_prefixes))
+
+
+def iter_actual_files(root: Path, extensions: set[str], ignore_dirs: set[str],
+                      ignore_file_prefixes: tuple[str, ...] = (".tmp-",)) -> Iterable[str]:
     """Collect real files under ``root`` whose suffix is in ``extensions``.
 
     Forward-slash relative paths. Skips directories in ``ignore_dirs``, files whose
@@ -161,24 +177,26 @@ def collect_actual_files(root: Path, extensions: set[str], ignore_dirs: set[str]
     ``scan_code_drift.collect_actual_files`` and ``gate_check._count_impl_files``
     used to keep in two places.
     """
-    actual: set[str] = set()
-    for path in root.rglob("*"):
-        if not path.is_file():
-            continue
-        if any(part in ignore_dirs for part in path.parts):
-            continue
-        if path.name.startswith(ignore_file_prefixes):
-            continue
-        if path.suffix.lower() not in extensions:
-            continue
-        if path.stat().st_size == 0:
-            continue
-        try:
-            relative = path.resolve().relative_to(root.resolve()).as_posix()
-        except ValueError:
-            relative = path.as_posix()
-        actual.add(relative)
-    return actual
+    # Prune before descending: dependency trees can contain far more files than
+    # the project. Ignore names apply below root, not to its ancestor directories.
+    resolved_root = root.resolve()
+
+    def raise_walk_error(error: OSError) -> None:
+        raise error  # An incomplete scan must not masquerade as a clean project.
+
+    for directory, dirs, files in os.walk(root, onerror=raise_walk_error):
+        dirs[:] = [name for name in dirs if name not in ignore_dirs]
+        for name in files:
+            if name.startswith(ignore_file_prefixes) or Path(name).suffix.lower() not in extensions:
+                continue
+            path = Path(directory) / name
+            if not path.is_file() or path.stat().st_size == 0:
+                continue
+            try:
+                relative = path.resolve().relative_to(resolved_root).as_posix()
+            except ValueError:
+                relative = path.as_posix()
+            yield relative
 
 
 def run_subprocess_json(cmd: list[str]) -> tuple[int, Any, str]:
@@ -211,5 +229,60 @@ def run_subprocess_json(cmd: list[str]) -> tuple[int, Any, str]:
         parsed = json.loads(result.stdout) if result.stdout else None
     except json.JSONDecodeError:
         parsed = None
-    err_text = result.stderr if parsed is None else result.stderr
+    err_text = (result.stderr or result.stdout) if parsed is None else result.stderr
     return result.returncode, parsed, err_text
+
+
+def load_json_utf8(path: Path) -> dict[str, Any]:
+    """Read a JSON file (utf-8-sig, BOM-safe) and require an object root.
+
+    Shared by the advisory detectors (detect_task_posture / detect_small_command)
+    so rule files with or without BOM load identically. Raises ``ValueError``
+    when the root node is not an object.
+    """
+    data = json.loads(path.read_text(encoding="utf-8-sig"))
+    if not isinstance(data, dict):
+        raise ValueError("规则文件根节点必须是对象")
+    return data
+
+
+def collect_matches(text: str, words: Any) -> list[str]:
+    """Case-insensitive substring matches of ``words`` in ``text``.
+
+    Non-list ``words`` (e.g. a rule author's typo of a bare string) yields no
+    matches instead of silently iterating per character.
+    """
+    if not isinstance(words, (list, tuple)):
+        return []
+    lowered = text.lower()
+    matches: list[str] = []
+    for word in words:
+        if not isinstance(word, str) or not word:
+            continue
+        if word.lower() in lowered:
+            matches.append(word)
+    return matches
+
+
+def contains_any(text: str, words: Any) -> bool:
+    return bool(collect_matches(text, words))
+
+
+def unique(items: list[str]) -> list[str]:
+    """Deduplicate preserving first-seen order."""
+    seen: set[str] = set()
+    result: list[str] = []
+    for item in items:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
+
+
+def is_managed(project_root: Path) -> bool:
+    """受管项目：根存在 architecture.json 或 architecture/ 目录（LAYER.md 口径）。
+
+    单点定义，供 detect_task_posture / detect_small_command 等 advisory 工具
+    共用，避免切片项目（仅 architecture/）在两个工具中给出矛盾信号。
+    """
+    return (project_root / "architecture.json").exists() or (project_root / "architecture").is_dir()

@@ -17,251 +17,135 @@ _archlib.configure_utf8_stdout()
 
 
 def run_command(cmd: list[str]) -> tuple[int, str, str]:
-    """运行命令并返回结果。
-
-    转调 _archlib.run_subprocess_json，但保留 (code, stdout, stderr) 元组形态，
-    以便调用方沿用既有解析逻辑。新代码应直接用 _archlib.run_subprocess_json
-    获取结构化 (code, parsed_json, err)。
-    """
-    import subprocess
+    """兼容既有调用方的原始 stdout/stderr 三元组。"""
     try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            encoding='utf-8',
-            errors='replace'
-        )
+        result = subprocess.run(cmd, capture_output=True, text=True,
+                                encoding="utf-8", errors="replace")
         return result.returncode, result.stdout, result.stderr
     except OSError as exc:
-        return 1, "", str(exc)
+        return 2, "", str(exc)
+
+
+def _check_json(script: str, args: list[str], fields: tuple[str, ...]) -> tuple[int, dict, str]:
+    code, stdout, stderr = run_command([
+        sys.executable, str(Path(__file__).parent / script), *args, "--json"])
+    try:
+        result = json.loads(stdout)
+    except ValueError:
+        result = None
+    if code not in (0, 1) or not isinstance(result, dict):
+        return 2, {}, stderr or stdout or f"{script}: 退出码 {code}，无有效 JSON"
+    if any(not isinstance(result.get(key), list) for key in fields):
+        return 2, {}, f"{script}: 缺少有效数组字段 {fields}"
+    return code, result, ""
 
 
 def check_placeholders(arch_path: Path) -> dict[str, Any]:
-    """检查占位符"""
-    script_dir = Path(__file__).parent
-    check_script = script_dir / "check_placeholders.py"
-
-    if not check_script.exists():
-        return {
-            "status": "skipped",
-            "reason": "check_placeholders.py 不存在"
-        }
-
-    code, stdout, stderr = run_command([
-        sys.executable,
-        str(check_script),
-        str(arch_path),
-        "--json"
-    ])
-
-    if code == 0:
-        return {
-            "status": "passed",
-            "message": "无占位符"
-        }
-
-    try:
-        result = json.loads(stdout)
-        return {
-            "status": "failed",
-            "critical_count": len(result.get("critical", [])),
-            "important_count": len(result.get("important", [])),
-            "next_steps": result.get("next_steps", [])
-        }
-    except json.JSONDecodeError:
-        return {
-            "status": "error",
-            "message": stderr or stdout
-        }
+    code, result, error = _check_json("check_placeholders.py", [str(arch_path)],
+                                      ("critical", "important", "optional", "next_steps"))
+    if error:
+        return {"status": "error", "message": error}
+    critical = len(result["critical"])
+    return {"status": "failed" if critical or code == 1 else "passed",
+            "critical_count": critical, "important_count": len(result["important"]),
+            "next_steps": result["next_steps"]}
 
 
 def check_state(state_path: Path) -> dict[str, Any]:
-    """检查进度状态。
-
-    改用 manage_state.py show --json 取结构化数据，取代脆弱的 stdout 文本解析
-    （此前为按 '当前阶段:/'整体完成度:' split 文本，manage_state 输出格式一调即失效）。
-    """
-    script_dir = Path(__file__).parent
-    state_script = script_dir / "manage_state.py"
-
+    """读取结构化状态，并核对阶段清单与计数，不能信任缓存完成率。"""
     if not state_path.exists():
-        return {
-            "status": "no_state",
-            "message": "状态文件不存在，建议创建"
-        }
-
-    if not state_script.exists():
-        return {
-            "status": "skipped",
-            "reason": "manage_state.py 不存在"
-        }
-
-    code, stdout, stderr = run_command([
-        sys.executable,
-        str(state_script),
-        "show",
-        "--state-path", str(state_path),
-        "--json"
-    ])
-
-    if code != 0:
-        return {
-            "status": "error",
-            "message": stderr or stdout
-        }
-
-    try:
-        result = json.loads(stdout)
-    except json.JSONDecodeError:
-        return {"status": "error", "message": stderr or stdout}
-
-    # 契约依赖 manage_state.py 的 JSON 字段（见 manage_state.cmd_show --json 注释）。
-    # 缺失字段视为不完整，触发 warning 而非 error。
-    return {
-        "status": "ok",
-        "project_name": result.get("project_name", "未命名项目"),
-        "current_stage": result.get("current_stage"),
-        "percentage": result.get("overall_percentage", 0),
-        "required_completed": result.get("required_completed", 0),
-        "required_total": result.get("required_total", 0),
-        "blockers": result.get("blockers", []),
-        "stages": result.get("stages", []),
-        "next_actions": result.get("next_actions", []),
-    }
+        return {"status": "no_state", "message": "状态文件不存在，无法验证完成条件"}
+    code, result, error = _check_json("manage_state.py", ["show", "--state-path", str(state_path)],
+                                      ("stages", "blockers", "next_actions"))
+    if error or code != 0:
+        return {"status": "error", "message": error or "状态读取失败"}
+    from manage_state import STANDARD_STAGES
+    required_ids = {s["id"] for s in STANDARD_STAGES if s["required"]}
+    rows = result["stages"]
+    valid = all(isinstance(s, dict) and isinstance(s.get("id"), str)
+                and type(s.get("required")) is bool
+                and s.get("status") in {"pending", "in_progress", "completed", "skipped"}
+                for s in rows)
+    if not valid:
+        return {"status": "error", "message": "状态阶段清单格式非法"}
+    ids = [s["id"] for s in rows]
+    required_rows = [s for s in rows if s["required"]]
+    done = sum(s["status"] == "completed" for s in required_rows)
+    if (len(set(ids)) != len(ids) or not required_ids.issubset({s["id"] for s in required_rows})
+            or type(result.get("required_total")) is not int
+            or type(result.get("required_completed")) is not int
+            or result["required_total"] != len(required_rows) or result["required_completed"] != done):
+        return {"status": "error", "message": "必需阶段清单缺失或与完成计数矛盾"}
+    return {"status": "ok", "project_name": result.get("project_name", "未命名项目"),
+            "current_stage": result.get("current_stage"),
+            "percentage": result.get("overall_percentage", 0),
+            "required_completed": done, "required_total": len(required_rows),
+            "blockers": result["blockers"], "stages": rows, "next_actions": result["next_actions"]}
 
 
 def check_architecture(arch_path: Path) -> dict[str, Any]:
-    """检查架构一致性"""
-    script_dir = Path(__file__).parent
-    validate_script = script_dir / "validate_architecture.py"
-
-    if not validate_script.exists():
-        return {
-            "status": "skipped",
-            "reason": "validate_architecture.py 不存在"
-        }
-
-    code, stdout, stderr = run_command([
-        sys.executable,
-        str(validate_script),
-        str(arch_path),
-        "--json"
-    ])
-
-    if code == 0:
-        return {
-            "status": "passed",
-            "message": "架构验证通过"
-        }
-
-    try:
-        result = json.loads(stdout)
-        return {
-            "status": "failed",
-            "errors": result.get("错误", []),
-            "warnings": result.get("警告", [])
-        }
-    except json.JSONDecodeError:
-        return {
-            "status": "error",
-            "message": stderr or stdout
-        }
+    code, result, error = _check_json("validate_architecture.py", [str(arch_path)], ("错误", "警告"))
+    if error:
+        return {"status": "error", "message": error}
+    return {"status": "failed" if code == 1 or result["错误"] else "passed",
+            "errors": result["错误"], "warnings": result["警告"]}
 
 
-def generate_verdict(
-    placeholder_result: dict,
-    state_result: dict,
-    arch_result: dict
-) -> dict[str, Any]:
-    """生成裁判结论"""
-    verdict = {
-        "can_proceed": True,
-        "blocking_issues": [],
-        "warnings": [],
-        "next_actions": []
-    }
+def generate_verdict(placeholder_result: dict, state_result: dict, arch_result: dict) -> dict[str, Any]:
+    """事中裁判与收尾门禁共享的完成条件；未知不得当作已验证。"""
+    stages = []
+    warnings = []
+    actions = []
 
-    # 1. 检查占位符（最高优先级）
-    if placeholder_result["status"] == "failed":
-        critical_count = placeholder_result.get("critical_count", 0)
-        if critical_count > 0:
-            verdict["can_proceed"] = False
-            verdict["blocking_issues"].append(
-                f"⛔ 存在 {critical_count} 个核心占位符未填写"
-            )
-            verdict["next_actions"].extend(placeholder_result.get("next_steps", []))
+    def add(name, status, detail):
+        stages.append({"name": name, "status": status, "detail": f"[{name}] {detail}"})
 
-    # 2. 检查进度状态
-    if state_result["status"] == "no_state":
-        verdict["warnings"].append("⚠️  建议创建进度状态文件以追踪完成度")
-        verdict["next_actions"].append(
-            "运行: python shared/scripts/manage_state.py init --project-name '项目名'"
-        )
-    elif state_result["status"] == "ok":
-        percentage = state_result.get("percentage", 0)
-        current_stage = state_result.get("current_stage", "未知")
-        required_done = state_result.get("required_completed", 0)
-        required_total = state_result.get("required_total", 0)
+    ph = placeholder_result
+    if ph.get("status") == "failed":
+        add("占位符", "fail", f"存在 {ph.get('critical_count', 0)} 个核心占位符或校验器拒绝通过")
+        actions.extend(ph.get("next_steps", []))
+    elif ph.get("status") == "passed":
+        add("占位符", "pass", "核心占位符已清空")
+        if ph.get("important_count", 0):
+            warnings.append(f"重要字段仍需补充: {ph['important_count']} 项")
+    else:
+        add("占位符", "unknown", ph.get("message") or ph.get("reason") or "检查未完成")
 
-        if percentage < 100:
-            verdict["warnings"].append(
-                f"ℹ️  当前完成度 {percentage}%，正在进行 {current_stage} 阶段"
-            )
+    st = state_result
+    done, total = st.get("required_completed"), st.get("required_total")
+    if (st.get("status") != "ok" or type(done) is not int or type(total) is not int
+            or total <= 0 or not 0 <= done <= total or not isinstance(st.get("blockers"), list)):
+        add("进度状态", "unknown", st.get("message") or st.get("reason") or "状态不完整")
+        actions.append("读取或修复进度状态；缺失时先运行 manage_state.py init")
+    else:
+        blockers = st["blockers"]
+        if done < total or blockers:
+            details = [f"必需阶段未全部完成：{done}/{total}"] if done < total else []
+            details += ["阻塞项：" + str(b.get("content", b) if isinstance(b, dict) else b) for b in blockers]
+            add("进度状态", "fail", "；".join(details))
+        else:
+            add("进度状态", "pass", f"必需阶段 {done}/{total}，无阻塞项")
+        if st.get("percentage", 0) < 100:
+            warnings.append(f"当前整体完成度 {st.get('percentage', 0)}%（含可选阶段）")
 
-        # 必需阶段必须全部完成才能继续（C 机制硬约束：进度状态门禁）。
-        # manage_state 的 required_total=9（含验证证据，接口契约可选），与
-        # hard-gates.md「必需阶段 9 个」+ SCHEMA.md 流程注释一致。
-        if required_total > 0 and required_done < required_total:
-            verdict["can_proceed"] = False
-            verdict["blocking_issues"].append(
-                f"⛔ 必需阶段未全部完成：{required_done}/{required_total}"
-            )
-            pending_required = []
-            for stage in state_result.get("stages", []):
-                if stage.get("required") and stage.get("status") != "completed":
-                    pending_required.append(stage["id"])
-            if pending_required:
-                verdict["blocking_issues"].append(
-                    f"   待完成：{', '.join(pending_required)}"
-                )
-            verdict["next_actions"].append(
-                f"运行: python shared/scripts/manage_state.py show 查看进度，"
-                f"补齐 {required_total - required_done} 个必需阶段"
-            )
-
-        # 阻塞项存在则禁止继续
-        if state_result.get("blockers"):
-            verdict["can_proceed"] = False
-            for blocker in state_result["blockers"]:
-                content = blocker.get("content", str(blocker)) if isinstance(blocker, dict) else str(blocker)
-                verdict["blocking_issues"].append(f"⛔ 阻塞项：{content}")
-
-    # 3. 检查架构一致性
-    if arch_result["status"] == "failed":
-        errors = arch_result.get("errors", [])
-        if errors:
-            verdict["can_proceed"] = False
-            verdict["blocking_issues"].append(
-                f"⛔ 架构验证失败：{len(errors)} 个错误"
-            )
-            verdict["blocking_issues"].extend([f"   • {e}" for e in errors[:3]])
-            if len(errors) > 3:
-                verdict["blocking_issues"].append(f"   ... 还有 {len(errors) - 3} 个错误")
-
-        warnings = arch_result.get("warnings", [])
-        if warnings:
-            verdict["warnings"].append(f"⚠️  架构验证警告：{len(warnings)} 个")
-
-    # 生成最终行动指令
-    if not verdict["can_proceed"]:
-        verdict["next_actions"].insert(0, "🚨 禁止声明完成，禁止开始实现代码")
-        verdict["next_actions"].insert(1, "")
-        verdict["next_actions"].insert(2, "✅ 必须先解决上述阻塞问题")
-    elif not verdict["blocking_issues"] and not verdict["warnings"]:
-        verdict["next_actions"].append("✅ 所有检查通过，可以继续")
-
-    return verdict
+    ar = arch_result
+    if ar.get("status") == "failed":
+        errors = ar.get("errors", [])
+        add("架构合规", "fail", f"架构验证失败：{len(errors)} 项错误；" + "；".join(map(str, errors[:3])))
+    elif ar.get("status") == "passed":
+        add("架构合规", "pass", "架构验证通过")
+    else:
+        add("架构合规", "unknown", ar.get("message") or ar.get("reason") or "检查未完成")
+    warnings.extend(ar.get("warnings", []))
+    status = _archlib.aggregate_status(s["status"] for s in stages)
+    blocking = [s["detail"] for s in stages if s["status"] != "pass"]
+    if status != "pass":
+        actions.insert(0, "禁止声明完成；继续补齐设计、实现和验证，或修复无法运行的检查")
+    else:
+        actions.append("完成条件检查通过；交付前继续运行 gate_check.py 检查代码漂移和流程脱轨")
+    return {"can_proceed": status == "pass", "blocking_issues": blocking,
+            "warnings": warnings, "next_actions": actions, "stages": stages,
+            "status": status, "code": {"pass": 0, "fail": 1, "unknown": 2}[status]}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -371,7 +255,7 @@ def main(argv: list[str] | None = None) -> int:
 
         print("=" * 60)
 
-    return 0 if verdict["can_proceed"] else 1
+    return verdict["code"]
 
 
 if __name__ == "__main__":
