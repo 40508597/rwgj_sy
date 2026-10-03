@@ -23,6 +23,25 @@ REQUIRED_PATHS = [
     "shared/references/function-clusters.md",
     "shared/references/progressive-decomposition.md",
     "shared/references/agent-output-contract.md",
+    "shared/references/capability-index.md",
+    "shared/references/programming-subskills.md",
+    "THIRD-PARTY-NOTICES.md",
+    "shared/references/universal-quality.md",
+    "shared/references/semantic-code-review.md",
+    "shared/references/handoff-integrity.md",
+    "shared/references/artifact-integrity.md",
+    "shared/scripts/resolve_tool.py",
+    "shared/scripts/plan_capabilities.py",
+    "shared/scripts/_capabilitylib.py",
+    "shared/scripts/check_capability_usage.py",
+    "shared/scripts/check_subskill_sources.py",
+    "shared/scripts/check_project_quality.py",
+    "shared/scripts/run_verification.py",
+    "shared/scripts/run_quality_probes.py",
+    "shared/assets/capability-catalog.json",
+    "shared/assets/github-subskills.lock.json",
+    "shared/assets/schema/capability-catalog.schema.json",
+    "shared/assets/schema/capability-plan.schema.json",
     "shared/scripts/validate_architecture.py",
     "shared/scripts/scan_code_drift.py",
     "shared/scripts/_archlib.py",
@@ -65,6 +84,32 @@ def main(argv: list[str] | None = None) -> int:
     for rel in FORBIDDEN_SKILL_PATHS:
         if (root / rel).exists():
             errors.append(f"obsolete path still exists, rename to LAYER/CORE/SCHEMA/PROTOCOL: {rel}")
+    for child_entry in (root / "skills").rglob("SKILL.md"):
+        rel = child_entry.relative_to(root).as_posix()
+        if rel not in FORBIDDEN_SKILL_PATHS:
+            errors.append(f"包内子能力使用普通参考文件，独立宿主技能应单独安装: {rel}")
+
+    # 读取实际引用目标；固定短语存在不能证明被引用的子能力还存在。
+    try:
+        import check_doc_counts
+        old_root = check_doc_counts.REPO_ROOT
+        try:
+            check_doc_counts.REPO_ROOT = root
+            _, broken_refs = check_doc_counts.check_doc_refs()
+            errors.extend(f"失效能力引用: {ref.strip()}" for ref in broken_refs)
+        finally:
+            check_doc_counts.REPO_ROOT = old_root
+    except (OSError, UnicodeError, ValueError) as exc:
+        errors.append(f"无法完整核对能力引用: {exc}")
+
+    # 固定上游快照和中文适配必须与来源锁一致；原文不采用本包路径约定。
+    try:
+        import check_subskill_sources
+        provenance = check_subskill_sources.evaluate_sources(root)
+        if provenance.get("code") != 0 or provenance.get("status") != "pass":
+            errors.append(f"专业子技能来源未通过: {provenance.get('status')}; {provenance.get('checks', [])}")
+    except (ImportError, OSError, UnicodeError, ValueError) as exc:
+        errors.append(f"无法核对专业子技能来源: {exc}")
 
     usage = root / "AGENT-USAGE.md"
     if usage.exists() and "总路由" not in read_text(usage):

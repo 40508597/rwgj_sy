@@ -14,10 +14,10 @@
     "负责范围": {
       "type": "object",
       "properties": {
-        "模块": {"type": "array"},
-        "功能树节点": {"type": "array"},
-        "接口": {"type": "array"},
-        "文件": {"type": "array"}
+        "模块": {"type": "array", "items": {"type": "string"}},
+        "功能树节点": {"type": "array", "items": {"type": "string"}},
+        "接口": {"type": "array", "items": {"type": "string"}},
+        "文件": {"type": "array", "items": {"type": "string"}}
       }
     },
     "结论": {
@@ -31,6 +31,7 @@
     "必须同步": {"type": "array"},
     "验证责任": {"type": "array"},
     "证据": {"type": "array"},
+    "未验证项": {"type": "array"},
     "下一步": {"type": "array"}
   }
 }

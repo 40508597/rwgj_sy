@@ -1,0 +1,1018 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "semantic-code-review",
+      "能力类型": "代码语义审查",
+      "source": "reference",
+      "root": "../..",
+      "entry": "shared/references/semantic-code-review.md",
+      "refs": [],
+      "project_override": true,
+      "priority": 0,
+      "write_scope": [
+        "**"
+      ],
+      "requires": {
+        "stages": [
+          "实现",
+          "实现与验证",
+          "代码审查",
+          "验证",
+          "实现清单",
+          "测试责任",
+          "验证证据"
+        ],
+        "any_of": [
+          {
+            "professional_domains": [
+              "代码审查",
+              "代码质量"
+            ]
+          },
+          {
+            "risks": [
+              "正确性",
+              "代码质量"
+            ]
+          },
+          {
+            "confirmed_capabilities": [
+              "代码语义审查"
+            ]
+          }
+        ]
+      },
+      "covers_risks": [
+        "正确性",
+        "代码质量"
+      ],
+      "allowed_writeback": [
+        "/验证证据",
+        "/测试责任矩阵",
+        "/完整细节",
+        "/变更记录"
+      ]
+    },
+    {
+      "id": "handoff-integrity",
+      "能力类型": "交接完整性",
+      "source": "reference",
+      "root": "../..",
+      "entry": "shared/references/handoff-integrity.md",
+      "refs": [],
+      "project_override": true,
+      "priority": 0,
+      "write_scope": [
+        "**"
+      ],
+      "requires": {
+        "stages": [
+          "模块协作",
+          "跨智能体协作",
+          "上下文恢复",
+          "恢复",
+          "交接"
+        ],
+        "any_of": [
+          {
+            "professional_domains": [
+              "协作",
+              "上下文恢复"
+            ]
+          },
+          {
+            "risks": [
+              "上下文丢失",
+              "交接"
+            ]
+          },
+          {
+            "confirmed_capabilities": [
+              "交接完整性"
+            ]
+          }
+        ]
+      },
+      "covers_risks": [
+        "上下文丢失",
+        "交接"
+      ],
+      "allowed_writeback": [
+        "/验证证据",
+        "/上下文恢复点",
+        "/变更记录"
+      ]
+    },
+    {
+      "id": "artifact-integrity",
+      "能力类型": "产物完整性",
+      "source": "reference",
+      "root": "../..",
+      "entry": "shared/references/artifact-integrity.md",
+      "refs": [],
+      "project_override": true,
+      "priority": 0,
+      "write_scope": [
+        "**"
+      ],
+      "requires": {
+        "stages": [
+          "实现",
+          "实现与验证",
+          "验证",
+          "验证证据",
+          "完成确认",
+          "发布",
+          "交付",
+          "收尾"
+        ],
+        "any_of": [
+          {
+            "professional_domains": [
+              "转换",
+              "迁移",
+              "导出",
+              "回写"
+            ]
+          },
+          {
+            "risks": [
+              "数据丢失",
+              "产物完整性"
+            ]
+          },
+          {
+            "confirmed_capabilities": [
+              "产物完整性"
+            ]
+          }
+        ]
+      },
+      "covers_risks": [
+        "数据丢失",
+        "产物完整性"
+      ],
+      "allowed_writeback": [
+        "/验证证据",
+        "/变更记录"
+      ]
+    },
+    {
+      "id": "architecture-patterns",
+      "能力类型": "架构模式设计",
+      "source": "reference",
+      "root": "../..",
+      "entry": "shared/subskills/architecture-patterns/GUIDE.md",
+      "refs": [],
+      "project_override": true,
+      "priority": 0,
+      "read_scope": [
+        "**"
+      ],
+      "write_scope": [
+        "**"
+      ],
+      "requires": {
+        "stages": [
+          "需求理解",
+          "功能树",
+          "模块树",
+          "模块详情",
+          "接口契约",
+          "交互流程",
+          "完整细节",
+          "实现清单",
+          "测试责任",
+          "验证证据",
+          "设计",
+          "规划",
+          "实现",
+          "代码审查",
+          "验证",
+          "交付",
+          "收尾",
+          "实现与验证"
+        ],
+        "any_of": [
+          {
+            "confirmed_capabilities": [
+              "架构模式设计",
+              "architecture-patterns"
+            ]
+          },
+          {
+            "professional_domains": [
+              "架构设计",
+              "架构模式",
+              "模块边界"
+            ]
+          },
+          {
+            "risks": [
+              "分层依赖",
+              "领域耦合"
+            ]
+          }
+        ]
+      },
+      "covers_risks": [
+        "分层依赖",
+        "领域耦合"
+      ],
+      "allowed_writeback": [
+        "/验证证据",
+        "/测试责任矩阵",
+        "/完整细节",
+        "/变更记录",
+        "/模块树",
+        "/模块详情",
+        "/模块拓扑",
+        "/接口契约",
+        "/数据拓扑"
+      ]
+    },
+    {
+      "id": "architecture-decisions",
+      "能力类型": "架构决策记录",
+      "source": "reference",
+      "root": "../..",
+      "entry": "shared/subskills/architecture-decisions/GUIDE.md",
+      "refs": [],
+      "project_override": true,
+      "priority": 0,
+      "read_scope": [
+        "**"
+      ],
+      "write_scope": [
+        "**"
+      ],
+      "requires": {
+        "stages": [
+          "需求理解",
+          "功能树",
+          "模块树",
+          "模块详情",
+          "接口契约",
+          "交互流程",
+          "完整细节",
+          "实现清单",
+          "测试责任",
+          "验证证据",
+          "设计",
+          "规划",
+          "实现",
+          "代码审查",
+          "验证",
+          "交付",
+          "收尾",
+          "实现与验证"
+        ],
+        "any_of": [
+          {
+            "confirmed_capabilities": [
+              "架构决策记录",
+              "architecture-decisions"
+            ]
+          },
+          {
+            "professional_domains": [
+              "架构决策",
+              "技术选型"
+            ]
+          },
+          {
+            "risks": [
+              "长期兼容",
+              "选型代价"
+            ]
+          }
+        ]
+      },
+      "covers_risks": [
+        "长期兼容",
+        "选型代价"
+      ],
+      "allowed_writeback": [
+        "/验证证据",
+        "/测试责任矩阵",
+        "/完整细节",
+        "/变更记录",
+        "/模块树",
+        "/模块详情",
+        "/模块拓扑",
+        "/接口契约",
+        "/数据拓扑",
+        "/架构决策"
+      ]
+    },
+    {
+      "id": "api-contract-design",
+      "能力类型": "接口契约设计",
+      "source": "reference",
+      "root": "../..",
+      "entry": "shared/subskills/api-contract-design/GUIDE.md",
+      "refs": [],
+      "project_override": true,
+      "priority": 0,
+      "read_scope": [
+        "**"
+      ],
+      "write_scope": [
+        "**"
+      ],
+      "requires": {
+        "stages": [
+          "需求理解",
+          "功能树",
+          "模块树",
+          "模块详情",
+          "接口契约",
+          "交互流程",
+          "完整细节",
+          "实现清单",
+          "测试责任",
+          "验证证据",
+          "设计",
+          "规划",
+          "实现",
+          "代码审查",
+          "验证",
+          "交付",
+          "收尾",
+          "实现与验证"
+        ],
+        "any_of": [
+          {
+            "confirmed_capabilities": [
+              "接口契约设计",
+              "api-contract-design"
+            ]
+          },
+          {
+            "professional_domains": [
+              "接口设计",
+              "API设计"
+            ]
+          },
+          {
+            "risks": [
+              "接口兼容",
+              "协议歧义"
+            ]
+          }
+        ]
+      },
+      "covers_risks": [
+        "接口兼容",
+        "协议歧义"
+      ],
+      "allowed_writeback": [
+        "/验证证据",
+        "/测试责任矩阵",
+        "/完整细节",
+        "/变更记录",
+        "/模块树",
+        "/模块详情",
+        "/模块拓扑",
+        "/接口契约",
+        "/数据拓扑"
+      ]
+    },
+    {
+      "id": "implementation-planning",
+      "能力类型": "实现任务规划",
+      "source": "reference",
+      "root": "../..",
+      "entry": "shared/subskills/implementation-planning/GUIDE.md",
+      "refs": [],
+      "project_override": true,
+      "priority": 0,
+      "read_scope": [
+        "**"
+      ],
+      "write_scope": [
+        "**"
+      ],
+      "requires": {
+        "stages": [
+          "需求理解",
+          "功能树",
+          "模块树",
+          "模块详情",
+          "接口契约",
+          "交互流程",
+          "完整细节",
+          "实现清单",
+          "测试责任",
+          "验证证据",
+          "设计",
+          "规划",
+          "实现",
+          "代码审查",
+          "验证",
+          "交付",
+          "收尾",
+          "实现与验证"
+        ],
+        "any_of": [
+          {
+            "confirmed_capabilities": [
+              "实现任务规划",
+              "implementation-planning"
+            ]
+          },
+          {
+            "professional_domains": [
+              "实现规划",
+              "任务规划"
+            ]
+          },
+          {
+            "risks": [
+              "计划依赖",
+              "任务接口不一致"
+            ]
+          }
+        ]
+      },
+      "covers_risks": [
+        "计划依赖",
+        "任务接口不一致"
+      ],
+      "allowed_writeback": [
+        "/验证证据",
+        "/测试责任矩阵",
+        "/完整细节",
+        "/变更记录",
+        "/实现清单",
+        "/上下文恢复点"
+      ]
+    },
+    {
+      "id": "systematic-debugging",
+      "能力类型": "系统调试",
+      "source": "reference",
+      "root": "../..",
+      "entry": "shared/subskills/systematic-debugging/GUIDE.md",
+      "refs": [],
+      "project_override": true,
+      "priority": 0,
+      "read_scope": [
+        "**"
+      ],
+      "write_scope": [
+        "**"
+      ],
+      "requires": {
+        "stages": [
+          "需求理解",
+          "功能树",
+          "模块树",
+          "模块详情",
+          "接口契约",
+          "交互流程",
+          "完整细节",
+          "实现清单",
+          "测试责任",
+          "验证证据",
+          "设计",
+          "规划",
+          "实现",
+          "代码审查",
+          "验证",
+          "交付",
+          "收尾",
+          "实现与验证"
+        ],
+        "any_of": [
+          {
+            "confirmed_capabilities": [
+              "系统调试",
+              "systematic-debugging"
+            ]
+          },
+          {
+            "professional_domains": [
+              "调试",
+              "故障定位"
+            ]
+          },
+          {
+            "risks": [
+              "复现不稳定",
+              "根因未知"
+            ]
+          }
+        ]
+      },
+      "covers_risks": [
+        "复现不稳定",
+        "根因未知"
+      ],
+      "allowed_writeback": [
+        "/验证证据",
+        "/测试责任矩阵",
+        "/完整细节",
+        "/变更记录"
+      ]
+    },
+    {
+      "id": "behavior-test-design",
+      "能力类型": "行为测试设计",
+      "source": "reference",
+      "root": "../..",
+      "entry": "shared/subskills/behavior-test-design/GUIDE.md",
+      "refs": [],
+      "project_override": true,
+      "priority": 0,
+      "read_scope": [
+        "**"
+      ],
+      "write_scope": [
+        "**"
+      ],
+      "requires": {
+        "stages": [
+          "需求理解",
+          "功能树",
+          "模块树",
+          "模块详情",
+          "接口契约",
+          "交互流程",
+          "完整细节",
+          "实现清单",
+          "测试责任",
+          "验证证据",
+          "设计",
+          "规划",
+          "实现",
+          "代码审查",
+          "验证",
+          "交付",
+          "收尾",
+          "实现与验证"
+        ],
+        "any_of": [
+          {
+            "confirmed_capabilities": [
+              "行为测试设计",
+              "behavior-test-design"
+            ]
+          },
+          {
+            "professional_domains": [
+              "测试设计",
+              "回归测试"
+            ]
+          },
+          {
+            "risks": [
+              "断言无效",
+              "测试替身失真"
+            ]
+          }
+        ]
+      },
+      "covers_risks": [
+        "断言无效",
+        "测试替身失真"
+      ],
+      "allowed_writeback": [
+        "/验证证据",
+        "/测试责任矩阵",
+        "/完整细节",
+        "/变更记录"
+      ]
+    },
+    {
+      "id": "property-testing",
+      "能力类型": "属性与不变量测试",
+      "source": "reference",
+      "root": "../..",
+      "entry": "shared/subskills/property-testing/GUIDE.md",
+      "refs": [],
+      "project_override": true,
+      "priority": 0,
+      "read_scope": [
+        "**"
+      ],
+      "write_scope": [
+        "**"
+      ],
+      "requires": {
+        "stages": [
+          "需求理解",
+          "功能树",
+          "模块树",
+          "模块详情",
+          "接口契约",
+          "交互流程",
+          "完整细节",
+          "实现清单",
+          "测试责任",
+          "验证证据",
+          "设计",
+          "规划",
+          "实现",
+          "代码审查",
+          "验证",
+          "交付",
+          "收尾",
+          "实现与验证"
+        ],
+        "any_of": [
+          {
+            "confirmed_capabilities": [
+              "属性与不变量测试",
+              "property-testing"
+            ]
+          },
+          {
+            "professional_domains": [
+              "属性测试",
+              "不变量测试"
+            ]
+          },
+          {
+            "risks": [
+              "输入域遗漏",
+              "数据不变量"
+            ]
+          }
+        ]
+      },
+      "covers_risks": [
+        "输入域遗漏",
+        "数据不变量"
+      ],
+      "allowed_writeback": [
+        "/验证证据",
+        "/测试责任矩阵",
+        "/完整细节",
+        "/变更记录"
+      ]
+    },
+    {
+      "id": "api-misuse-review",
+      "能力类型": "接口与配置误用审查",
+      "source": "reference",
+      "root": "../..",
+      "entry": "shared/subskills/api-misuse-review/GUIDE.md",
+      "refs": [],
+      "project_override": true,
+      "priority": 0,
+      "read_scope": [
+        "**"
+      ],
+      "write_scope": [
+        "**"
+      ],
+      "requires": {
+        "stages": [
+          "需求理解",
+          "功能树",
+          "模块树",
+          "模块详情",
+          "接口契约",
+          "交互流程",
+          "完整细节",
+          "实现清单",
+          "测试责任",
+          "验证证据",
+          "设计",
+          "规划",
+          "实现",
+          "代码审查",
+          "验证",
+          "交付",
+          "收尾",
+          "实现与验证"
+        ],
+        "any_of": [
+          {
+            "confirmed_capabilities": [
+              "接口与配置误用审查",
+              "api-misuse-review"
+            ]
+          },
+          {
+            "professional_domains": [
+              "API安全",
+              "配置安全",
+              "误用防护"
+            ]
+          },
+          {
+            "risks": [
+              "危险默认值",
+              "静默安全失败"
+            ]
+          }
+        ]
+      },
+      "covers_risks": [
+        "危险默认值",
+        "静默安全失败"
+      ],
+      "allowed_writeback": [
+        "/验证证据",
+        "/测试责任矩阵",
+        "/完整细节",
+        "/变更记录"
+      ]
+    },
+    {
+      "id": "defect-variant-review",
+      "能力类型": "同类缺陷排查",
+      "source": "reference",
+      "root": "../..",
+      "entry": "shared/subskills/defect-variant-review/GUIDE.md",
+      "refs": [],
+      "project_override": true,
+      "priority": 0,
+      "read_scope": [
+        "**"
+      ],
+      "write_scope": [
+        "**"
+      ],
+      "requires": {
+        "stages": [
+          "需求理解",
+          "功能树",
+          "模块树",
+          "模块详情",
+          "接口契约",
+          "交互流程",
+          "完整细节",
+          "实现清单",
+          "测试责任",
+          "验证证据",
+          "设计",
+          "规划",
+          "实现",
+          "代码审查",
+          "验证",
+          "交付",
+          "收尾",
+          "实现与验证"
+        ],
+        "any_of": [
+          {
+            "confirmed_capabilities": [
+              "同类缺陷排查",
+              "defect-variant-review"
+            ]
+          },
+          {
+            "professional_domains": [
+              "同类缺陷排查"
+            ]
+          },
+          {
+            "risks": [
+              "重复缺陷",
+              "漏修"
+            ]
+          }
+        ],
+        "context_equals": {
+          "/facts/known_defect": true
+        }
+      },
+      "covers_risks": [
+        "重复缺陷",
+        "漏修"
+      ],
+      "allowed_writeback": [
+        "/验证证据",
+        "/测试责任矩阵",
+        "/完整细节",
+        "/变更记录"
+      ]
+    },
+    {
+      "id": "frontend-visual-design",
+      "能力类型": "UI视觉与交互设计",
+      "source": "reference",
+      "root": "../..",
+      "entry": "shared/subskills/frontend-visual-design/GUIDE.md",
+      "refs": [],
+      "project_override": true,
+      "priority": 0,
+      "read_scope": [
+        "**"
+      ],
+      "write_scope": [
+        "**"
+      ],
+      "requires": {
+        "stages": [
+          "需求理解",
+          "功能树",
+          "模块树",
+          "模块详情",
+          "接口契约",
+          "交互流程",
+          "完整细节",
+          "实现清单",
+          "测试责任",
+          "验证证据",
+          "设计",
+          "规划",
+          "实现",
+          "代码审查",
+          "验证",
+          "交付",
+          "收尾",
+          "实现与验证"
+        ],
+        "any_of": [
+          {
+            "confirmed_capabilities": [
+              "UI视觉与交互设计",
+              "frontend-visual-design"
+            ]
+          },
+          {
+            "professional_domains": [
+              "UI设计",
+              "界面设计",
+              "UI交互"
+            ]
+          },
+          {
+            "risks": [
+              "界面状态遗漏",
+              "视觉不一致"
+            ]
+          }
+        ],
+        "context_equals": {
+          "/facts/has_ui": true
+        }
+      },
+      "covers_risks": [
+        "界面状态遗漏",
+        "视觉不一致"
+      ],
+      "allowed_writeback": [
+        "/验证证据",
+        "/测试责任矩阵",
+        "/完整细节",
+        "/变更记录",
+        "/页面拓扑",
+        "/入口",
+        "/实现清单"
+      ]
+    },
+    {
+      "id": "web-ui-review",
+      "能力类型": "Web交互与可访问性审查",
+      "source": "reference",
+      "root": "../..",
+      "entry": "shared/subskills/web-ui-review/GUIDE.md",
+      "refs": [],
+      "project_override": true,
+      "priority": 0,
+      "read_scope": [
+        "**"
+      ],
+      "write_scope": [
+        "**"
+      ],
+      "requires": {
+        "stages": [
+          "需求理解",
+          "功能树",
+          "模块树",
+          "模块详情",
+          "接口契约",
+          "交互流程",
+          "完整细节",
+          "实现清单",
+          "测试责任",
+          "验证证据",
+          "设计",
+          "规划",
+          "实现",
+          "代码审查",
+          "验证",
+          "交付",
+          "收尾",
+          "实现与验证"
+        ],
+        "any_of": [
+          {
+            "confirmed_capabilities": [
+              "Web交互与可访问性审查",
+              "web-ui-review"
+            ]
+          },
+          {
+            "professional_domains": [
+              "Web界面",
+              "可访问性"
+            ]
+          },
+          {
+            "risks": [
+              "键盘不可达",
+              "焦点丢失"
+            ]
+          }
+        ],
+        "context_equals": {
+          "/facts/web_ui": true
+        }
+      },
+      "covers_risks": [
+        "键盘不可达",
+        "焦点丢失"
+      ],
+      "allowed_writeback": [
+        "/验证证据",
+        "/测试责任矩阵",
+        "/完整细节",
+        "/变更记录",
+        "/页面拓扑",
+        "/入口",
+        "/实现清单"
+      ]
+    },
+    {
+      "id": "browser-acceptance",
+      "能力类型": "Web浏览器验收",
+      "source": "reference",
+      "root": "../..",
+      "entry": "shared/subskills/browser-acceptance/GUIDE.md",
+      "refs": [],
+      "project_override": true,
+      "priority": 0,
+      "read_scope": [
+        "**"
+      ],
+      "write_scope": [
+        "**"
+      ],
+      "requires": {
+        "stages": [
+          "需求理解",
+          "功能树",
+          "模块树",
+          "模块详情",
+          "接口契约",
+          "交互流程",
+          "完整细节",
+          "实现清单",
+          "测试责任",
+          "验证证据",
+          "设计",
+          "规划",
+          "实现",
+          "代码审查",
+          "验证",
+          "交付",
+          "收尾",
+          "实现与验证"
+        ],
+        "any_of": [
+          {
+            "confirmed_capabilities": [
+              "Web浏览器验收",
+              "browser-acceptance"
+            ]
+          },
+          {
+            "professional_domains": [
+              "浏览器验收",
+              "Web端到端测试"
+            ]
+          },
+          {
+            "risks": [
+              "界面流程未验证"
+            ]
+          }
+        ],
+        "context_equals": {
+          "/facts/web_ui": true,
+          "/facts/browser_tool_available": true
+        }
+      },
+      "covers_risks": [
+        "界面流程未验证"
+      ],
+      "allowed_writeback": [
+        "/验证证据",
+        "/测试责任矩阵",
+        "/完整细节",
+        "/变更记录",
+        "/页面拓扑",
+        "/入口",
+        "/实现清单"
+      ]
+    }
+  ]
+}

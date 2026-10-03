@@ -44,4 +44,6 @@ Claude 或 Claude Code 使用本协议时，应把 `SKILL.md` 作为项目级工
 
 适配层只说明 Claude 平台差异，不改变项目目标、架构先行和硬门禁。
 
+专业子能力按 `../references/capability-index.md` 用宿主已提供的技能元数据、当前需求/模块/风险与姿态选择；只读取选中文件，不扫描并加载全部技能。规划工具不等同于Claude原生技能调用或系统提示注入。子任务交接保留约束、ID和部分失败；启用调用时核验实际使用与回写，模型审查和真实执行分别记录。
+
 协议依据：[Claude Code Hooks reference](https://code.claude.com/docs/en/hooks#stop-decision-control)。

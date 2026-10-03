@@ -198,6 +198,25 @@ def run_gate(project: Path, architecture: str, *, quality_required: bool = False
     else:
         lines.append("提示：未配置通用质量规则，本结果仅覆盖旧架构门禁；完整交付使用 --quality-required")
 
+    # 启用动态能力记录后必须独立核验，未启用的旧项目不伪造专项 PASS。
+    try:
+        from check_capability_usage import evaluate_usage
+        usage = evaluate_usage(project, arch_path)
+        if not isinstance(usage, dict):
+            raise ValueError("专业能力校验没有返回对象")
+        if usage.get("enabled") is not False:
+            usage_status = usage.get("status")
+            if not isinstance(usage_status, str) or usage_status not in {"pass", "fail", "unknown"} or type(usage.get("code")) is not int or usage.get("code") != {
+                    "pass": 0, "fail": 1, "unknown": 2}.get(usage_status):
+                raise ValueError("专业能力校验状态与退出码矛盾")
+            detail = f"[专业能力接入] {usage_status.upper()}：{usage.get('reason', '')}；{usage.get('checks', [])}"
+            lines.append(detail)
+            stage("专业能力接入", usage_status, detail)
+    except (ImportError, OSError, UnicodeError, ValueError) as exc:
+        detail = f"[专业能力接入] 无法判定：{exc}"
+        lines.append(detail)
+        stage("专业能力接入", "unknown", detail)
+
     # A known failure wins; otherwise every stage must pass before completion.
     status = _archlib.aggregate_status(item["status"] for item in stages)
     passed = {"pass": True, "fail": False, "unknown": None}[status]

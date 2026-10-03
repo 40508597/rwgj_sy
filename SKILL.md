@@ -38,3 +38,4 @@ description: 为新项目设计、已有代码纳管、功能变更、架构重�
 
 - 命令速查（给人看）：`shared/references/commands-cheatsheet.md`
 - 快速上手（给人看）：`shared/references/quickstart.md`
+- 专业子能力按已确认任务与姿态按需读取：`shared/references/capability-index.md`；规划不等于实际加载或验证。

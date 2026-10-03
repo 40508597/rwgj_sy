@@ -11,3 +11,7 @@ Codex 支持本协议的增强单智能体模式。若当前环境可读写文�
 - 完整实现交付按 `shared/references/universal-quality.md` 配置本次必需检查，运行 gate_check 时加 --quality-required；旧门禁结果不能代替通用质量检查。
 
 Codex 适配层不得绕过核心协议，也不得把 Codex 专有工具写入通用协议。
+
+## 专业能力加载
+
+使用当前宿主提供的技能名称、description与路径元数据，先按已确认任务/模块/风险/姿态筛选，再按 `../references/capability-index.md` 生成最小计划；只用本平台原生文件读取工具加载选中正文。规划CLI不修改系统提示，也不替宿主执行技能。启用专业调用后记录实际使用和回写；无专项任务不创建长记录，缺必需证据为unknown。

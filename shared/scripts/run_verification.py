@@ -298,6 +298,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--input", dest="inputs", action="append", default=[])
     parser.add_argument("--timeout", type=float, default=60.0)
     if "--" not in arguments:
+        if "--help" in arguments or "-h" in arguments:
+            parser.parse_args(arguments)
         parser.error("explicit command argv must follow --")
     separator = arguments.index("--")
     options = parser.parse_args(arguments[:separator])

@@ -135,11 +135,17 @@ def detect_task_posture(request: str, project_root: Path, rules: dict[str, Any])
         "接口": "接口",
         "测试": "测试",
         "安全": "安全",
+        "性能": "性能",
+        "文档": "文档",
+        "代码质量": "代码质量",
+        "协作": "协作",
     }
     for task_type in task_types:
         domain = domain_by_task_type.get(task_type)
         if domain:
             professional_domains.append(domain)
+    if professional_domains:
+        optional_refs.append("references/capability-index.md")
 
     ref_rules = rules.get("参考文件规则", {})
     if isinstance(ref_rules, dict):

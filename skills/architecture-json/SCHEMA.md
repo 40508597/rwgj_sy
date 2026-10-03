@@ -2,6 +2,8 @@
 
 项目语言与工程格式不限制架构物化。质量规则、观察事实、执行收据按 `../../shared/references/universal-quality.md` 管理，保存在当前项目；区分声明与观察、记录预定范围与未知项，不能把旧证据字段非空等同于质量已通过。
 
+专业能力的注册、按姿态选择、实际使用和回写按 `../../shared/references/capability-index.md` 管理。产物与架构对应值要独立核对，不能以“已调用”或文件存在证明回写完成；转换/迁移时按需读 `../../shared/references/artifact-integrity.md`。计划和使用记录属于调用方项目，完全跳过档不创建这些文件。
+
 本技能负责”落得稳”。
 
 `architecture/` 架构文件夹是项目唯一真相源。根 `architecture.json` 只允许作为轻量指针，指向 `architecture/index.json`；不得再把完整项目真相写成单文件。

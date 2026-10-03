@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Declared capability use and writeback records",
+  "description": "Records are unsigned. Review completeness does not establish engineering correctness; execution must bind an actual receipt.",
+  "type": "object",
+  "required": ["schema_version", "plan_fingerprint", "context_sha256", "calls"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "plan_fingerprint": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "context_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "calls": {"type": "array", "items": {"$ref": "#/$defs/call"}}
+  },
+  "$defs": {
+    "strings": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "call": {
+      "type": "object",
+      "required": ["id", "capability_id", "kind", "status", "input_hashes", "read_files", "modified_files", "outputs"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "capability_id": {"type": "string", "minLength": 1},
+        "kind": {"enum": ["review", "execution"]},
+        "status": {"enum": ["completed", "partial", "failed", "unknown"]},
+        "input_hashes": {"type": "object", "minProperties": 1, "additionalProperties": {"type": "string", "pattern": "^[0-9a-fA-F]{64}$"}},
+        "read_files": {"$ref": "#/$defs/strings"},
+        "modified_files": {"$ref": "#/$defs/strings"},
+        "outputs": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/output"}},
+        "review": {
+          "type": "object", "required": ["summary", "limitations"],
+          "properties": {"summary": {"type": "string", "minLength": 1}, "limitations": {"$ref": "#/$defs/strings"}}
+        },
+        "execution": {
+          "type": "object", "required": ["receipt", "command"],
+          "properties": {"receipt": {"type": "string", "minLength": 1}, "command": {"type": "array", "minItems": 1, "items": {"type": "string"}}}
+        }
+      },
+      "allOf": [
+        {"if": {"properties": {"kind": {"const": "review"}}}, "then": {"required": ["review"]}},
+        {"if": {"properties": {"kind": {"const": "execution"}}}, "then": {"required": ["execution"]}}
+      ]
+    },
+    "output": {
+      "type": "object", "required": ["id", "artifact", "artifact_pointer", "writeback", "sha256"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "artifact": {"type": "string", "minLength": 1},
+        "artifact_pointer": {"type": "string"},
+        "writeback": {"type": "string", "pattern": "^/"},
+        "sha256": {"type": "string", "pattern": "^[0-9a-fA-F]{64}$"}
+      }
+    }
+  }
+}

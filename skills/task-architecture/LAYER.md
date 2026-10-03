@@ -100,6 +100,8 @@ python "<detect_small_command_path>" --request "<用户需求文本>" --project-
 
 ## 三层路由（完整流程按顺序，协议层按需）
 
+专业能力横向接入，不改变下列主流程。按当前已确认需求、模块、风险与阶段读取 `../../shared/references/capability-index.md`：姿态决定读取时机和验证重点，宿主技能元数据帮助筛选能力；关键词只是候选。工具可用时用 `plan_capabilities.py` 规划，再用宿主原生读取工具实际加载选中文件并给简短回执。阶段/范围变化重算，退出时保留未解决约束，恢复时核对计划与当前输入；完全跳过档不创建状态，小任务不强迫长记录。
+
 ```text
 用户需求
   ↓
@@ -150,6 +152,8 @@ python "<manage_state_path>" update <阶段名> completed --note "完成说明" 
 
 完整实现交付前统一运行 `python "<gate_check_path>" <项目根> --quality-required --json`。它共用事中裁判的占位符、状态和架构规则，再检查漂移、脱轨与本次必需质量规则；规则/事实缺失也为未验证。0=通过，1=明确失败，2=无法判定，后两者均不得声明验证通过。核对：
 
+已启用专业能力计划时，门禁同时复核其实际使用、证据与架构回写；规划/加载不代表执行或审查通过，无计划的旧索引跳过此专项不能声称专项已验证。契约和工具参数见 `capability-index.md`，质量执行仍按 `universal-quality.md`。
+
 - [ ] 🔴 无核心占位符　- [ ] 🔴 所有必需阶段已完成　- [ ] 🔴 架构先行　- [ ] 🔴 代码与架构一致（无漂移）
 - [ ] 🟡 质量红线无 🔴　- [ ] 🟡 验证证据已记录　- [ ] 🟡 恢复点已更新　- [ ] 🟡 变更记录已追加　- [ ] 🟡 剩余风险已说明
 
@@ -170,6 +174,7 @@ python "<manage_state_path>" update <阶段名> completed --note "完成说明" 
 - 功能簇/反薄Demo/交互完整性/递进拆分/拆分粒度/关联优先级/capability 索引/原则卡：`function-clusters.md` `interaction-completeness.md` `progressive-decomposition.md` `splitting-guide.md` `association-and-priority.md` `capability-index.md` `principles-card.md`
 - JSON 规范/五命令工作流/21 项校验/切片分片/上下文恢复/执行模板：`schemas.md` `commands-workflows.md` `validation-checklist.md` `json-sharding.md` `context-recovery.md` `execution-templates.md`
 - agent-protocol 层（仅按需）：跨平台 `universal-agent-protocol.md`；任务姿态 `task-posture.md`；虚拟模块 `module-agent-protocol.md`；硬约束门禁 `validation-checklist.md`；提案契约 `agent-output-contract.md`；质量红线（自动）`check_quality_redlines.py`；独立审计 `audit_architecture.py generate/report`
+- 专业能力按姿态/阶段加载与使用核验：`capability-index.md`；已确认的代码审查、协作恢复、转换回写分别路由到 `semantic-code-review.md`、`handoff-integrity.md`、`artifact-integrity.md`，不全量读取。
 （均在 `../../shared/references/` 与 `../../shared/scripts/` 下，可用 resolve_tool 定位。）
 
 ## 定位规则（多项目共用）

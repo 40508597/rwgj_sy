@@ -27,6 +27,8 @@
 
 CLI 只做查验，不做认知判断。
 
+专业子能力按 `../../shared/references/capability-index.md` 的已确认任务、模块、风险与姿态选择。CLI只规划；宿主实际读取文件才载入上下文，不宣称自动修改系统提示。完整交付按 `universal-quality.md` 配置本次必需规则并运行 `gate_check --quality-required`；模型审查与真实执行收据分别记录，缺必需证据为未验证。
+
 ## 交叉审计
 
 平台支持多模型、多会话或独立审计 Agent 时，允许把审计作为协议层步骤，但不得引入中央协调智能体。
@@ -40,6 +42,8 @@ CLI 只做查验，不做认知判断。
 
 仅单模型可用时，可以模拟一次独立审计，但必须在验证证据中记录“同模型审计，独立性受限”。
 
+专项审查可零发现，说明范围和未知项；不预设复查次数。跨执行者交接保留原约束、ID、部分失败与停止条件，按需读 `handoff-integrity.md`，不能用摘要丢掉未解决风险。
+
 ## 详细参考路由
 
 按触发信号读取，不要全量加载：
@@ -52,3 +56,5 @@ CLI 只做查验，不做认知判断。
 - Codex、Claude Code、Trae、通用 CLI Agent 等平台差异：`../../shared/adapters/`
 - 任务姿态建议器和轻量规则：`../../shared/assets/task-posture-rules.json`、`../../shared/scripts/detect_task_posture.py`
 - 协议语义回归：`../../shared/scripts/validate_protocol_semantics.py`
+- 按需专业能力与实际使用核验：`../../shared/references/capability-index.md`、`../../shared/scripts/plan_capabilities.py`、`../../shared/scripts/check_capability_usage.py`
+- 协作交接/恢复：`../../shared/references/handoff-integrity.md`；真实质量证据：`../../shared/references/universal-quality.md`

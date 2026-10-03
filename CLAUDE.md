@@ -54,12 +54,14 @@
 - **必需阶段 9 个**（含验证证据，接口契约可选）：`shared/scripts/manage_state.py` 的 `STANDARD_STAGES` 是真相源；`validation-checklist.md`/`ENFORCEMENT-GUIDE.md`/`SCHEMA.md`/`LAYER.md` 都引用脚本值
 - **占位符 + 示例 key 双扫**：`check_placeholders.py` 同时检测 `__待` value 与 `__示例*__`/`__注释__`/`__占位符说明__` key，防止生成「假模块」
 - `init_architecture.py` 写盘前自动剥离模板所有 `__` 开头 key
+- **专业子能力按需加载**：依据已确认任务、模块、风险与姿态，按 `capability-index.md` 选择；CLI只规划，宿主实际读取所选文件才加载。启用调用后核验使用与回写，缺必需证据为unknown，完全跳过不建状态。
 
 ## 添加新能力
 
 | 类型 | 位置 |
 |------|------|
-| 新 Skill 子层 | `skills/<name>/` |
+| 内部子能力层 | `skills/<name>/<职责文件>.md`，保持根 `SKILL.md` 为唯一入口 |
+| 专业能力接入 | 按 `shared/references/capability-index.md` 用当前项目的索引/catalog与宿主元数据接入已有技能 |
 | 参考文档 | `shared/references/<name>.md` |
 | 工具脚本 | `shared/scripts/<name>.py` |
 | Schema | `shared/assets/schema/<name>.schema.json` |
@@ -67,3 +69,5 @@
 | 资产模板 | `shared/assets/<name>.json` |
 
 新增脚本务必复用 `shared/scripts/_archlib.py`（UTF-8 stdout 重配、IO 错误处理、subprocess JSON 封装、architecture 加载等共享底座），不要复制粘贴。
+
+不自动安装外部技能、不读取所有技能正文、不按角色名假定工具能力。语义审查可零发现，协作保留原约束与部分失败，实际执行按 `universal-quality.md` 绑定本次输入和收据。

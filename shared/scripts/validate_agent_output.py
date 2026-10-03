@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -113,6 +114,20 @@ def validate_agent_output(
     scope = data.get("负责范围")
     if scope is not None and not isinstance(scope, dict):
         errors.append("负责范围 必须是对象")
+    elif isinstance(scope, dict):
+        for field in ("模块", "功能树节点", "接口", "文件"):
+            if field not in scope:
+                continue
+            values = scope[field]
+            if not isinstance(values, list) or any(not isinstance(v, str) or not v.strip() for v in values):
+                errors.append(f"负责范围.{field} 必须是非空字符串组成的数组")
+                continue
+            if field == "文件":
+                for value in values:
+                    normalized = value.replace("\\", "/")
+                    if ("\x00" in value or normalized.startswith("/") or
+                            re.match(r"^[A-Za-z]:", normalized) or ".." in normalized.split("/")):
+                        errors.append(f"负责范围.文件 必须是项目内相对路径: {value}")
 
     family = data.get("功能族展开")
     if family is not None and not isinstance(family, dict):
@@ -125,10 +140,25 @@ def validate_agent_output(
     # 语义警告（与 schema 无关，属于工具内置业务规则，保留）
     if isinstance(result, str) and result in {"需要确认", "阻塞", "降级执行"} and not data.get("下一步"):
         warnings.append("需要确认/阻塞/降级执行 应提供 下一步")
-    if output_type == "验证报告" and not data.get("证据"):
-        warnings.append("验证报告 应提供 证据 或明确未验证项")
-    if output_type == "门禁结果" and not data.get("证据"):
-        warnings.append("门禁结果 建议提供 证据")
+    if isinstance(output_type, str) and output_type in {"验证报告", "门禁结果"}:
+        evidence = data.get("证据", [])
+        unknown = data.get("未验证项", [])
+        if not isinstance(unknown, list):
+            errors.append("未验证项 必须是数组")
+        def meaningful(value: Any) -> bool:
+            if isinstance(value, str):
+                return bool(value.strip())
+            if isinstance(value, dict):
+                return any(meaningful(v) for v in value.values())
+            if isinstance(value, list):
+                return any(meaningful(v) for v in value)
+            return False
+        has_evidence = isinstance(evidence, list) and any(meaningful(v) for v in evidence)
+        has_unknown = isinstance(unknown, list) and any(meaningful(v) for v in unknown)
+        if not has_evidence and not has_unknown:
+            errors.append(f"{output_type} 必须提供证据或明确未验证项")
+        if result == "通过" and (not has_evidence or has_unknown):
+            errors.append("通过结论不得缺少证据或同时存在未验证项；报告结构通过不代表证据已实测")
 
     return errors, warnings
 

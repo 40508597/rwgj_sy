@@ -122,9 +122,11 @@ REF_PREFIXES = ("shared/", "skills/", "scripts/", "docs/", ".github/")
 REF_ROOT_FILES = (
     "README.md", "AGENT-USAGE.md", "CLAUDE.md", "ENFORCEMENT-GUIDE.md",
     "CONTRIBUTING.md", "SKILL.md", "CHANGELOG.md", "LICENSE", "verify-all.sh",
+    "THIRD-PARTY-NOTICES.md",
 )
 LINK_RE = re.compile(r"\]\(([^)]+)\)")
-BACKTICK_RE = re.compile(r"`([^`]+)`")
+BACKTICK_RE = re.compile(r"(?P<ticks>`+)(?P<content>[^`\n]+)(?P=ticks)")
+FENCE_RE = re.compile(r"^[ \t]{0,3}(`{3,}|~{3,})(.*)$")
 
 
 def _resolve_ref(token: str, md_file: Path) -> Path:
@@ -149,13 +151,30 @@ def _is_checkable(token: str) -> bool:
 
 
 def _extract_refs(text: str) -> list[str]:
-    """提取 markdown 链接与反引号内容里的候选路径 token。"""
+    """提取链接、行内代码和围栏代码中的路径，围栏不得吞掉后续行内引用。"""
     refs: list[str] = []
-    for m in LINK_RE.finditer(text):
+    outside: list[str] = []
+    fence: tuple[str, int] | None = None
+    for line in text.splitlines():
+        marker = FENCE_RE.match(line)
+        if fence is None and marker:
+            fence = (marker[1][0], len(marker[1]))
+            outside.append("")
+            continue
+        if fence is not None:
+            if marker and marker[1][0] == fence[0] and len(marker[1]) >= fence[1] and not marker[2].strip():
+                fence = None
+                outside.append("")
+            else:
+                refs.extend(tok.strip("`\"'") for tok in line.split())
+            continue
+        outside.append(line)
+    outside_text = "\n".join(outside)
+    for m in LINK_RE.finditer(outside_text):
         refs.append(m.group(1).strip())
-    for m in BACKTICK_RE.finditer(text):
+    for m in BACKTICK_RE.finditer(outside_text):
         # 反引号里可能是一整条命令（python xxx.py a b），按空白切出 token 逐个检查
-        for tok in m.group(1).split():
+        for tok in m.group("content").split():
             refs.append(tok.strip("`\"'"))
     return refs
 
@@ -168,10 +187,14 @@ def check_doc_refs() -> tuple[int, list[str]]:
     broken: list[str] = []
     checked = 0
     legacy_root = REPO_ROOT / "shared" / "legacy"
+    # 固定的外部原文由来源锁核验，不按本仓库的相对路径约定解释其历史示例。
+    # 本包维护的 GUIDE.md 与专业路由仍参加全部引用检查。
+    upstream_root = REPO_ROOT / "shared" / "subskills" / "upstream"
     md_files = [
         p for p in REPO_ROOT.rglob("*.md")
         if not {".git", "__pycache__", ".pytest_cache"}.intersection(p.parts)
         and not p.match("verification-report-*.md") and not p.is_relative_to(legacy_root)
+        and not p.is_relative_to(upstream_root)
     ]
     for md in md_files:
         text = md.read_text(encoding="utf-8")

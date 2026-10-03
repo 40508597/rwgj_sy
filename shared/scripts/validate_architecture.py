@@ -16,6 +16,7 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import _archlib  # noqa: E402
+import _capabilitylib  # noqa: E402
 
 _archlib.configure_utf8_stdout()
 
@@ -468,6 +469,11 @@ def validate_architecture(data: dict[str, Any], root: Path, stage: str = "full")
     for key in required_keys:
         if key not in data:
             errors.append(f"缺少顶层主键: {key}")
+
+    # 专业能力声明的结构与引用独立于质量采集规则，不能被其它成功检查掩盖。
+    capability_errors, capability_warnings = _capabilitylib.validate_capability_index(data)
+    errors.extend(capability_errors)
+    warnings.extend(capability_warnings)
 
     entry_required, entry_optional = derive_entry_keys(schema)
     entry = data.get("入口")

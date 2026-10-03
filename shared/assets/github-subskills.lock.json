@@ -1,0 +1,349 @@
+{
+  "schema_version": 1,
+  "captured_at": "2026-10-04",
+  "entries": [
+    {
+      "id": "architecture-patterns",
+      "capability_type": "架构模式设计",
+      "repo": "wshobson/agents",
+      "commit": "156b7a5e7a8b93642628a339ee4039c925b34c7f",
+      "upstream_path": "plugins/backend-development/skills/architecture-patterns/SKILL.md",
+      "upstream_url": "https://github.com/wshobson/agents/blob/156b7a5e7a8b93642628a339ee4039c925b34c7f/plugins/backend-development/skills/architecture-patterns/SKILL.md",
+      "license": "MIT",
+      "license_file": "shared/subskills/upstream/wshobson-agents/LICENSE",
+      "entry": "shared/subskills/architecture-patterns/GUIDE.md",
+      "source_entry": "shared/subskills/upstream/wshobson-agents/plugins/backend-development/skills/architecture-patterns/SOURCE.md",
+      "files": {
+        "shared/subskills/upstream/wshobson-agents/plugins/backend-development/skills/architecture-patterns/references/advanced-patterns.md": "e1cb31c83b532e579991de277836a1ea5e3d88b2ca30fc8ac16f6047ceca439e",
+        "shared/subskills/upstream/wshobson-agents/plugins/backend-development/skills/architecture-patterns/references/details.md": "a53411600b253b343247db9d86140f3136ee7bd26a67aa8411962bcc1f5ff981",
+        "shared/subskills/upstream/wshobson-agents/plugins/backend-development/skills/architecture-patterns/SOURCE.md": "350caf22b856b7d2908a10a69a8cc13e743c757ba9838716051b4e29fc1d7595",
+        "shared/subskills/upstream/wshobson-agents/LICENSE": "f89abb55d9f073f38f1703e4518f0613c788c6174be7f13b8dfe48a1c076c746",
+        "shared/subskills/architecture-patterns/GUIDE.md": "a40ccb20b8b4fc6142df4d3ab73050cf002490ab5666be6950108bb79a7f0c86"
+      },
+      "adaptation": {
+        "changed": true,
+        "notice": "中文方法适配；保留出处及许可，取消上游全流程接管、固定技术栈和额外提交/批准要求。",
+        "author": "wshobson",
+        "upstream_author": "wshobson",
+        "license": "MIT"
+      }
+    },
+    {
+      "id": "architecture-decisions",
+      "capability_type": "架构决策记录",
+      "repo": "wshobson/agents",
+      "commit": "156b7a5e7a8b93642628a339ee4039c925b34c7f",
+      "upstream_path": "plugins/documentation-generation/skills/architecture-decision-records/SKILL.md",
+      "upstream_url": "https://github.com/wshobson/agents/blob/156b7a5e7a8b93642628a339ee4039c925b34c7f/plugins/documentation-generation/skills/architecture-decision-records/SKILL.md",
+      "license": "MIT",
+      "license_file": "shared/subskills/upstream/wshobson-agents/LICENSE",
+      "entry": "shared/subskills/architecture-decisions/GUIDE.md",
+      "source_entry": "shared/subskills/upstream/wshobson-agents/plugins/documentation-generation/skills/architecture-decision-records/SOURCE.md",
+      "files": {
+        "shared/subskills/upstream/wshobson-agents/plugins/documentation-generation/skills/architecture-decision-records/SOURCE.md": "f8928e30d37eb7654e18adc93c752b43e7272f88054fba5a7813b434779c50e6",
+        "shared/subskills/upstream/wshobson-agents/LICENSE": "f89abb55d9f073f38f1703e4518f0613c788c6174be7f13b8dfe48a1c076c746",
+        "shared/subskills/architecture-decisions/GUIDE.md": "1d455ebb876f533def2d84da0390cd6fcd49849f53bd149dde670d07d9991470"
+      },
+      "adaptation": {
+        "changed": true,
+        "notice": "中文方法适配；保留出处及许可，取消上游全流程接管、固定技术栈和额外提交/批准要求。",
+        "author": "wshobson",
+        "upstream_author": "wshobson",
+        "license": "MIT"
+      }
+    },
+    {
+      "id": "api-contract-design",
+      "capability_type": "接口契约设计",
+      "repo": "wshobson/agents",
+      "commit": "156b7a5e7a8b93642628a339ee4039c925b34c7f",
+      "upstream_path": "plugins/backend-development/skills/api-design-principles/SKILL.md",
+      "upstream_url": "https://github.com/wshobson/agents/blob/156b7a5e7a8b93642628a339ee4039c925b34c7f/plugins/backend-development/skills/api-design-principles/SKILL.md",
+      "license": "MIT",
+      "license_file": "shared/subskills/upstream/wshobson-agents/LICENSE",
+      "entry": "shared/subskills/api-contract-design/GUIDE.md",
+      "source_entry": "shared/subskills/upstream/wshobson-agents/plugins/backend-development/skills/api-design-principles/SOURCE.md",
+      "files": {
+        "shared/subskills/upstream/wshobson-agents/plugins/backend-development/skills/api-design-principles/assets/api-design-checklist.md": "ef98cb8910cdc555514198df7becc6de8b04e1a98e2291b1440bc62e14cd07e5",
+        "shared/subskills/upstream/wshobson-agents/plugins/backend-development/skills/api-design-principles/references/details.md": "e8b19b192ab1e1e99a5d7fed285670c2cfc0f23877338efe68da56eeaeaf1649",
+        "shared/subskills/upstream/wshobson-agents/plugins/backend-development/skills/api-design-principles/references/graphql-schema-design.md": "0f10cbe2f3d787be9de4ab8dcc88444ac36ab69786973666a229fdbffeb01638",
+        "shared/subskills/upstream/wshobson-agents/plugins/backend-development/skills/api-design-principles/references/rest-best-practices.md": "675fbafdd5a6d5ac2c17ab97e17c90aa0a10c2a5608860128a8be14764130fae",
+        "shared/subskills/upstream/wshobson-agents/plugins/backend-development/skills/api-design-principles/SOURCE.md": "1f6166c23c0a0f32d703c19d84b3c30c2873daefb9e8732339a009934fa17013",
+        "shared/subskills/upstream/wshobson-agents/LICENSE": "f89abb55d9f073f38f1703e4518f0613c788c6174be7f13b8dfe48a1c076c746",
+        "shared/subskills/api-contract-design/GUIDE.md": "082c0caa61ebf4d9ff56673bf3497818e81707a70683383e177ac7c95bd58649"
+      },
+      "adaptation": {
+        "changed": true,
+        "notice": "中文方法适配；保留出处及许可，取消上游全流程接管、固定技术栈和额外提交/批准要求。",
+        "author": "wshobson",
+        "upstream_author": "wshobson",
+        "license": "MIT"
+      }
+    },
+    {
+      "id": "implementation-planning",
+      "capability_type": "实现任务规划",
+      "repo": "obra/superpowers",
+      "commit": "8ca22dba9a94f28898bbce59f2537ff4d87c747d",
+      "upstream_path": "skills/writing-plans/SKILL.md",
+      "upstream_url": "https://github.com/obra/superpowers/blob/8ca22dba9a94f28898bbce59f2537ff4d87c747d/skills/writing-plans/SKILL.md",
+      "license": "MIT",
+      "license_file": "shared/subskills/upstream/obra-superpowers/LICENSE",
+      "entry": "shared/subskills/implementation-planning/GUIDE.md",
+      "source_entry": "shared/subskills/upstream/obra-superpowers/skills/writing-plans/SOURCE.md",
+      "files": {
+        "shared/subskills/upstream/obra-superpowers/skills/writing-plans/SOURCE.md": "a6c67c1900064347c2a329990dd3c555657c51c3ec53b259a08aa01a2c26139a",
+        "shared/subskills/upstream/obra-superpowers/LICENSE": "a37e0e9697144819e1d965176ac4ae5bc3fa02d11e7812036bbcadf6dafe2400",
+        "shared/subskills/implementation-planning/GUIDE.md": "c11023c293fb7c947903e24c9d1af94cc8a9faad553b55f9e9577c3890103a1d"
+      },
+      "adaptation": {
+        "changed": true,
+        "notice": "中文方法适配；保留出处及许可，取消上游全流程接管、固定技术栈和额外提交/批准要求。",
+        "author": "Jesse Vincent",
+        "upstream_author": "Jesse Vincent",
+        "license": "MIT"
+      }
+    },
+    {
+      "id": "systematic-debugging",
+      "capability_type": "系统调试",
+      "repo": "obra/superpowers",
+      "commit": "8ca22dba9a94f28898bbce59f2537ff4d87c747d",
+      "upstream_path": "skills/systematic-debugging/SKILL.md",
+      "upstream_url": "https://github.com/obra/superpowers/blob/8ca22dba9a94f28898bbce59f2537ff4d87c747d/skills/systematic-debugging/SKILL.md",
+      "license": "MIT",
+      "license_file": "shared/subskills/upstream/obra-superpowers/LICENSE",
+      "entry": "shared/subskills/systematic-debugging/GUIDE.md",
+      "source_entry": "shared/subskills/upstream/obra-superpowers/skills/systematic-debugging/SOURCE.md",
+      "files": {
+        "shared/subskills/upstream/obra-superpowers/skills/systematic-debugging/condition-based-waiting.md": "e89fec8400d6cd50f43407cec9fab50976ba4d55d0ec2eb51c0bd68036b54c26",
+        "shared/subskills/upstream/obra-superpowers/skills/systematic-debugging/defense-in-depth.md": "1e175fb86fc357e58c6aebf5441e481e1b7868b4380c0456b63a17eefbd18ba7",
+        "shared/subskills/upstream/obra-superpowers/skills/systematic-debugging/root-cause-tracing.md": "75b933b6a8c40bdb2031b10f21654395b56ec6ab6bc7b018c18d3fe57aeb7fb8",
+        "shared/subskills/upstream/obra-superpowers/skills/systematic-debugging/SOURCE.md": "808fc5717aa88ad65efff312b11c186294d3e6ee301afb584e2f86599b137787",
+        "shared/subskills/upstream/obra-superpowers/LICENSE": "a37e0e9697144819e1d965176ac4ae5bc3fa02d11e7812036bbcadf6dafe2400",
+        "shared/subskills/systematic-debugging/GUIDE.md": "d072bea0e54370f30dc55b26e2958515e17cc8c0dd9548a672ad44bd10b84f8c"
+      },
+      "adaptation": {
+        "changed": true,
+        "notice": "中文方法适配；保留出处及许可，取消上游全流程接管、固定技术栈和额外提交/批准要求。",
+        "author": "Jesse Vincent",
+        "upstream_author": "Jesse Vincent",
+        "license": "MIT"
+      }
+    },
+    {
+      "id": "behavior-test-design",
+      "capability_type": "行为测试设计",
+      "repo": "obra/superpowers",
+      "commit": "8ca22dba9a94f28898bbce59f2537ff4d87c747d",
+      "upstream_path": "skills/test-driven-development/SKILL.md",
+      "upstream_url": "https://github.com/obra/superpowers/blob/8ca22dba9a94f28898bbce59f2537ff4d87c747d/skills/test-driven-development/SKILL.md",
+      "license": "MIT",
+      "license_file": "shared/subskills/upstream/obra-superpowers/LICENSE",
+      "entry": "shared/subskills/behavior-test-design/GUIDE.md",
+      "source_entry": "shared/subskills/upstream/obra-superpowers/skills/test-driven-development/SOURCE.md",
+      "files": {
+        "shared/subskills/upstream/obra-superpowers/skills/test-driven-development/SOURCE.md": "64b03fce4aee5a97a93160cea8111f3ba13a17b7c001db4bd5836d67fd10705d",
+        "shared/subskills/upstream/obra-superpowers/skills/test-driven-development/writing-good-tests.md": "51471c853306ff92ca8bb41dcaea05f31c0e46b03651f8f3c99754b7172f4ae1",
+        "shared/subskills/upstream/obra-superpowers/LICENSE": "a37e0e9697144819e1d965176ac4ae5bc3fa02d11e7812036bbcadf6dafe2400",
+        "shared/subskills/behavior-test-design/GUIDE.md": "5866f7c1986daaaa7bf5c04a13824028aac4762907a013351788f40c8df01cd0"
+      },
+      "adaptation": {
+        "changed": true,
+        "notice": "中文方法适配；保留出处及许可，取消上游全流程接管、固定技术栈和额外提交/批准要求。",
+        "author": "Jesse Vincent",
+        "upstream_author": "Jesse Vincent",
+        "license": "MIT"
+      }
+    },
+    {
+      "id": "property-testing",
+      "capability_type": "属性与不变量测试",
+      "repo": "trailofbits/skills",
+      "commit": "82fe8226252622fa807643bdca1710901198553a",
+      "upstream_path": "plugins/property-based-testing/skills/property-based-testing/SKILL.md",
+      "upstream_url": "https://github.com/trailofbits/skills/blob/82fe8226252622fa807643bdca1710901198553a/plugins/property-based-testing/skills/property-based-testing/SKILL.md",
+      "license": "CC-BY-SA-4.0",
+      "license_file": "shared/subskills/upstream/trailofbits-skills/LICENSE",
+      "entry": "shared/subskills/property-testing/GUIDE.md",
+      "source_entry": "shared/subskills/upstream/trailofbits-skills/plugins/property-based-testing/skills/property-based-testing/SOURCE.md",
+      "files": {
+        "shared/subskills/upstream/trailofbits-skills/plugins/property-based-testing/skills/property-based-testing/references/generating.md": "c0e72dfc89babe3c32de718b81b94044362c85e776d7475e950dfeaab78bb58e",
+        "shared/subskills/upstream/trailofbits-skills/plugins/property-based-testing/skills/property-based-testing/references/interpreting-failures.md": "dbae7db8773712ba03268a3d56ea5aa6720af0650a5189580bfd88aa2edc3f9a",
+        "shared/subskills/upstream/trailofbits-skills/plugins/property-based-testing/skills/property-based-testing/references/libraries.md": "f7218acf8e668130ef3048983472579d04e12030c5401926f666363e5f69c686",
+        "shared/subskills/upstream/trailofbits-skills/plugins/property-based-testing/skills/property-based-testing/references/refactoring.md": "6eb5c206f575704791f089608bb06e41d6eed91b9d3c7fb27912f969aed07a18",
+        "shared/subskills/upstream/trailofbits-skills/plugins/property-based-testing/skills/property-based-testing/references/reviewing.md": "110b08118a1e7b1a2566def6e9d2a0bf43fc2deefce857d2ce3b4382b07bc774",
+        "shared/subskills/upstream/trailofbits-skills/plugins/property-based-testing/skills/property-based-testing/SOURCE.md": "9448cacb65c6237a7c22dc59602667177ecae405524079ae9ff92240590b995a",
+        "shared/subskills/upstream/trailofbits-skills/LICENSE": "7abe19ec9bb73b36141b999b861d24ad855e808bafe0f81e84cce28556f6c297",
+        "shared/subskills/property-testing/GUIDE.md": "aac3524c9daa30b0a6ead0d0e95275171fc7b1c1d772fbd27a5d4287e17b0392"
+      },
+      "adaptation": {
+        "changed": true,
+        "notice": "中文方法适配；保留出处及许可，取消上游全流程接管、固定技术栈和额外提交/批准要求。",
+        "author": "Trail of Bits",
+        "upstream_author": "Trail of Bits",
+        "license": "CC-BY-SA-4.0"
+      }
+    },
+    {
+      "id": "api-misuse-review",
+      "capability_type": "接口与配置误用审查",
+      "repo": "trailofbits/skills",
+      "commit": "82fe8226252622fa807643bdca1710901198553a",
+      "upstream_path": "plugins/sharp-edges/skills/sharp-edges/SKILL.md",
+      "upstream_url": "https://github.com/trailofbits/skills/blob/82fe8226252622fa807643bdca1710901198553a/plugins/sharp-edges/skills/sharp-edges/SKILL.md",
+      "license": "CC-BY-SA-4.0",
+      "license_file": "shared/subskills/upstream/trailofbits-skills/LICENSE",
+      "entry": "shared/subskills/api-misuse-review/GUIDE.md",
+      "source_entry": "shared/subskills/upstream/trailofbits-skills/plugins/sharp-edges/skills/sharp-edges/SOURCE.md",
+      "files": {
+        "shared/subskills/upstream/trailofbits-skills/plugins/sharp-edges/skills/sharp-edges/references/auth-patterns.md": "1fbf526ca1db7204f9ebb1bf4eb3c48c544676623d23e5d28e01f6f63c355be2",
+        "shared/subskills/upstream/trailofbits-skills/plugins/sharp-edges/skills/sharp-edges/references/case-studies.md": "2e81a320728b4597bf84c490176d5bf212f1e6ba6f87aafba61ad1734de35332",
+        "shared/subskills/upstream/trailofbits-skills/plugins/sharp-edges/skills/sharp-edges/references/config-patterns.md": "1d99f2716f7bef18efe71015ce0c56e0f4961c042faa503d796d6d4d1626fdc6",
+        "shared/subskills/upstream/trailofbits-skills/plugins/sharp-edges/skills/sharp-edges/references/crypto-apis.md": "8baddc83a1f964d6d8b15678d60a37c93029c18dc162bd7c00895e585ff1a825",
+        "shared/subskills/upstream/trailofbits-skills/plugins/sharp-edges/skills/sharp-edges/references/lang-c.md": "d077d711c73749c924eae81c06018b14bbf1ec9b93d71723c472b43df5d7d5ae",
+        "shared/subskills/upstream/trailofbits-skills/plugins/sharp-edges/skills/sharp-edges/references/lang-csharp.md": "8fa9e93d36c0e1397b7ca81307163370fc43cf700215b7c6d7aa1b09fdb91fb4",
+        "shared/subskills/upstream/trailofbits-skills/plugins/sharp-edges/skills/sharp-edges/references/lang-go.md": "839c0e7b4e3fa2f3b37c651e926aa59d69d20bfef5e67f569eedacf11354844d",
+        "shared/subskills/upstream/trailofbits-skills/plugins/sharp-edges/skills/sharp-edges/references/lang-java.md": "3b93b6049f7e0e356a1ffebc0b4642f3cef315d90be45b63e15c8c4814f9ebeb",
+        "shared/subskills/upstream/trailofbits-skills/plugins/sharp-edges/skills/sharp-edges/references/lang-javascript.md": "cf72f55d31318666942a8d1d64340befc3c4e7223afc2ca196e6a776ffa4c895",
+        "shared/subskills/upstream/trailofbits-skills/plugins/sharp-edges/skills/sharp-edges/references/lang-kotlin.md": "c891148c10a4941c3396416a10ac64512eb3a9e13ea5eeaec3902da4b51501dd",
+        "shared/subskills/upstream/trailofbits-skills/plugins/sharp-edges/skills/sharp-edges/references/lang-php.md": "7960d9773874cf06c5b470a5ca3ab406d896e66b71e713d809bc1ecfcab63485",
+        "shared/subskills/upstream/trailofbits-skills/plugins/sharp-edges/skills/sharp-edges/references/lang-python.md": "36543becc25b4e3f41eaedcab62e9b204657e6742b8ac95e405bcd040d33bf03",
+        "shared/subskills/upstream/trailofbits-skills/plugins/sharp-edges/skills/sharp-edges/references/lang-ruby.md": "d9ba749caaccb8a3bb39e2199b2062c0957cf48739218ba8022d49be5cba2088",
+        "shared/subskills/upstream/trailofbits-skills/plugins/sharp-edges/skills/sharp-edges/references/lang-rust.md": "3d14993ea70b2b2df3fc0f388cbd1631470895c27ccbd9d764296d1da8f5b6ee",
+        "shared/subskills/upstream/trailofbits-skills/plugins/sharp-edges/skills/sharp-edges/references/lang-swift.md": "a64ab8692db0f3e43526088c63c7fdcb7354d1b24e6fe7ca759aea3260890e04",
+        "shared/subskills/upstream/trailofbits-skills/plugins/sharp-edges/skills/sharp-edges/references/language-specific.md": "4522b4a37cfd7d3aa689209dfd4569f3b39074bd1f5987a36a6e819f501141b6",
+        "shared/subskills/upstream/trailofbits-skills/plugins/sharp-edges/skills/sharp-edges/SOURCE.md": "3b69a709c2f8f0cfcf57d40a3186e166f307865cc8ed924be4098e549a121e9c",
+        "shared/subskills/upstream/trailofbits-skills/LICENSE": "7abe19ec9bb73b36141b999b861d24ad855e808bafe0f81e84cce28556f6c297",
+        "shared/subskills/api-misuse-review/GUIDE.md": "0472a83ac5bbdfb7a8d76a4aa14156fca9dddf3bc17f6acd880f28046e81c305"
+      },
+      "adaptation": {
+        "changed": true,
+        "notice": "中文方法适配；保留出处及许可，取消上游全流程接管、固定技术栈和额外提交/批准要求。",
+        "author": "Trail of Bits",
+        "upstream_author": "Trail of Bits",
+        "license": "CC-BY-SA-4.0"
+      }
+    },
+    {
+      "id": "defect-variant-review",
+      "capability_type": "同类缺陷排查",
+      "repo": "trailofbits/skills",
+      "commit": "82fe8226252622fa807643bdca1710901198553a",
+      "upstream_path": "plugins/variant-analysis/skills/variant-analysis/SKILL.md",
+      "upstream_url": "https://github.com/trailofbits/skills/blob/82fe8226252622fa807643bdca1710901198553a/plugins/variant-analysis/skills/variant-analysis/SKILL.md",
+      "license": "CC-BY-SA-4.0",
+      "license_file": "shared/subskills/upstream/trailofbits-skills/LICENSE",
+      "entry": "shared/subskills/defect-variant-review/GUIDE.md",
+      "source_entry": "shared/subskills/upstream/trailofbits-skills/plugins/variant-analysis/skills/variant-analysis/SOURCE.md",
+      "files": {
+        "shared/subskills/upstream/trailofbits-skills/plugins/variant-analysis/skills/variant-analysis/references/reporting.md": "07a1d8f25537ec3da44b7c6e484bf922ab2eeaee733ced6df423df7bea517906",
+        "shared/subskills/upstream/trailofbits-skills/plugins/variant-analysis/skills/variant-analysis/references/root-cause.md": "b4556f22adadc894b22c8df01d98bb94596d4e035386c780fbca73594014660c",
+        "shared/subskills/upstream/trailofbits-skills/plugins/variant-analysis/skills/variant-analysis/references/searching.md": "22834e63e7412220feec9bd1d4cfd9298c17679489ad66d13be450928bf5d158",
+        "shared/subskills/upstream/trailofbits-skills/plugins/variant-analysis/skills/variant-analysis/references/triage.md": "f1f0277096ae41641be311c783f2f7a1c677c2c6b6e8a485986d8d5ed7fa3653",
+        "shared/subskills/upstream/trailofbits-skills/plugins/variant-analysis/skills/variant-analysis/resources/variant-report-template.md": "03333c762318a89dd819784a62695f7660713479a5009a15189314400836202f",
+        "shared/subskills/upstream/trailofbits-skills/plugins/variant-analysis/skills/variant-analysis/SOURCE.md": "7b6b78e499bcb88d05c68254ffc91ebc28edabf4e9808adcc40e2628ebb9407e",
+        "shared/subskills/upstream/trailofbits-skills/LICENSE": "7abe19ec9bb73b36141b999b861d24ad855e808bafe0f81e84cce28556f6c297",
+        "shared/subskills/defect-variant-review/GUIDE.md": "9123740c4b6daffa390623087b7b2adf9fb174afff9ad930101527377e897107"
+      },
+      "adaptation": {
+        "changed": true,
+        "notice": "中文方法适配；保留出处及许可，取消上游全流程接管、固定技术栈和额外提交/批准要求。",
+        "author": "Trail of Bits",
+        "upstream_author": "Trail of Bits",
+        "license": "CC-BY-SA-4.0"
+      }
+    },
+    {
+      "id": "frontend-visual-design",
+      "capability_type": "UI视觉与交互设计",
+      "repo": "anthropics/skills",
+      "commit": "8a1541c4a3ffa5a20a5a91de0dcf3f0bab1d1ef4",
+      "upstream_path": "skills/frontend-design/SKILL.md",
+      "upstream_url": "https://github.com/anthropics/skills/blob/8a1541c4a3ffa5a20a5a91de0dcf3f0bab1d1ef4/skills/frontend-design/SKILL.md",
+      "license": "Apache-2.0",
+      "license_file": "shared/subskills/upstream/anthropics-skills/skills/frontend-design/LICENSE.txt",
+      "entry": "shared/subskills/frontend-visual-design/GUIDE.md",
+      "source_entry": "shared/subskills/upstream/anthropics-skills/skills/frontend-design/SOURCE.md",
+      "files": {
+        "shared/subskills/upstream/anthropics-skills/skills/frontend-design/SOURCE.md": "d91970639e9f5c37682ac7ab60094d35f1c7c1f38d731bd56396563aee10c1d3",
+        "shared/subskills/upstream/anthropics-skills/skills/frontend-design/LICENSE.txt": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594",
+        "shared/subskills/frontend-visual-design/GUIDE.md": "21feb33802375801dce5ed10eb1587d8f56bf826b4a11f1dcf721652b2539944"
+      },
+      "adaptation": {
+        "changed": true,
+        "notice": "中文方法适配；保留出处及许可，取消上游全流程接管、固定技术栈和额外提交/批准要求。",
+        "author": "Anthropic",
+        "upstream_author": "Anthropic",
+        "license": "Apache-2.0"
+      }
+    },
+    {
+      "id": "web-ui-review",
+      "capability_type": "Web交互与可访问性审查",
+      "repo": "vercel-labs/web-interface-guidelines",
+      "commit": "e3d624baaf29dc1fc645aff3e38f03e564d2d6b1",
+      "upstream_path": "command.md",
+      "upstream_url": "https://github.com/vercel-labs/web-interface-guidelines/blob/e3d624baaf29dc1fc645aff3e38f03e564d2d6b1/command.md",
+      "license": "MIT",
+      "license_file": "shared/subskills/upstream/vercel-web-interface-guidelines/LICENSE",
+      "entry": "shared/subskills/web-ui-review/GUIDE.md",
+      "source_entry": "shared/subskills/upstream/vercel-web-interface-guidelines/command.md",
+      "files": {
+        "shared/subskills/upstream/vercel-web-interface-guidelines/command.md": "5a775e6411f790f518dbc9c1fa7c50a89e6873502d9a3530a6eb223a590bcfe8",
+        "shared/subskills/upstream/vercel-web-interface-guidelines/LICENSE": "6cd1609c9c12233507cdd2ce0d32e9a721e3c27494951be06b90090deeeb7af2",
+        "shared/subskills/web-ui-review/GUIDE.md": "f885b359f55f574ece2956a2b2d5af09abaa3e55c75e9ba594338cec6875a971"
+      },
+      "adaptation": {
+        "changed": true,
+        "notice": "中文方法适配；保留出处及许可，取消上游全流程接管、固定技术栈和额外提交/批准要求。",
+        "author": "Vercel",
+        "upstream_author": "Vercel",
+        "license": "MIT"
+      }
+    },
+    {
+      "id": "browser-acceptance",
+      "capability_type": "Web浏览器验收",
+      "repo": "anthropics/skills",
+      "commit": "8a1541c4a3ffa5a20a5a91de0dcf3f0bab1d1ef4",
+      "upstream_path": "skills/webapp-testing/SKILL.md",
+      "upstream_url": "https://github.com/anthropics/skills/blob/8a1541c4a3ffa5a20a5a91de0dcf3f0bab1d1ef4/skills/webapp-testing/SKILL.md",
+      "license": "Apache-2.0",
+      "license_file": "shared/subskills/upstream/anthropics-skills/skills/webapp-testing/LICENSE.txt",
+      "entry": "shared/subskills/browser-acceptance/GUIDE.md",
+      "source_entry": "shared/subskills/upstream/anthropics-skills/skills/webapp-testing/SOURCE.md",
+      "files": {
+        "shared/subskills/upstream/anthropics-skills/skills/webapp-testing/SOURCE.md": "51b7349e77ec63b7744a6f63647e7566a0b4d2e301121cc10e8c2113af6556a2",
+        "shared/subskills/upstream/anthropics-skills/skills/webapp-testing/LICENSE.txt": "bc6b3af2f331cbc7fb0da1344efb2cbe5877a31498b4d70dbc7000f3405a1362",
+        "shared/subskills/browser-acceptance/GUIDE.md": "feb3acdaef3698d2c8cc33cafe078f9ce783741290737741e8ac6efef1eca24a"
+      },
+      "adaptation": {
+        "changed": true,
+        "notice": "中文方法适配；保留出处及许可，取消上游全流程接管、固定技术栈和额外提交/批准要求。",
+        "author": "Anthropic",
+        "upstream_author": "Anthropic",
+        "license": "Apache-2.0"
+      }
+    }
+  ],
+  "scope": "按需方法接入；只校验固定快照和适配文件的本地完整性，不自动联网更新，不执行上游脚本。",
+  "host_reuse": [
+    "frontend-design",
+    "ui-ux-pro-max",
+    "ui-styling",
+    "design-system"
+  ],
+  "exclusions": [
+    {
+      "repo": "obra/superpowers",
+      "path": "skills/brainstorming",
+      "reason": "全任务硬门禁与主流程冲突"
+    },
+    {
+      "repo": "vercel-labs/agent-skills",
+      "path": "skills/react-best-practices",
+      "reason": "本轮通用库不默认引入特定框架；实际React/Next.js项目可另按元数据接入"
+    }
+  ]
+}

@@ -1,0 +1,2 @@
+# Fixed upstream snapshots and adapted guides are hashed as original bytes.
+shared/subskills/** -text

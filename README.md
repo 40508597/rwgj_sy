@@ -3,7 +3,7 @@
 > 任务架构通用智能体能力包，全局薄入口，承载任务架构规则、能力定义与共享工具。
 > 让 Codex、Claude Code、Trae、Cursor、Windsurf、Cline、Continue、CLI Agent 与自研 Agent 按同一套任务架构协议工作。
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Project license: MIT](https://img.shields.io/badge/Project-MIT-yellow.svg)](LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/40508597/rwgj_sy?style=social)](https://github.com/40508597/rwgj_sy)
 [![GitHub forks](https://img.shields.io/github/forks/40508597/rwgj_sy?style=social)](https://github.com/40508597/rwgj_sy)
 [![GitHub release](https://img.shields.io/github/v/release/40508597/rwgj_sy)](https://github.com/40508597/rwgj_sy/releases)
@@ -15,7 +15,11 @@
 
 ## 一、仓库简介
 
-本备份包含 2026-10-04 通用质量升级：架构决策记录、按指定关系检查模块边界与循环、项目配置的质量指标与 CRAP、绑定选定输入的真实执行收据，以及在隔离副本中故意引入字节故障验收检查器。规则与事实协议不限制项目语言，`.e`、未知工程格式、二进制和无后缀实现单元均可接入；外部信息不足时显示未验证，不声称内置全语言解析器。完整交付使用 gate_check 的 --quality-required。说明与模板见 [通用质量协议](shared/references/universal-quality.md)。技能元数据名规范为 task-architecture，中文标题与使用说明保留。
+本包由薄入口、内部四层规则和按需专业能力组成。默认专业能力目录包含原有三项审查资料与本轮新增的十二项编程能力，覆盖架构设计、决策、接口、规划、调试、测试、误用审查和 UI。宿主按已确认需求、任务姿态与真实场景读取最小适配指南；完整清单与条件见 [编程子技能](shared/references/programming-subskills.md)。规划、审查与事实协议不限制项目语言，具体工具的运行支持由项目环境决定。
+
+项目自有文件采用 [MIT](LICENSE)；第三方原文及中文适配分别保留 MIT、Apache-2.0 或 CC-BY-SA-4.0，具体归属与条款见 [第三方声明](THIRD-PARTY-NOTICES.md)。
+
+当前版本包含 2026-10-04 通用质量升级：架构决策记录、按指定关系检查模块边界与循环、项目配置的质量指标与 CRAP、绑定选定输入的真实执行收据，以及在隔离副本中故意引入字节故障验收检查器。规则与事实协议不限制项目语言，`.e`、未知工程格式、二进制和无后缀实现单元均可接入；外部信息不足时显示未验证，不声称内置全语言解析器。完整交付使用 gate_check 的 --quality-required。说明与模板见 [通用质量协议](shared/references/universal-quality.md)。技能元数据名规范为 task-architecture，中文标题与使用说明保留。
 
 - **角色**：薄入口技能包，承载任务架构规则与共享工具
 - **使用方**：Codex / Claude Code / Trae / Cursor / Windsurf / Cline / Continue / CLI Agent / 自研 Agent
@@ -66,6 +70,7 @@
 ├── .github/                    # CI 工作流
 │   └── workflows/verify.yml    # 一键验证 + 单元测试（push/PR 自动运行）
 ├── .gitignore                  # 忽略 __pycache__/报告/项目状态
+├── .gitattributes              # 保留导入子技能文件的原始字节
 ├── .source.json                # 技能来源元数据
 ├── README.md                   # 本文件（仓库门面 + 完整能力 + 详细使用）
 ├── SKILL.md                    # Agent 薄入口
@@ -73,7 +78,8 @@
 ├── CLAUDE.md                   # AI 在本仓库工作须知（瘦身版）
 ├── ENFORCEMENT-GUIDE.md        # F+B+C 强制执行机制指南
 ├── CONTRIBUTING.md             # 贡献指南
-├── LICENSE                     # MIT
+├── LICENSE                     # 项目自有文件的 MIT 许可
+├── THIRD-PARTY-NOTICES.md       # 第三方原文与适配的分项许可
 ├── verify-all.sh               # 一键验证脚本
 ├── tests/                      # 单元测试（stdlib unittest）
 ├── docs/                       # 设计文档
@@ -88,7 +94,8 @@
 │   ├── assets/                 # 资产模板 + Schema + folder-template 样张
 │   ├── legacy/                 # 历史 SKILL 归档
 │   ├── references/             # 参考文档（数量见 §4.5）
-│   └── scripts/                # 工具脚本（数量见 §4.5，含 _archlib 等内部辅助）
+│   ├── scripts/                # 工具脚本（数量见 §4.5，含 _archlib 等内部辅助）
+│   └── subskills/              # 专业 GUIDE + 固定上游原文、参考与许可
 └── skills/                     # 能力层（单一技能入口）
     ├── task-architecture/      # 路由层 LAYER.md
     ├── project-depth-core/     # 主动理解内核 CORE.md
@@ -160,6 +167,9 @@
 | `check_project_quality.py` | 通用质量 | 根据选定范围的观察事实检查依赖边界、循环、质量指标、CRAP、决策记录和执行收据；缺证据为未验证 |
 | `run_verification.py` | 执行证据 | 运行明确 argv，记录命令结果、选定输入前后哈希与原始输出，供质量门禁复核 |
 | `run_quality_probes.py` | 检查器验收 | 在两份隔离副本中运行正常与故意改坏样例，核对目标检查是否检出，固定分母保留失败与未知 |
+| `plan_capabilities.py` | 专业能力规划 | 按已确认任务/姿态与当前可用catalog选择最小读取计划，输出文件指纹与变化；不自动加载或执行技能 |
+| `check_capability_usage.py` | 专业能力核验 | 核对启用计划、输入、使用记录、作用域、执行收据与产物/架构回写；结构通过不证明审查正确 |
+| `check_subskill_sources.py` | 来源完整性 | 核对本地来源锁、目录绑定、文件哈希和许可记录；不联网认证远端提交或执行者身份 |
 
 **F+B+C 三件套机制**：
 - **F（占位符）**：让缺失可见 - `__待填__` 强制填写
@@ -191,12 +201,13 @@
 #### 4.2.2 `project-depth-core` — 主动理解内核
 
 - **职责**：把模糊需求变成清晰架构
-- **核心机制**（5 大）：
+- **核心机制**（6 大）：
   1. **最大主动性设计**：主动补全安全、日志、错误处理、测试、部署
   2. **功能簇展开**：菜单栏不只是横条，导出不只是按钮
   3. **交互完整性**：操作必须有"请求/处理中/成功/失败/异常恢复"
   4. **多层递进设计**：全景 → 骨架 → 逐块 → 集成
   5. **分治设计法**：大功能拆小块，每块让不熟悉项目的人也能独立实现
+   6. **实现期循环展开**：发现状态、边界或验证责任缺口时局部回展开，先更新架构再继续实现
 - **强制停止规则**：每个叶子节点必须满足"单一可测试操作 / 不可拆解的外部事实 / 明确排除"才能停止展开
 - **架构归位前置**：进入实现前必须判断"功能本体/状态/上下游/应落位位置"
 
@@ -230,6 +241,25 @@
 - **边界**：不展开功能簇、不判断项目应是什么、不替代模块详情设计
 - **交叉审计**：支持多模型/多会话独立审计，但**不得引入中央协调智能体**
 
+#### 4.2.5 专业子能力接入
+
+内部四层负责同一技能的规则路由；专业子能力服务当前功能节点与模块。默认目录现有 15 项，原有三项审查资料与新增十二项编程方法都已注册，按本次适用性选择：
+
+| 方向 | 随包能力 | 说明与来源 |
+|------|----------|------------|
+| 基础审查与交接 | 代码语义审查、交接完整性、产物独立核验 | [能力索引](shared/references/capability-index.md) |
+| 架构与接口 | 架构模式与模块边界、架构决策记录、接口契约设计 | [架构设计](shared/subskills/architecture-patterns/GUIDE.md)、[决策记录](shared/subskills/architecture-decisions/GUIDE.md)、[接口契约](shared/subskills/api-contract-design/GUIDE.md)；wshobson/agents |
+| 规划、调试与测试 | 实现任务规划、系统调试、行为测试设计 | [实现规划](shared/subskills/implementation-planning/GUIDE.md)、[系统调试](shared/subskills/systematic-debugging/GUIDE.md)、[行为测试](shared/subskills/behavior-test-design/GUIDE.md)；obra/superpowers |
+| 质量与缺陷检查 | 属性与不变量测试、接口与配置误用审查、同类缺陷排查 | [属性测试](shared/subskills/property-testing/GUIDE.md)、[误用审查](shared/subskills/api-misuse-review/GUIDE.md)、[同类缺陷](shared/subskills/defect-variant-review/GUIDE.md)；Trail of Bits |
+| UI 与浏览器 | UI 视觉与交互设计、Web 浏览器验收 | [UI 设计](shared/subskills/frontend-visual-design/GUIDE.md)、[浏览器验收](shared/subskills/browser-acceptance/GUIDE.md)；Anthropic |
+| Web 界面审查 | 交互、键盘操作、可访问性和状态反馈 | [Web UI 审查](shared/subskills/web-ui-review/GUIDE.md)；Vercel |
+
+新增十二项默认各读取一份 `GUIDE.md`；原有三项读取对应参考文档。原文和额外参考按实际需要与预算登记后再读取。UI 设计需要真实界面，Web 审查需要真实 Web 场景，浏览器验收还需要可用浏览器工具，同类缺陷排查需要已确认的缺陷实例。可用性使用实际任务事实及 JSON 布尔值，不能用关键词、数字 1 或字符串 true 代替。已有宿主 UI、测试、安全、性能、部署等技能也可按元数据接入。
+
+宿主提供的技能名称、描述、路径可用于筛选适用本地技能并构造最小 catalog，日常使用无需用户反复填写注册表。`plan_capabilities.py` 只生成适用计划；宿主实际读取选中的 `read_files` 才把资料载入上下文。没有系统提示注入 API 时，明确表述为按需读取。阶段、范围或输入变化时重新规划；能力退出不消除未解决的必需证据，缺失仍为 unknown，不能改记 skipped。退出证据核验后，才在新语境中明确记录已解除或已完成的能力。
+
+`check_capability_usage.py` 复核当前计划、输入、实际使用、作用域、产物及架构回写；模型审查与执行收据分开。结构校验通过不证明代码正确，缺必需证据为unknown，旧索引未启用专项可以skipped。完全跳过不建状态，小任务只做相称记录；具体契约、CLI与模板见 [专业能力索引](shared/references/capability-index.md)。
+
 ### 4.3 参考文档矩阵
 
 按主题分组（数量口径见 §4.5）：
@@ -242,6 +272,10 @@
 | 主动理解 | `splitting-guide.md` | 拆分粒度与停止规则 |
 | 主动理解 | `association-and-priority.md` | 影响范围、关联、优先级 |
 | 主动理解 | `capability-index.md` | 专业能力路由（UI/测试/安全/性能/部署/文档）|
+| 专业方法 | `programming-subskills.md` | 随包编程能力、真实场景条件、固定来源与分项许可 |
+| 专业审查 | `semantic-code-review.md` | 状态、异常、并发、持久化与公共契约审查 |
+| 协作恢复 | `handoff-integrity.md` | 原约束、ID、部分失败和退出条件完整交接 |
+| 产物核验 | `artifact-integrity.md` | 独立解析与来源/产物/回写等价检查 |
 | 主动理解 | `principles-card.md` | 原理卡片与速查 |
 | 架构物化 | `schemas.md` | JSON 字段、中文化规范、四层读取 |
 | 架构物化 | `commands-workflows.md` | 5 个命令、创建/分析/修改/追加/校验 |
@@ -278,18 +312,18 @@
 | 指标 | 数值 |
 |------|------|
 | 子能力层数 | 4 |
-| 参考文档数 | 21 |
-| 工具脚本数 | 27（shared/scripts 24 + scripts/3；其中 3 个内部辅助不计入用户工具表，由 check_doc_counts.py 自动对账）|
+| 参考文档数 | 25 |
+| 工具脚本数 | 31（shared/scripts 28 + scripts 3，含内部辅助；optional/ 宿主适配器单独分发）|
 | 必需阶段数 | 9（manage_state.STANDARD_STAGES required=True）|
 | 平台适配数 | 4 |
-| Schema 数 | 2 |
-| 资产模板数 | 8（shared/assets 顶层 .json）|
+| Schema 数 | 5 |
+| 资产模板数 | 11（shared/assets 顶层 .json）|
 | 历史归档 | 4（shared/legacy/ 下含 README.md 索引 + 3 份历史 SKILL）|
 | 设计文档数 | 6（docs/ 下 1 篇回归断言 + docs/adr/ 5 篇决策记录含索引）|
 | 顶层入口文件 | 2（SKILL.md / AGENT-USAGE.md）|
-| 单元测试 | 26（tests/，stdlib unittest，用例数由 check_doc_counts.py 动态统计）|
+| 单元测试 | 31 个测试文件（tests/test_*.py，stdlib unittest；用例数由 check_doc_counts.py 动态统计）|
 | CI 工作流 | 1（.github/workflows/verify.yml）|
-| 总文件数 | ~132（不含 .git/、缓存和生成的验证报告，含测试与 CI）|
+| 总文件数 | ~219（不含 .git/、缓存和生成的验证报告，含测试与 CI）|
 
 #### 4.5.1 分发最小运行集
 
@@ -297,11 +331,15 @@
 
 ```text
 SKILL.md
+LICENSE                    THIRD-PARTY-NOTICES.md
 skills/task-architecture   skills/project-depth-core   skills/architecture-json   skills/agent-protocol
 shared/scripts             shared/references           shared/adapters            shared/assets
+shared/subskills
 ```
 
-最小集仅包含核心运行能力。若选择 Claude Stop hook，需额外分发 `optional/claude_stop_hook.py`；一键项目验证可额外分发 `verify-all.sh`，其 --project 模式不依赖 tests/、README 或开发自检脚本。完整 --self-test 则需要开发分发资产。安装、提供源码或配置示例都不等于宿主集成已经启用。
+使用默认专业目录时，`shared/subskills/` 中的 GUIDE、固定来源和许可文件，以及根目录的许可与第三方声明一起分发。若选择 Claude Stop hook，需额外分发 `optional/claude_stop_hook.py`；一键项目验证可额外分发 `verify-all.sh`，其 --project 模式不依赖 tests/、README 或开发自检脚本。完整 --self-test 则需要开发分发资产。安装、提供源码或配置示例都不等于宿主集成已经启用。
+
+来源锁按原始字节校验。仓库的 `.gitattributes` 为 `shared/subskills/` 保留原始字节，避免 Git 自动换行转换破坏记录的哈希；重新分发时也保留这些来源与适配文件的编码和换行。
 
 ### 4.6 适用场景评估
 
@@ -368,7 +406,7 @@ TASK_ARCH_SOURCE="/absolute/path/to/task-architecture"
 TASK_ARCH_PROJECT="/absolute/path/to/project"
 TASK_ARCH_INSTALL="$TASK_ARCH_PROJECT/.agents/skills/task-architecture"
 mkdir -p "$TASK_ARCH_INSTALL"
-cp "$TASK_ARCH_SOURCE/SKILL.md" "$TASK_ARCH_INSTALL/"
+cp "$TASK_ARCH_SOURCE/SKILL.md" "$TASK_ARCH_SOURCE/LICENSE" "$TASK_ARCH_SOURCE/THIRD-PARTY-NOTICES.md" "$TASK_ARCH_INSTALL/"
 cp -R "$TASK_ARCH_SOURCE/skills" "$TASK_ARCH_SOURCE/shared" "$TASK_ARCH_INSTALL/"
 # 可选一键项目验证入口：
 cp "$TASK_ARCH_SOURCE/verify-all.sh" "$TASK_ARCH_INSTALL/"
@@ -521,7 +559,16 @@ python shared/scripts/run_with_progress.py validate_architecture.py '验证架�
 使用任务架构做 XXX
 ```
 
-技能会自动按需加载三层。用户的语言越具体、目标越明确，技能的效果越好。
+宿主按本次范围读取内部规则与所选专业指南。用户可直接描述要交付的行为、硬约束和希望验证的边界，例如：
+
+```text
+使用任务架构设计这个项目的模块边界、依赖方向和接口契约，并记录架构取舍。
+使用任务架构把这个功能拆成按依赖执行的任务，写清修改范围和验收责任。
+使用任务架构实现这个界面，覆盖处理中、成功、失败和键盘操作，并做实际可用的验收。
+使用任务架构排查这个异常，保留复现证据，并用固定预期验证修复。
+```
+
+用户无需逐项点名子技能；宿主根据已确认需求和实际工具条件选择，缺少必需证据时报告未验证。
 
 ### 5.3 三层执行顺序（核心）
 
@@ -669,6 +716,33 @@ python shared/scripts/render_architecture.py architecture/index.json --max-nodes
 
 **铁律（单向渲染）**：`architecture/index.json` + 切片是唯一真相源；可视化产物是**派生视图**，随时可重新生成，**禁止反向编辑 JSON**。任何架构修改仍走命令链（/修改架构 → JSON → 校验）。
 
+#### 5.4.9 专业能力的规划、读取与核验
+
+在调用方项目中，先根据实际需求创建本次语境，再由 `resolve_tool.py` 解析以下工具的完整路径。语境与计划保存在调用方的 `architecture/capabilities/`；默认 catalog 会选择适用的最小资料。
+
+```text
+python "<plan_capabilities_path>" --project "<项目根>" --context "<项目根>/architecture/capabilities/context.json" --output "<项目根>/architecture/capabilities/plan.json"
+# 宿主实际读取 plan 中的 read_files，执行所选专业任务，并回写架构与使用记录。
+python "<check_capability_usage_path>" "<项目根>" --plan architecture/capabilities/plan.json --usage architecture/capabilities/usage.json --context architecture/capabilities/context.json --json
+python "<check_subskill_sources_path>" "<能力包根>" --json
+```
+
+阶段或输入变化时使用 `--previous "<旧计划.json>"` 显示选择变化，并保留未解决的必需能力与风险。已核验完成的能力可在新语境中登记到 `resolved_capabilities`（或 `已完成能力`）；这项声明只更新规划约束，实际退出依据仍须核验。不要覆盖旧失败或 unknown 记录。
+
+规划成功表示资料可按计划读取；使用核验检查当前记录、作用域与回写对账；来源核验检查本地版本锁、文件和目录绑定。它们分别报告各自范围，完整实现交付继续遵循 [通用质量协议](shared/references/universal-quality.md) 和 `gate_check --quality-required`。语境示例、实际使用模板和输入条件见 [专业能力索引](shared/references/capability-index.md) 与 [编程子技能说明](shared/references/programming-subskills.md)。
+
+#### 5.4.10 子技能接入验证记录（2026-10-04）
+
+以下记录对应本次接入快照；当前测试规模仍由 §4.5 的对账工具动态盘点。
+
+- 完整回归运行 682 项：680 项通过，2 项因 Windows 符号链接权限跳过；能力体系检查无错误、无警告。
+- 本地来源核验覆盖十二项新能力、72 次文件检查；接入时检查的 424 个相对路径引用均有效。
+- 独立配额工具演练实际读取七份 GUIDE：设计三项、规划一项、验证三项；14 个固定业务场景与两组补充检查通过。
+- 真实浏览器完成八项操作观察，覆盖键盘提交、处理中状态、幂等、冲突、输入错误、超额、取消与焦点恢复；控制台无警告或错误。未覆盖读屏、窄视口、其他浏览器和原生桌面 UI。
+- 故意改坏取消逻辑、产物回写值及缺失使用记录的负例分别被失败或 unknown 拦截，原始预期与失败证据保留。实际全局安装的使用检查器对最终记录通过 36 条检查。
+
+这些结果分别验证当前包、选定案例和当前安装的检查范围；骨架、使用记录或文件哈希通过不证明架构最优、全部业务语义正确或所有语言运行工具可用。浏览器观察按宿主操作与 review 证据记录，真实命令执行另附 execution 收据。
+
 ### 5.5 平台适配说明
 
 技能通过 `shared/adapters/` 屏蔽平台差异：
@@ -782,12 +856,15 @@ git push origin main
 
 | 类型 | 位置 |
 |------|------|
-| 新 Skill | `skills/<name>/SKILL.md` |
+| 内部子能力层 | `skills/<name>/<职责文件>.md`，由现有路由按需链接，不使用新的 `SKILL.md` 魔法入口 |
+| 专业能力注册 | 项目的能力索引/最小catalog；宿主已安装技能按元数据接入，不复制成内部宿主入口 |
 | 参考文档 | `shared/references/<name>.md` |
 | 工具脚本 | `shared/scripts/<name>.py` |
 | Schema | `shared/assets/schema/<name>.schema.json` |
 | 平台适配 | `shared/adapters/<platform>.md` |
 | 资产模板 | `shared/assets/<name>.json` |
+
+扩展内部层与接入已有外部技能是两种操作；保持根 `SKILL.md` 为本包唯一入口。新增能力先明确触发、作用域、输入、产出、证据与回写，按 `capability-index.md` 核验；名称、描述与社区热度不能替代实际能力验证。
 
 ### 6.3 不要做
 

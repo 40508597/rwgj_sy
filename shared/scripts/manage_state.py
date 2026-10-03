@@ -222,7 +222,7 @@ def check_expected_revision(state: dict[str, Any], raw_expected: Any, action: st
 
 
 def update_completion(state: dict[str, Any]) -> None:
-    """更新完成度统计"""
+    """从阶段事实更新统计与当前阶段，供动态加载读取可靠的阶段。"""
     stages = state["stages"]
     completed = sum(1 for s in stages if s["status"] == "completed")
     required_completed = sum(1 for s in stages if s["status"] == "completed" and s["required"])
@@ -235,6 +235,16 @@ def update_completion(state: dict[str, Any]) -> None:
         "required_total": required_total,
         "percentage": round(completed / len(stages) * 100, 1)
     }
+    current = next((s for s in stages if s["id"] == state["current_stage"]), None)
+    active = [s for s in stages if s["status"] == "in_progress"]
+    if current is not None and current["status"] == "in_progress":
+        return
+    if active:
+        state["current_stage"] = active[0]["id"]
+        return
+    pending = [s for s in stages if s["status"] == "pending"
+               or (s["required"] and s["status"] == "skipped")]
+    state["current_stage"] = (pending[0] if pending else stages[-1])["id"]
 
 
 def generate_next_actions(state: dict[str, Any]) -> list[str]:

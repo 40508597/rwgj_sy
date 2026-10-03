@@ -23,6 +23,12 @@ CAPABILITY_ROOT = Path(__file__).resolve().parents[2]
 
 
 REQUIRED_PROTOCOL_FILES = [
+    "skills/task-architecture/LAYER.md",
+    "skills/project-depth-core/CORE.md",
+    "skills/architecture-json/SCHEMA.md",
+    "skills/agent-protocol/PROTOCOL.md",
+    "shared/references/capability-index.md",
+    "shared/references/universal-quality.md",
     "shared/references/universal-agent-protocol.md",
     "shared/references/task-posture.md",
     "shared/references/module-agent-protocol.md",
@@ -93,8 +99,10 @@ def validate_protocol(root: Path, architecture_path: Path, *,
     skill_files = [
         capability / "SKILL.md",
         capability / "AGENT-USAGE.md",
-        capability / "skills" / "task-architecture" / "SKILL.md",
-        capability / "skills" / "agent-protocol" / "SKILL.md",
+        capability / "skills" / "task-architecture" / "LAYER.md",
+        capability / "skills" / "project-depth-core" / "CORE.md",
+        capability / "skills" / "architecture-json" / "SCHEMA.md",
+        capability / "skills" / "agent-protocol" / "PROTOCOL.md",
     ]
     combined_skill_text = ""
     for skill_file in skill_files:

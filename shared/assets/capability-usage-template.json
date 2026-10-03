@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "plan_fingerprint": "__填写实际计划fingerprint__",
+  "context_sha256": "__填写本次context原始文件sha256__",
+  "calls": [
+    {
+      "id": "review-001",
+      "capability_id": "__填写本次selected能力ID__",
+      "kind": "review",
+      "status": "partial",
+      "input_hashes": {"__本次读取项目相对文件路径__": "__填写实际文件sha256__"},
+      "read_files": ["__本次读取项目相对文件路径__"],
+      "modified_files": [],
+      "outputs": [
+        {
+          "id": "review-report",
+          "artifact": "architecture/capabilities/artifacts/review-001.json",
+          "artifact_pointer": "/result",
+          "writeback": "/验证证据/手动检查/0",
+          "sha256": "__填写实际产物原始文件sha256__"
+        }
+      ],
+      "review": {
+        "summary": "__填写实际审查范围、发现或零发现及依据__",
+        "limitations": ["模型审查记录，不是自动执行测试，不认证独立身份"]
+      }
+    }
+  ]
+}

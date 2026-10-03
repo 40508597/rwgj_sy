@@ -103,7 +103,24 @@
     },
     "专业能力索引": {
       "type": "array",
-      "x-importance": "important"
+      "x-importance": "important",
+      "items": {
+        "type": "object",
+        "required": ["能力类型"],
+        "properties": {
+          "能力编号": {"type": "string"},
+          "能力类型": {"type": "string"},
+          "适用节点": {"type": "array", "items": {"type": "string"}},
+          "关联节点": {"type": "array", "items": {"type": "string"}},
+          "触发信号": {"type": "array", "items": {"type": "string"}},
+          "调用建议": {"type": "string"},
+          "质量要求": {"type": "array", "items": {"type": "string"}},
+          "候选技能": {"type": "array", "items": {"type": "object"}},
+          "回写位置": {"type": "array", "items": {"type": "string"}},
+          "边界": {"type": "string"},
+          "必需": {"type": "boolean"}
+        }
+      }
     },
     "入口": {
       "type": "object",
