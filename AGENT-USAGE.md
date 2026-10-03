@@ -8,13 +8,13 @@
 
 ```text
 全局使用：把本目录安装/复制到智能体的 skills 目录，通过根 SKILL.md 触发。
-项目级使用：把本目录复制到项目根目录，告诉智能体读取 AGENT-USAGE.md。
+项目级使用：只把 SKILL.md、skills/ 和 shared/ 放到项目的 .agents/skills/task-architecture/ 子目录；从该目录的 SKILL.md 进入。安装详情见 README.md §5.1。
 ```
 
 项目级使用时，告诉智能体：
 
 ```text
-读取 AGENT-USAGE.md，使用任务架构处理本项目。
+读取 .agents/skills/task-architecture/SKILL.md，使用任务架构处理本项目。
 ```
 
 用户仍只需要说：
@@ -23,7 +23,9 @@
 使用任务架构做 XXX
 ```
 
-## 三层执行顺序
+## 入口与执行顺序
+
+首先读取本包 `SKILL.md`，再读取 `skills/task-architecture/LAYER.md`。按 LAYER 判定本次范围、读取项目状态并输出启动回执；仅完整流程进入以下三层。
 
 ```text
 1. skills/project-depth-core/CORE.md
@@ -38,7 +40,7 @@
 
 ## 总路由
 
-不要全量读取所有 reference。先按任务信号进入对应层，再读取该层底部的“详细参考路由”。
+不要全量读取所有 reference。先按 SKILL.md → LAYER.md 判定范围，再进入对应层，再读取该层底部的“详细参考路由”。
 
 - 每个受管项目必须使用 `architecture/` 切片目录；`architecture.json` 只允许作为指向 `architecture/index.json` 的轻量指针。
 - 模糊需求、新功能、功能深度、交互闭环、反扁平化：先读 `skills/project-depth-core/CORE.md`。
@@ -50,8 +52,8 @@
 
 共享文件按以下顺序定位：
 
-1. 当前项目根目录存在 `skills/` 或 `shared/` 时，优先使用项目级能力文件。
-2. 当前项目没有能力文件时，使用全局安装目录中的 `skills/` 和 `shared/`。
+1. 按需要的具体文件检查当前项目根的 `skills/` 或 `shared/`；对应文件存在才优先使用。
+2. 逐文件缺失时，回退到本次加载的 SKILL.md 所在安装目录。项目内 `.agents/skills/task-architecture/` 与全局安装使用相同规则；同名目录存在不代表全部文件齐全。
 3. 项目真相源永远来自当前工作项目的 `architecture.json -> architecture/index.json`，不得读取或写入全局能力包自己的 `architecture/` 作为业务项目状态。
 4. 子能力层中的 `../../shared/` 路径按同一规则解析：先解析为当前项目根目录的 `shared/`，不存在时再解析为全局技能安装目录的 `shared/`。
 
@@ -73,7 +75,7 @@ CLI 只做查验，不做认知判断。功能簇展开、架构归位和模块�
 
 ## 工具可用时
 
-优先运行（受管项目统一指向 `architecture/index.json`；若项目仍是旧单文件 `architecture.json`，先迁移为切片目录再校验）：
+下列是参数示例；每个工具先由 resolve_tool.py 解析，取 JSON.path（完整脚本绝对路径）执行，不再追加脚本名。受管项目统一指向 `architecture/index.json`；若项目仍是旧单文件 `architecture.json`，先迁移为切片目录再校验：
 
 ```text
 python shared/scripts/validate_architecture.py architecture/index.json
@@ -82,7 +84,7 @@ python shared/scripts/taskarch_cli.py lineage --root .
 python shared/scripts/check_regression_assertions.py --scenario export --file output.md
 ```
 
-工具不可用时，按文本规则降级执行，并记录未运行原因。
+完整实现交付还必须按 `shared/references/universal-quality.md` 配置实际事实与本次适用规则，运行 `python "<gate_check_path>" "<项目根>" --quality-required --json`。工具不可用时记录未运行原因和未验证项，不得把人工复核冒充自动门禁通过。
 
 ## 辅助参考
 

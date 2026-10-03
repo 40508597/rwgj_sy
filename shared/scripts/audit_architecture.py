@@ -12,9 +12,9 @@ check_quality_redlines.py 只能拦截「明显坏」，无法判断「架构好
 审计结果应写入 architecture/index.json 的 验证证据 留痕。
 
 用法:
-    python audit_architecture.py --generate --output audit-report.json
+    python audit_architecture.py generate architecture.json --output audit-report.json
     # 审计方填写 audit-report.json 后：
-    python audit_architecture.py --report audit-report.json
+    python audit_architecture.py report audit-report.json
 """
 
 from __future__ import annotations
@@ -82,7 +82,8 @@ def build_questionnaire(architecture: str) -> dict:
         "审计对象": architecture,
         "生成时间": now_iso(),
         "原则": PRINCIPLE,
-        "填写说明": "每条问题：结论 填 yes（通过）/ no（不通过）/ na（不适用）；yes/no 必须填写证据；完成后运行 audit_architecture.py --report 核验。",
+        "状态": "待审",
+        "填写说明": "每条问题：结论填 yes/no/na；yes/no 必须填写非空证据，na 必须填写证据或不适用原因。生成成功不等于审计通过；填写后运行 audit_architecture.py report 核验。",
         "问题清单": [
             {**q,
              "结论": "",
@@ -98,24 +99,42 @@ def validate_report(report: dict) -> tuple[int, list[str], list[str]]:
     """核验审计报告，返回 (通过数, 错误清单, 警告清单)。"""
     errors: list[str] = []
     warnings: list[str] = []
+    if not isinstance(report, dict):
+        return 0, ["审计报告根节点必须是对象"], []
     items = report.get("问题清单")
     if not isinstance(items, list):
         return 0, ["问题清单 缺失或不是列表"], []
 
+    expected = {q["编号"] for q in QUESTIONS}
+    seen: set[str] = set()
     passed = 0
     for item in items:
         if not isinstance(item, dict):
             errors.append(f"问题清单包含非对象项: {item!r}")
             continue
         qid = item.get("编号", "?")
+        if not isinstance(qid, str) or qid not in expected:
+            errors.append(f"未知审计问题编号: {qid!r}")
+            continue
+        if qid in seen:
+            errors.append(f"审计问题编号重复: {qid}")
+            continue
+        seen.add(qid)
         conclusion = item.get("结论")
-        if conclusion not in VALID_CONCLUSIONS:
+        if not isinstance(conclusion, str) or conclusion not in VALID_CONCLUSIONS:
             errors.append(f"{qid}: 结论缺失或非法（应为 yes/no/na，实际 {conclusion!r}）")
+            continue
+        evidence = item.get("证据")
+        reason = item.get("不适用原因")
+        has_evidence = isinstance(evidence, str) and bool(evidence.strip())
+        has_reason = isinstance(reason, str) and bool(reason.strip())
+        if not has_evidence and (conclusion != "na" or not has_reason):
+            errors.append(f"{qid}: 结论为 {conclusion} 但缺少有效证据或不适用原因")
             continue
         if conclusion == "yes":
             passed += 1
-        if conclusion in ("yes", "no") and not str(item.get("证据", "")).strip():
-            warnings.append(f"{qid}: 结论为 {conclusion} 但未填写证据")
+    for qid in sorted(expected - seen, key=lambda q: int(q[1:])):
+        errors.append(f"审计问题缺失: {qid}")
     return passed, errors, warnings
 
 
@@ -135,7 +154,7 @@ def cmd_generate(args: argparse.Namespace) -> int:
 def cmd_report(args: argparse.Namespace) -> int:
     try:
         report = json.loads(args.report.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+    except (OSError, UnicodeError, ValueError) as exc:
         print(f"ERROR: 无法读取审计报告: {exc}", file=sys.stderr)
         return 2
     if not isinstance(report, dict):
@@ -167,7 +186,12 @@ def cmd_report(args: argparse.Namespace) -> int:
         print("⚠️ 审计报告完整，但有缺证据项——建议补充后再归档")
         print("=" * 60)
         return 0
-    print("✅ 审计报告完整：可作为验证证据归档（写入 architecture/index.json 验证证据）")
+    rejected = any(item.get("结论") == "no" for item in report["问题清单"] if isinstance(item, dict))
+    if rejected:
+        print("❌ 审计报告结构完整，但含不通过结论：应记录并解决这些问题后再声明审计通过")
+        print("=" * 60)
+        return 1
+    print("✅ 审计报告完整：通过与不适用项均已留痕，可作为验证证据归档")
     print("=" * 60)
     return 0
 

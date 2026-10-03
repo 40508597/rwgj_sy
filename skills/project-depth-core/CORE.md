@@ -62,6 +62,8 @@ python ../../shared/scripts/manage_state.py update 功能树 completed --note �
 
 ## 智能关联路由
 
+涉及模块边界、数据归属、运行形态、技术选型或关键质量目标时，先明确真实驱动与硬约束，比较合理候选，记录收益、代价、接受的负面后果、验证方式和重新评估条件。把可执行约束转成依赖/质量/验收规则；记录完整不代表方案适合。按需读取 `../../shared/references/universal-quality.md`。不编造规模或 SLO，不为小任务强制全面决策记录。
+
 修改一个节点时，沿架构牵引链自动联想：
 
 ```text

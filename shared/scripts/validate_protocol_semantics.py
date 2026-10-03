@@ -19,6 +19,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import _archlib  # noqa: E402
 
 _archlib.configure_utf8_stdout()
+CAPABILITY_ROOT = Path(__file__).resolve().parents[2]
 
 
 REQUIRED_PROTOCOL_FILES = [
@@ -62,11 +63,16 @@ def _is_non_empty(value: Any) -> bool:
     return value is not None
 
 
-def validate_protocol(root: Path, architecture_path: Path) -> tuple[list[str], list[str]]:
+def validate_protocol(root: Path, architecture_path: Path, *,
+                      capability_root: Path | None = None) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     warnings: list[str] = []
 
-    data = _archlib.load_architecture_json(architecture_path)
+    root = root.resolve()
+    capability = (capability_root or CAPABILITY_ROOT).resolve()
+    if not root.is_dir() or not capability.is_dir():
+        raise _archlib.ArchitectureInputError("项目根与能力包根必须为存在的目录")
+    data = _archlib.load_architecture_json(architecture_path, project_root=root)
     if not isinstance(data, dict):
         return ["architecture 根节点必须是对象"], warnings
 
@@ -81,14 +87,14 @@ def validate_protocol(root: Path, architecture_path: Path) -> tuple[list[str], l
         warnings.append("上下文恢复点.动态姿势语境 如果存在，建议为对象")
 
     for rel in REQUIRED_PROTOCOL_FILES + REQUIRED_ADAPTER_FILES + REQUIRED_TOOL_FILES:
-        if not (root / rel).exists():
+        if not (capability / rel).is_file():
             errors.append(f"必需协议文件不存在: {rel}")
 
     skill_files = [
-        root / "SKILL.md",
-        root / "AGENT-USAGE.md",
-        root / "skills" / "task-architecture" / "SKILL.md",
-        root / "skills" / "agent-protocol" / "SKILL.md",
+        capability / "SKILL.md",
+        capability / "AGENT-USAGE.md",
+        capability / "skills" / "task-architecture" / "SKILL.md",
+        capability / "skills" / "agent-protocol" / "SKILL.md",
     ]
     combined_skill_text = ""
     for skill_file in skill_files:
@@ -101,15 +107,10 @@ def validate_protocol(root: Path, architecture_path: Path) -> tuple[list[str], l
             if phrase not in combined_skill_text:
                 warnings.append(f"技能入口文件中未发现关键短语: {phrase}")
 
-    implementation = data.get("实现清单", {})
-    if isinstance(implementation, dict):
-        declared: set[str] = set()
-        for item in implementation.values():
-            if not isinstance(item, dict):
-                continue
-            for file_item in (item.get("文件列表") or item.get("文件") or []):
-                if isinstance(file_item, dict) and isinstance(file_item.get("路径"), str):
-                    declared.add(file_item["路径"].replace("\\", "/"))
+    # A caller registers its implementation, not global skill files. The
+    # capability package's own architecture may register its protocol assets.
+    if root == capability:
+        declared = _archlib.collect_implementation_files(data)
         for rel in REQUIRED_PROTOCOL_FILES + REQUIRED_ADAPTER_FILES + REQUIRED_TOOL_FILES:
             if rel not in declared:
                 warnings.append(f"协议文件未登记到实现清单: {rel}")
@@ -122,13 +123,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("project", type=Path, help="Project root")
     parser.add_argument("--architecture", type=Path, default=Path("architecture.json"), help="Architecture JSON")
     parser.add_argument("--json", action="store_true", help="Emit machine-readable result")
+    parser.add_argument("--capability-root", type=Path, default=CAPABILITY_ROOT,
+                        help="Capability distribution root (defaults to this tool's package)")
     args = parser.parse_args(argv)
 
     root = args.project.resolve()
     architecture = args.architecture if args.architecture.is_absolute() else root / args.architecture
 
     result, io_error, io_exit = _archlib.run_with_io_errors(
-        lambda: validate_protocol(root, architecture)
+        lambda: validate_protocol(root, architecture, capability_root=args.capability_root)
     )
     if io_error is not None:
         print(f"ERROR: {io_error}", file=sys.stderr)

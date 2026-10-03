@@ -171,4 +171,8 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main(sys.argv[1:]))
+    result, error, code = _archlib.run_with_io_errors(lambda: main(sys.argv[1:]))
+    if error is not None:
+        print(json.dumps({"status": "unknown", "错误": error}, ensure_ascii=False))
+        raise SystemExit(code)
+    raise SystemExit(result)

@@ -18,6 +18,11 @@ class TestIsCapabilityPackage(unittest.TestCase):
             root = Path(td)
             (root / "SKILL.md").write_text(
                 "---\nname: 任务架构\ndescription: 测试\n---\n# 任务架构\n", encoding="utf-8")
+            for relative in ("shared/scripts/_archlib.py", "shared/assets/schema/architecture.schema.json",
+                             "skills/task-architecture/LAYER.md"):
+                target = root / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text("结构夹具", encoding="utf-8")
             self.assertTrue(detect_should_trigger.is_capability_package_itself(root))
 
     def test_other_skill_not_detected(self):
@@ -27,11 +32,11 @@ class TestIsCapabilityPackage(unittest.TestCase):
                 "---\nname: other-skill\ndescription: 测试\n---\n", encoding="utf-8")
             self.assertFalse(detect_should_trigger.is_capability_package_itself(root))
 
-    def test_agent_usage_detected(self):
+    def test_agent_usage_alone_not_capability(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             (root / "AGENT-USAGE.md").write_text("通用入口", encoding="utf-8")
-            self.assertTrue(detect_should_trigger.is_capability_package_itself(root))
+            self.assertFalse(detect_should_trigger.is_capability_package_itself(root))
 
     def test_empty_dir_not_detected(self):
         with tempfile.TemporaryDirectory() as td:
@@ -43,7 +48,7 @@ class TestShouldTriggerTaskArchitecture(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             (root / "architecture").mkdir()
-            with patch.object(detect_should_trigger._archlib, "iter_actual_files", side_effect=AssertionError("scanned")):
+            with patch.object(detect_should_trigger, "iter_structure_files", side_effect=AssertionError("scanned")):
                 self.assertTrue(detect_should_trigger.should_trigger_task_architecture(root)[0])
 
     def test_dependencies_do_not_inflate_project_size(self):
@@ -66,7 +71,7 @@ class TestShouldTriggerTaskArchitecture(unittest.TestCase):
                 for i in range(11):
                     yield f"src/{i}.py"
                 raise AssertionError("scan did not stop at threshold")
-            with patch.object(detect_should_trigger._archlib, "iter_actual_files", side_effect=files):
+            with patch.object(detect_should_trigger, "iter_structure_files", side_effect=files):
                 self.assertTrue(detect_should_trigger.should_trigger_task_architecture(root)[0])
 
     def test_managed_project_triggers(self):

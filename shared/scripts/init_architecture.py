@@ -6,7 +6,10 @@ from __future__ import annotations
 import argparse
 import copy
 import json
+import os
+import re
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -26,7 +29,7 @@ def now_iso() -> str:
 
 
 def load_template(path: Path) -> dict[str, Any]:
-    with path.open("r", encoding="utf-8") as handle:
+    with path.open("r", encoding="utf-8-sig") as handle:
         data = json.load(handle)
     if not isinstance(data, dict):
         raise ValueError("模板根节点必须是对象")
@@ -128,9 +131,18 @@ def write_json(data: dict[str, Any], output: Path, force: bool) -> None:
     if output.exists() and not force:
         raise FileExistsError(f"输出文件已存在，若确认覆盖请添加 --force: {output}")
     output.parent.mkdir(parents=True, exist_ok=True)
-    with output.open("w", encoding="utf-8", newline="\n") as handle:
-        json.dump(data, handle, ensure_ascii=False, indent=2)
-        handle.write("\n")
+    # Replace the destination entry rather than truncating aliases/hardlinks.
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", newline="\n",
+                                         dir=output.parent, prefix=".tmp-arch-", delete=False) as handle:
+            temporary = Path(handle.name)
+            json.dump(data, handle, ensure_ascii=False, indent=2)
+            handle.write("\n")
+        os.replace(temporary, output)
+    finally:
+        if temporary is not None and temporary.exists():
+            temporary.unlink()
 
 
 def slice_meta(slice_id: str, kind: str, path: str, contains: list[str], timestamp: str) -> dict[str, Any]:
@@ -206,6 +218,17 @@ def split_architecture(data: dict[str, Any], timestamp: str) -> tuple[dict[str, 
             ],
         },
     }
+    # Extensions belong to the logical architecture even when no standard
+    # physical slice owns them. Preserve them in the index during migration.
+    sliced_fields = {field for payload in slices.values() for field in payload if field != "切片元信息"}
+    for key, value in data.items():
+        if key not in sliced_fields and key not in {"项目", "索引摘要", "架构切片", "指向"}:
+            index[key] = copy.deepcopy(value)
+    for field in ("索引摘要", "架构切片"):
+        if isinstance(data.get(field), dict):
+            original = copy.deepcopy(data[field])
+            original.update(index[field])
+            index[field] = original
     return index, slices
 
 
@@ -226,7 +249,10 @@ def write_architecture_folder(full_data: dict[str, Any], pointer_data: dict[str,
 
 
 def migrate_single_file(source: Path, output: Path, force: bool, timestamp: str) -> tuple[Path, Path, Path]:
-    data = load_template(source)
+    source_bytes = source.read_bytes()
+    data = json.loads(source_bytes.decode("utf-8-sig"))
+    if not isinstance(data, dict):
+        raise ValueError("输入文件根节点必须是对象")
     if isinstance(data.get("指向"), str):
         raise ValueError("输入文件已经是架构文件夹指针，无需迁移")
 
@@ -258,7 +284,8 @@ def migrate_single_file(source: Path, output: Path, force: bool, timestamp: str)
     project_root = index_path.parent.parent
     index_data, slices = split_architecture(data, timestamp)
     slice_paths = [project_root / rel for rel in slices]
-    archive_path = project_root / "architecture" / "archive" / f"architecture-single-before-migrate-{timestamp.replace(':', '').replace('+', '_')}.json"
+    archive_stamp = re.sub(r"[^A-Za-z0-9_.-]", "_", timestamp)
+    archive_path = project_root / "architecture" / "archive" / f"architecture-single-before-migrate-{archive_stamp}.json"
 
     source_resolved = source.resolve()
     pointer_resolved = pointer_path.resolve()
@@ -272,9 +299,19 @@ def migrate_single_file(source: Path, output: Path, force: bool, timestamp: str)
         raise FileExistsError(f"输出文件已存在，若确认覆盖请添加 --force: {', '.join(existing)}")
 
     archive_path.parent.mkdir(parents=True, exist_ok=True)
-    with archive_path.open("w", encoding="utf-8", newline="\n") as handle:
-        json.dump(data, handle, ensure_ascii=False, indent=2)
-        handle.write("\n")
+    # Archive the original bytes (BOM, whitespace, timestamps and extension
+    # fields included), before replacing any source/destination file. Repeated
+    # migrations never overwrite a prior archive, including with --force.
+    base_archive = archive_path
+    sequence = 0
+    while True:
+        try:
+            with archive_path.open("xb") as handle:
+                handle.write(source_bytes)
+            break
+        except FileExistsError:
+            sequence += 1
+            archive_path = base_archive.with_name(f"{base_archive.stem}-{sequence}{base_archive.suffix}")
 
     pointer = build_pointer()
     write_json(pointer, pointer_path, True)

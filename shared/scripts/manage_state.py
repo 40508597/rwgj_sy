@@ -260,13 +260,17 @@ def generate_next_actions(state: dict[str, Any]) -> list[str]:
             actions.append("   检查功能簇是否完整展开")
         elif current["id"] == "模块详情":
             actions.append("   确保每个模块都有职责/依赖/结构等11项详情")
-    elif current["status"] == "completed":
-        # 找到下一个待完成的阶段
-        next_pending = next((s for s in stages[current_idx + 1:] if s["status"] == "pending"), None)
+    elif current["status"] in ("completed", "skipped"):
+        # 检查全部阶段；末阶段完成不能掩盖先前 pending/in_progress 或必选 skipped。
+        ordered = stages[current_idx + 1:] + stages[:current_idx + 1]
+        next_pending = next((s for s in ordered if s["status"] in ("pending", "in_progress")
+                             or (s["required"] and s["status"] == "skipped")), None)
         if next_pending:
-            actions.append(f"✅ {current['id']} 已完成")
+            actions.append(f"当前阶段 {current['id']}：{current['status']}")
             actions.append(f"🚀 下一步：{next_pending['id']}")
             actions.append(f"   {next_pending['description']}")
+            if next_pending["required"] and next_pending["status"] == "skipped":
+                actions.append("   必选阶段不能以跳过作为完成，请补齐阶段产物与证据")
         else:
             actions.append("🎉 所有阶段已完成！")
             actions.append("🔍 运行验证工具确认架构完整性")

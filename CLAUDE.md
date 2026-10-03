@@ -1,6 +1,6 @@
 # 任务架构能力包——AI 在本仓库工作须知
 
-> 本文件只承载「AI 在本仓库工作时必须知道的硬约束与路径」。
+> 本文件只承载「AI 在本能力仓库工作时必须知道的硬约束与路径」。
 > 完整能力地图、使用说明、版本演进、Proma 集成等见 [README.md](README.md)。
 > 强制执行机制见 [ENFORCEMENT-GUIDE.md](ENFORCEMENT-GUIDE.md)。
 
@@ -41,7 +41,7 @@
 
 ## 工具脚本
 
-- **24 个 Python 脚本**（`shared/scripts/` 21 + `scripts/` 3；其中 3 个内部辅助：`_archlib.py`、`run_with_progress.py`、`check_doc_counts.py`，21 个面向用户 CLI）
+- **Python 脚本数量口径见 README.md §4.5**：核心脚本与 optional/ 宿主适配器分开计数；不要在入口重复维护静态数字。
 - **运行要求**：Python 3.9+（类型注解延迟求值）；`bash verify-all.sh` 需 Git Bash / WSL
 - **必读**：[ENFORCEMENT-GUIDE.md](ENFORCEMENT-GUIDE.md) —— F+B+C 三件套强制执行机制
 - 命令速查、工作流：`shared/references/commands-cheatsheet.md`、`commands-workflows.md`

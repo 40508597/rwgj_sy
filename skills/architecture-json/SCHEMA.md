@@ -1,5 +1,7 @@
 # Architecture JSON
 
+项目语言与工程格式不限制架构物化。质量规则、观察事实、执行收据按 `../../shared/references/universal-quality.md` 管理，保存在当前项目；区分声明与观察、记录预定范围与未知项，不能把旧证据字段非空等同于质量已通过。
+
 本技能负责”落得稳”。
 
 `architecture/` 架构文件夹是项目唯一真相源。根 `architecture.json` 只允许作为轻量指针，指向 `architecture/index.json`；不得再把完整项目真相写成单文件。
@@ -57,11 +59,9 @@ architecture/
 ### 创建新架构时必须使用带占位符的模板
 
 ```bash
-# 使用带占位符的模板（推荐）
-cp ../../shared/assets/architecture-template-with-placeholders.json architecture/index.json
-
-# 或使用 init_architecture.py（已集成占位符模板）
+# 工具生成根指针、标准切片及占位符（路径执行前按 LAYER 解析）
 python ../../shared/scripts/init_architecture.py --mode init --output .
+python ../../shared/scripts/manage_state.py init --project-name "项目名称"
 ```
 
 **占位符机制**：
@@ -113,17 +113,17 @@ python shared/scripts/validate_architecture.py architecture/index.json
 ### 变更批次后的校验与状态推进
 
 ```bash
-# 1. 占位符检查（强制，核心占位符未清空禁止继续）
+# 1. 查找尚未填完的核心项；未完成项禁止声明对应设计完成，不阻止继续补齐设计
 python ../../shared/scripts/check_placeholders.py architecture/index.json
 
-# 2. 一致性通过后才能推进阶段
-python ../../shared/scripts/validate_architecture.py architecture/index.json
+# 2. 设计进行中检查结构底线；最终完成时另跑完整门禁
+python ../../shared/scripts/validate_architecture.py architecture/index.json --stage skeleton
 
 # 3. 仅标记真实完成的阶段
 python ../../shared/scripts/manage_state.py update <阶段名> completed --note "完成说明"
 
 # 完成交付前：统一收尾判定
-python ../../shared/scripts/gate_check.py . --json
+python ../../shared/scripts/gate_check.py . --quality-required --json
 ```
 
 ### 传统验证工具（可用时优先运行）
@@ -146,5 +146,5 @@ python ../../shared/scripts/diff_architecture.py old.json new.json
 - 强制切片目录、架构文件夹、多人/多会话协作：`../../shared/references/json-sharding.md`
 - 上下文压缩、中断续跑、恢复点：`../../shared/references/context-recovery.md`
 - 任务前置输出、架构变更对比、失败恢复：`../../shared/references/execution-templates.md`
-- 新建架构骨架：`../../shared/assets/architecture-folder-template/`
+- 查看目录布局样张（不是直接复制初始化）：`../../shared/assets/architecture-folder-template/`
 - 需要确定性校验时优先运行：`../../shared/scripts/validate_architecture.py`、`../../shared/scripts/scan_code_drift.py`、`../../shared/scripts/diff_architecture.py`

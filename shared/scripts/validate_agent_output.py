@@ -29,8 +29,7 @@ DEFAULT_SCHEMA_PATH = Path(__file__).resolve().parents[1] / "assets" / "schema" 
 
 
 def load_json(path: Path) -> Any:
-    with path.open("r", encoding="utf-8") as handle:
-        return json.load(handle)
+    return _archlib.load_architecture_json(path)
 
 
 def derive_rules_from_schema(schema: dict[str, Any]) -> tuple[set[str], set[str], set[str], list[str]]:
@@ -53,6 +52,8 @@ def derive_rules_from_schema(schema: dict[str, Any]) -> tuple[set[str], set[str]
         return FALLBACK_TYPES, FALLBACK_RESULTS, FALLBACK_ARRAY_FIELDS, list(FALLBACK_REQUIRED)
 
     props = schema["properties"]
+    if not isinstance(props, dict):
+        raise ValueError("schema.properties 必须是对象")
     valid_types: set[str] = set()
     valid_results: set[str] = set()
     array_fields: set[str] = set()
@@ -79,7 +80,9 @@ def derive_rules_from_schema(schema: dict[str, Any]) -> tuple[set[str], set[str]
     if not array_fields:
         array_fields = FALLBACK_ARRAY_FIELDS
 
-    required = schema.get("required") or FALLBACK_REQUIRED
+    required = schema.get("required", FALLBACK_REQUIRED)
+    if not isinstance(required, list) or any(not isinstance(v, str) for v in required):
+        raise ValueError("schema.required 必须是字符串数组")
     return valid_types, valid_results, array_fields, list(required)
 
 
@@ -102,9 +105,9 @@ def validate_agent_output(
 
     output_type = data.get("输出类型")
     result = data.get("结论")
-    if output_type is not None and output_type not in valid_types:
+    if "输出类型" in data and (not isinstance(output_type, str) or output_type not in valid_types):
         errors.append(f"输出类型 必须是标准枚举之一：{', '.join(sorted(valid_types))}")
-    if result is not None and result not in valid_results:
+    if "结论" in data and (not isinstance(result, str) or result not in valid_results):
         errors.append(f"结论 必须是标准枚举之一：{', '.join(sorted(valid_results))}")
 
     scope = data.get("负责范围")
@@ -120,7 +123,7 @@ def validate_agent_output(
             errors.append(f"{field} 必须是数组")
 
     # 语义警告（与 schema 无关，属于工具内置业务规则，保留）
-    if result in {"需要确认", "阻塞", "降级执行"} and not data.get("下一步"):
+    if isinstance(result, str) and result in {"需要确认", "阻塞", "降级执行"} and not data.get("下一步"):
         warnings.append("需要确认/阻塞/降级执行 应提供 下一步")
     if output_type == "验证报告" and not data.get("证据"):
         warnings.append("验证报告 应提供 证据 或明确未验证项")
@@ -148,14 +151,14 @@ def main(argv: list[str] | None = None) -> int:
         data = load_json(args.output)
         if schema_path.exists():
             schema = load_json(schema_path)
-    except FileNotFoundError as exc:
-        print(f"ERROR: 文件不存在: {exc.filename}", file=sys.stderr)
-        return 2
-    except json.JSONDecodeError as exc:
-        print(f"ERROR: JSON 语法错误: {exc}", file=sys.stderr)
+        valid_types, valid_results, array_fields, required_fields = derive_rules_from_schema(schema)
+    except (OSError, UnicodeError, ValueError) as exc:
+        if args.json:
+            print(json.dumps({"错误": [f"无法读取输入: {exc}"], "警告": [], "status": "unknown"}, ensure_ascii=False))
+        else:
+            print(f"ERROR: 无法读取输入: {exc}", file=sys.stderr)
         return 2
 
-    valid_types, valid_results, array_fields, required_fields = derive_rules_from_schema(schema)
     errors, warnings = validate_agent_output(data, valid_types, valid_results, array_fields, required_fields)
 
     if args.json:

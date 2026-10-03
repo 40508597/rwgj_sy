@@ -5,9 +5,9 @@ __pycache__/
 # verify-all.sh 生成的一次性验证报告
 verification-report-*.md
 
-# 项目级运行时状态：能力包仓库不携带任何调用方项目的真相源/恢复点
-# 锚定仓库根目录（/ 前缀）：只忽略调用方项目根或本仓库根的 architecture/，
-# 不误伤 shared/assets/architecture-folder-template/ 下的样张资产目录
+# 以下规则仅用于能力仓库自身，项目安装不得复制此文件到业务项目根。
+# 调用方 architecture/ 与根指针是真相源，按项目协作要求版本化。
+# / 前缀不影响 shared/assets/ 下的样张；不作为受管项目的 Git 规则。
 /architecture/
 /architecture.json
 /architecture/_state.json

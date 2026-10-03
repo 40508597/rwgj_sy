@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -26,6 +27,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import _archlib  # noqa: E402
 import judge_progress  # noqa: E402
+import scan_code_drift  # noqa: E402
 
 _archlib.configure_utf8_stdout()
 
@@ -33,10 +35,6 @@ SCRIPTS_DIR = Path(__file__).resolve().parent
 
 # 实现期阶段关键词：恢复点处于这些阶段时，不应已有大量实现代码
 DESIGN_STAGE_HINTS = ("架构设计", "设计完成", "准备进入实现", "准备实现", "骨架")
-CODE_EXTS = {".py", ".js", ".jsx", ".ts", ".tsx", ".go", ".rs", ".java",
-             ".cs", ".php", ".rb", ".swift", ".kt", ".vue", ".svelte"}
-IGNORE_DIRS = {".git", "__pycache__", "node_modules", ".venv", "venv",
-               "env", "dist", "build", ".next", "architecture"}
 # 磁盘实现文件超过此阈值，却仍停在设计阶段 → 判定脱轨
 DRIFT_FILE_THRESHOLD = 5
 
@@ -48,50 +46,65 @@ def _run_script(name: str, args: list[str]) -> tuple[int, dict | None, str]:
     return _archlib.run_subprocess_json(cmd)
 
 
-def _count_impl_files(project: Path) -> int:
-    """统计磁盘真实实现代码文件数（排除架构目录、依赖、缓存）。"""
-    return len(_archlib.collect_actual_files(project, CODE_EXTS, IGNORE_DIRS))
+def _implementation_files(project: Path, data: dict) -> set[str]:
+    """Use explicit registration, not a language/suffix guess, for implementation."""
+    root = scan_code_drift._project_root(project)
+    registered = _archlib.collect_implementation_files(data)
+    identities = set()
+    for raw in registered:
+        path = scan_code_drift._safe_path(root, raw, "实现清单路径")
+        if path.is_file():
+            identities.add(os.path.normcase(str(path.resolve())))
+    return identities
 
 
-def _load_recovery_stage(project: Path) -> tuple[str | None, list[str]]:
-    """读取恢复点的当前阶段 + 已触碰文件。优先 tasks/state.json，回退 index.json。"""
-    candidates = [
-        project / "architecture" / "tasks" / "state.json",
-        project / "architecture" / "index.json",
-    ]
-    for cand in candidates:
-        if not cand.exists():
-            continue
-        data = _archlib.load_json_utf8(cand)
-        rp = data.get("上下文恢复点")
-        if rp is not None and not isinstance(rp, dict):
-            raise ValueError(f"{cand}: 上下文恢复点必须是对象")
-        if isinstance(rp, dict):
-            stage = rp.get("当前阶段") or rp.get("继续位置") or ""
-            touched = rp.get("已触碰文件") or []
-            if not isinstance(touched, list) or any(not isinstance(t, str) for t in touched):
-                raise ValueError(f"{cand}: 已触碰文件必须是字符串列表")
-            return str(stage), touched
-    return None, []
+def _count_impl_files(project: Path, data: dict | None = None) -> int:
+    if data is None:
+        data = _archlib.load_architecture_json(project / "architecture.json", project_root=project)
+    return len(_implementation_files(project, data))
 
 
-def _check_desync(project: Path) -> tuple[bool, str]:
-    """脱轨判定：恢复点停在设计阶段，磁盘却已有大量实现文件 → 脱轨。"""
-    stage, touched = _load_recovery_stage(project)
-    impl_files = _count_impl_files(project)
-    if stage is None:
-        return False, f"未找到恢复点（实现文件 {impl_files} 个）；无法做脱轨判定，按通过处理"
+def _load_recovery_stage(project: Path, architecture_path: Path | None = None,
+                         *, data: dict | None = None) -> tuple[str, list[str]]:
+    """Read the selected authoritative architecture, including pointer/slices.
+
+    A side file named tasks/state.json cannot override the selected source.
+    Missing or malformed recovery facts remain unknown instead of passing.
+    """
+    if data is None:
+        data = _archlib.load_architecture_json(architecture_path or project / "architecture.json", project_root=project)
+    if not isinstance(data, dict) or not isinstance(data.get("上下文恢复点"), dict):
+        raise _archlib.ArchitectureInputError("选定架构缺少有效上下文恢复点")
+    recovery = data["上下文恢复点"]
+    stage = recovery.get("当前阶段")
+    touched = recovery.get("已触碰文件")
+    if not isinstance(stage, str) or not stage.strip():
+        raise _archlib.ArchitectureInputError("恢复点当前阶段必须为非空字符串")
+    if not isinstance(touched, list) or any(not isinstance(t, str) or not t for t in touched):
+        raise _archlib.ArchitectureInputError("恢复点已触碰文件必须是路径字符串数组")
+    return stage, touched
+
+
+def _check_desync(project: Path, architecture_path: Path | None = None) -> tuple[bool, str]:
+    """Compare recovery with explicitly registered, existing implementation files."""
+    data = _archlib.load_architecture_json(architecture_path or project / "architecture.json", project_root=project)
+    stage, touched = _load_recovery_stage(project, architecture_path, data=data)
+    impl_files = _count_impl_files(project, data)
+    registered = _implementation_files(project, data)
     in_design = any(h in stage for h in DESIGN_STAGE_HINTS)
-    touched_code = sum(1 for t in touched if Path(t).suffix.lower() in CODE_EXTS)
+    touched_paths = {os.path.normcase(str(scan_code_drift._safe_path(project.resolve(), raw,
+                       "恢复点已触碰文件").resolve())) for raw in touched}
+    touched_code = bool(registered & touched_paths)
     if in_design and impl_files > DRIFT_FILE_THRESHOLD and touched_code == 0:
         return True, (
             f"脱轨：恢复点仍停在「{stage}」，已触碰文件不含实现代码，"
-            f"但磁盘已有 {impl_files} 个实现文件 — 代码写了却没回写架构进度"
+            f"但磁盘已有 {impl_files} 个已登记实现文件 — 实现已有产物却没回写架构进度"
         )
-    return False, f"恢复点阶段「{stage}」与磁盘实现文件数 {impl_files} 一致，无脱轨"
+    return False, f"恢复点阶段「{stage}」，已登记且存在的实现文件 {impl_files} 个；未发现该脱轨矛盾"
 
 
-def run_gate(project: Path, architecture: str) -> tuple[bool | None, list[str], list[dict]]:
+def run_gate(project: Path, architecture: str, *, quality_required: bool = False,
+             facts: str | None = None, policy: str | None = None) -> tuple[bool | None, list[str], list[dict]]:
     """跑全部门禁项。
 
     返回 (是否PASS, 逐项结论文本, 结构化分项 stages)。
@@ -105,6 +118,10 @@ def run_gate(project: Path, architecture: str) -> tuple[bool | None, list[str], 
         stages.append({"name": name, "status": status, "detail": detail})
 
     arch_path = project / architecture
+    facts_path = facts or "architecture/quality/facts.json"
+    policy_path = policy or "architecture/quality/policy.json"
+    quality_paths = [project / value for value in (policy_path, facts_path)]
+    quality_enabled = quality_required or facts is not None or policy is not None or any(path.exists() for path in quality_paths)
 
     if not arch_path.exists():
         msg = f"环境问题：未找到 {architecture}，该项目可能未启用任务架构管理"
@@ -122,9 +139,10 @@ def run_gate(project: Path, architecture: str) -> tuple[bool | None, list[str], 
     lines.extend(f"提示：{warning}" for warning in completion["warnings"])
 
     # 2. 代码漂移（声明但不存在 = 架构承诺了文件但代码没有）
-    code, js, raw = _run_script(
-        "scan_code_drift.py", [str(project), "--architecture", str(arch_path)]
-    )
+    drift_args = [str(project), "--architecture", str(arch_path)]
+    if quality_enabled:
+        drift_args.append("--all-files")
+    code, js, raw = _run_script("scan_code_drift.py", drift_args)
     def item_count(value: object) -> int | None:
         if isinstance(value, list):
             return len(value)
@@ -140,7 +158,7 @@ def run_gate(project: Path, architecture: str) -> tuple[bool | None, list[str], 
             lines.append(detail)
             stage("代码漂移", "fail", detail)
         else:
-            note = f"（另有 {un} 项代码未登记到实现清单，提示而非阻断）" if un else ""
+            note = f"（另有 {un} 项文件未登记到实现清单，提示而非阻断；范围见扫描输出）" if un else ""
             detail = f"[代码漂移] PASS{note}"
             lines.append(detail)
             stage("代码漂移", "pass", detail)
@@ -151,7 +169,7 @@ def run_gate(project: Path, architecture: str) -> tuple[bool | None, list[str], 
 
     # 3. 脱轨判定（核心）
     try:
-        desynced, msg = _check_desync(project)
+        desynced, msg = _check_desync(project, arch_path)
     except (OSError, ValueError) as exc:
         detail = f"[流程脱轨] 无法判定：{exc}"
         lines.append(detail)
@@ -161,6 +179,24 @@ def run_gate(project: Path, architecture: str) -> tuple[bool | None, list[str], 
         detail = f"[流程脱轨] {status.upper()}：{msg}"
         lines.append(detail)
         stage("流程脱轨", status, detail)
+
+    # New quality checks are mandatory when configured or explicitly requested.
+    # Missing facts/policy, unsupported collectors and stale receipts are unknown.
+    if quality_enabled:
+        code, result, raw = _run_script("check_project_quality.py", [str(project),
+                                       "--facts", facts_path, "--policy", policy_path])
+        expected = {0: "pass", 1: "fail", 2: "unknown"}.get(code)
+        if (expected is None or not isinstance(result, dict)
+                or result.get("status") != expected or result.get("code") != code):
+            quality_status = "unknown"
+            detail = f"[通用质量] 无法判定：无有效且一致的检查输出；{raw.strip()[:120]}"
+        else:
+            quality_status = expected
+            detail = f"[通用质量] {expected.upper()}：{result.get('counts', {})}；{result.get('reason', '')}"
+        lines.append(detail)
+        stage("通用质量", quality_status, detail)
+    else:
+        lines.append("提示：未配置通用质量规则，本结果仅覆盖旧架构门禁；完整交付使用 --quality-required")
 
     # A known failure wins; otherwise every stage must pass before completion.
     status = _archlib.aggregate_status(item["status"] for item in stages)
@@ -201,10 +237,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--architecture", default="architecture.json",
                         help="架构入口文件名（默认 architecture.json）")
     parser.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    parser.add_argument("--quality-required", action="store_true",
+                        help="完整交付要求通用质量门禁；缺规则或事实返回无法判定")
+    parser.add_argument("--facts", help="项目内质量事实相对路径（默认 architecture/quality/facts.json）")
+    parser.add_argument("--policy", help="项目内质量策略相对路径（默认 architecture/quality/policy.json）")
     args = parser.parse_args(argv)
 
     project = args.project.resolve()
-    passed, lines, stages = run_gate(project, args.architecture)
+    passed, lines, stages = run_gate(project, args.architecture, quality_required=args.quality_required,
+                                   facts=args.facts, policy=args.policy)
 
     if passed is None:  # 环境问题
         if args.json:

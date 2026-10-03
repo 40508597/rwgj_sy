@@ -8,5 +8,6 @@ Codex 支持本协议的增强单智能体模式。若当前环境可读写文�
 - 修改代码前先更新 `architecture/index.json` 或相关架构切片。
 - 可运行脚本时执行 `shared/scripts/validate_architecture.py`、`shared/scripts/scan_code_drift.py` 和相关校验脚本。
 - 最终汇报必须包含验证结果、未验证项和剩余风险。
+- 完整实现交付按 `shared/references/universal-quality.md` 配置本次必需检查，运行 gate_check 时加 --quality-required；旧门禁结果不能代替通用质量检查。
 
 Codex 适配层不得绕过核心协议，也不得把 Codex 专有工具写入通用协议。

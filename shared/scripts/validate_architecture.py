@@ -173,17 +173,56 @@ def _type_matches(value: Any, expected: Any) -> bool:
     return True if expected_type is None else isinstance(value, expected_type)
 
 
-def validate_schema_subset(data: Any, schema: dict[str, Any], path: str = "根节点") -> list[str]:
+def validate_schema_subset(data: Any, schema: dict[str, Any], path: str = "根节点",
+                           root_schema: dict[str, Any] | None = None,
+                           stage: str = "full") -> list[str]:
     errors: list[str] = []
+    root_schema = schema if root_schema is None else root_schema
+    reference = schema.get("$ref")
+    if isinstance(reference, str):
+        target: Any = root_schema
+        if not reference.startswith("#/"):
+            return [f"{path} 不支持的 schema 引用: {reference}"]
+        for key in reference[2:].split("/"):
+            key = key.replace("~1", "/").replace("~0", "~")
+            target = target.get(key) if isinstance(target, dict) else None
+        if not isinstance(target, dict):
+            return [f"{path} schema 引用不存在: {reference}"]
+        return validate_schema_subset(data, target, path, root_schema, stage)
+    alternatives = schema.get("anyOf")
+    if isinstance(alternatives, list):
+        if any(isinstance(option, dict) and not validate_schema_subset(data, option, path, root_schema, stage)
+               for option in alternatives):
+            return []
+        return [f"{path} 不符合任一允许结构"]
     expected_type = schema.get("type")
-    if isinstance(expected_type, str) and not _type_matches(data, expected_type):
+    if isinstance(expected_type, (str, list)) and not _type_matches(data, expected_type):
         errors.append(f"{path} 类型应为 {expected_type}")
         return errors
 
+    if isinstance(data, list):
+        minimum = schema.get("x-full-min-items", 0) if stage == "full" else 0
+        if len(data) < minimum:
+            errors.append(f"{path} 完成模式至少需要 {minimum} 项")
+        item_schema = schema.get("items")
+        if isinstance(item_schema, dict):
+            for index, item in enumerate(data):
+                errors.extend(validate_schema_subset(item, item_schema, f"{path}.{index}", root_schema, stage))
+        return errors
+    string_minimum = max(schema.get("minLength", 0), schema.get("x-full-min-length", 0) if stage == "full" else 0)
+    if isinstance(data, str) and string_minimum > len(data.strip()):
+        errors.append(f"{path} 必须是非空字符串")
     if not isinstance(data, dict):
         return errors
 
-    for key in schema.get("required", []):
+    minimum = schema.get("x-full-min-properties", 0) if stage == "full" else 0
+    if len(data) < minimum:
+        errors.append(f"{path} 完成模式至少需要 {minimum} 项")
+
+    required_fields = list(schema.get("required", []))
+    if stage == "full":
+        required_fields.extend(schema.get("x-full-required", []))
+    for key in required_fields:
         if isinstance(key, str) and key not in data:
             errors.append(f"{path} 缺少 schema 必需键: {key}")
 
@@ -194,7 +233,14 @@ def validate_schema_subset(data: Any, schema: dict[str, Any], path: str = "根�
     for key, child_schema in properties.items():
         if key not in data or not isinstance(child_schema, dict):
             continue
-        errors.extend(validate_schema_subset(data[key], child_schema, f"{path}.{key}"))
+        errors.extend(validate_schema_subset(data[key], child_schema, f"{path}.{key}", root_schema, stage))
+
+    extra_schema = schema.get("additionalProperties")
+    for key in data.keys() - properties.keys():
+        if isinstance(extra_schema, dict):
+            errors.extend(validate_schema_subset(data[key], extra_schema, f"{path}.{key}", root_schema, stage))
+        elif extra_schema is False:
+            errors.append(f"{path} 未声明的字段: {key}")
 
     return errors
 
@@ -219,19 +265,27 @@ def _check_verification_evidence(data: dict[str, Any]) -> tuple[list[str], list[
     与 validation-checklist.md 验证证据门禁对齐：完成项必须有命令/截图/手检/未验证项记录）。
     缺失整段或不是对象由顶层 required 校验覆盖。
 
-    返回 (errors, warnings)：类型错误归 warning（结构问题但非阻塞），
-    全空归 error（与门禁语义一致，必须至少记录 未验证项）。
+    返回 (errors, warnings)：错误类型、缺失、全空或全空记录归 error。
     """
     errors: list[str] = []
     warnings: list[str] = []
     ve = data.get("验证证据")
     if not isinstance(ve, dict) or not ve:
-        return errors, warnings  # 缺失由顶层 required/占位符检测覆盖
+        return ["验证证据 缺失、不是对象或为空"], warnings
     required_classes = ["自动化测试", "架构校验", "浏览器验收", "截图", "手动检查", "未验证项"]
     for k in required_classes:
         if k in ve and not isinstance(ve[k], list):
-            warnings.append(f"验证证据.{k} 必须是数组")
-    has_any = any(isinstance(ve.get(k), list) and len(ve.get(k)) > 0 for k in required_classes)
+            errors.append(f"验证证据.{k} 必须是数组")
+    def meaningful(value: Any) -> bool:
+        if isinstance(value, str):
+            return bool(value.strip())
+        if isinstance(value, dict):
+            return any(meaningful(v) for v in value.values())
+        if isinstance(value, list):
+            return any(meaningful(v) for v in value)
+        return False
+    has_any = any(isinstance(ve.get(k), list) and any(meaningful(v) for v in ve[k])
+                  for k in required_classes)
     if not has_any:
         errors.append("验证证据 六类全空，至少记录 未验证项 或一项已执行证据")
     return errors, warnings
@@ -239,15 +293,22 @@ def _check_verification_evidence(data: dict[str, Any]) -> tuple[list[str], list[
 
 def _check_recovery_point(data: dict[str, Any], core_subfields: list[str]) -> list[str]:
     """校验14：上下文恢复点完整。schema 标 core 的 7 项子字段必须存在。
-    存在性校验；值占位符或空白由 check_placeholders 覆盖，不重复验。
+    当前任务/阶段/继续位置/下一步须有恢复信息；约束/触碰文件/风险可合理为空数组。
     """
     issues: list[str] = []
     recovery = data.get("上下文恢复点")
-    if not isinstance(recovery, dict) or not recovery:
-        return issues
+    if not isinstance(recovery, dict):
+        return ["上下文恢复点 必须是对象"]
     for sub in core_subfields:
         if sub not in recovery:
             issues.append(f"上下文恢复点.{sub} 缺失（核心子字段）")
+        elif sub in {"当前任务", "当前阶段", "继续位置", "下一步"}:
+            value = recovery[sub]
+            valid = isinstance(value, str) and bool(value.strip())
+            valid = valid or (isinstance(value, list) and bool(value)
+                              and all(isinstance(v, str) and bool(v.strip()) for v in value))
+            if not valid:
+                issues.append(f"上下文恢复点.{sub} 必须有非空恢复信息")
     return issues
 
 
@@ -256,7 +317,7 @@ def _check_module_detail_fields(data: dict[str, Any], required_subs: list[str]) 
     issues: list[str] = []
     details = data.get("模块详情")
     if not isinstance(details, dict) or not details:
-        return issues
+        return ["模块详情 缺失、不是对象或为空"]
     for module_id, detail in details.items():
         if module_id.startswith("__"):
             continue  # 示例 key 由 check_placeholders 覆盖
@@ -269,11 +330,85 @@ def _check_module_detail_fields(data: dict[str, Any], required_subs: list[str]) 
     return issues
 
 
+def completion_issues(data: dict[str, Any], schema: dict[str, Any] | None = None) -> list[str]:
+    """完成产物底线，供 F 与 B 门禁共用；不把无事件/无页面当作缺陷。"""
+    if schema is None:
+        schema, _ = load_schema()
+    issues: list[str] = []
+    if schema:
+        core_schema = {"type": "object", "$defs": schema.get("$defs", {}),
+                       "properties": {k: v for k, v in schema.get("properties", {}).items()
+                                      if v.get("x-importance") == "core"}}
+        issues.extend(validate_schema_subset(data, core_schema))
+    else:
+        for key in ("功能树", "模块树", "模块详情", "实现清单", "测试责任矩阵"):
+            if not data.get(key):
+                issues.append(f"{key} 完成模式不可为空")
+        project = data.get("项目", {})
+        for key in ("名称", "类型"):
+            value = project.get(key) if isinstance(project, dict) else None
+            if not isinstance(value, str) or not value.strip():
+                issues.append(f"项目.{key} 必须是非空字符串")
+        topology = data.get("模块拓扑", {})
+        if not isinstance(topology, dict) or not topology.get("节点"):
+            issues.append("模块拓扑.节点 完成模式不可为空")
+    evidence_errors, _ = _check_verification_evidence(data)
+    issues.extend(evidence_errors)
+    issues.extend(_check_recovery_point(data, derive_recovery_core_subfields(schema)))
+    issues.extend(_check_module_detail_fields(data, derive_module_detail_subfields(schema)))
+    topology = data.get("模块拓扑", {})
+    details = data.get("模块详情", {})
+    if isinstance(topology, dict) and isinstance(details, dict):
+        for node in topology.get("节点", []) if isinstance(topology.get("节点"), list) else []:
+            if isinstance(node, dict) and isinstance(node.get("编号"), str) and node["编号"] not in details:
+                issues.append(f"模块拓扑节点缺少模块详情: {node['编号']}")
+    return list(dict.fromkeys(issues))
+
+
+def dependency_cycle(edges: list[Any]) -> list[str]:
+    """返回一个有向环（含起止节点），迭代遍历不受 Python 递归深度限制。"""
+    adjacency: dict[str, list[str]] = {}
+    for edge in edges:
+        if not isinstance(edge, dict):
+            continue
+        src, dst = edge.get("从"), edge.get("到")
+        if isinstance(src, str) and isinstance(dst, str):
+            adjacency.setdefault(src, []).append(dst)
+            adjacency.setdefault(dst, [])
+    state: dict[str, int] = {}
+    for start in adjacency:
+        if state.get(start):
+            continue
+        active = [start]
+        positions = {start: 0}
+        stack = [(start, iter(adjacency[start]))]
+        state[start] = 1
+        while stack:
+            node, children = stack[-1]
+            child = next(children, None)
+            if child is None:
+                stack.pop()
+                state[node] = 2
+                positions.pop(node)
+                active.pop()
+            elif state.get(child) == 1:
+                return active[positions[child]:] + [child]
+            elif not state.get(child):
+                positions[child] = len(active)
+                active.append(child)
+                state[child] = 1
+                stack.append((child, iter(adjacency[child])))
+    return []
+
+
 def _check_slice_sync(data: dict[str, Any], root: Path) -> list[str]:
     """校验21：架构切片清单与磁盘 architecture/ 目录双向对账。
 
     - 切片清单中列出但磁盘上不存在的 → 未生成切片（warning）
     - 磁盘 architecture/ 下实际切片文件但未登记到 切片清单 的 → 未登记切片（warning）
+    - 标准进度状态 architecture/_state.json 和独立质量目录 architecture/quality/
+      是辅助产物（json-sharding.md / universal-quality.md），不属于业务架构切片。
+      仅排除这些明确角色；其他目录、其他状态名或模块 index.json 仍需登记。
     若启用=false 则跳过。
     """
     issues: list[str] = []
@@ -298,10 +433,16 @@ def _check_slice_sync(data: dict[str, Any], root: Path) -> list[str]:
     # 反向：磁盘 architecture/ 下实际 .json 切片但未登记
     arch_dir = root / "architecture"
     if arch_dir.is_dir():
-        actual = {str(p.relative_to(root)).replace("\\", "/")
-                  for p in arch_dir.rglob("*.json") if p.name != "index.json"}
-        actual_lower = {p for p in actual}
-        undeclared = actual_lower - declared_paths - {"architecture/index.json"}
+        actual: set[str] = set()
+        for path in arch_dir.rglob("*.json"):
+            relative = path.relative_to(arch_dir).as_posix()
+            # Match the host's documented path identity: Windows reserved paths
+            # are case-insensitive; POSIX paths retain their case distinction.
+            identity = relative.casefold() if sys.platform == "win32" else relative
+            if identity in {"index.json", "_state.json"} or identity.startswith("quality/"):
+                continue
+            actual.add(path.relative_to(root).as_posix())
+        undeclared = actual - declared_paths
         for p in sorted(undeclared):
             issues.append(f"磁盘切片 {p} 未登记到 架构切片.切片清单")
     return issues
@@ -319,7 +460,7 @@ def validate_architecture(data: dict[str, Any], root: Path, stage: str = "full")
             # 骨架阶段：从 schema required 中移除可选键再校验
             schema = dict(schema)
             schema["required"] = [k for k in schema.get("required", []) if k not in SKELETON_OPTIONAL_KEYS]
-        errors.extend(validate_schema_subset(data, schema))
+        errors.extend(validate_schema_subset(data, schema, stage=stage))
 
     required_keys = derive_required_top_keys(schema)
     if stage == "skeleton":
@@ -347,6 +488,9 @@ def validate_architecture(data: dict[str, Any], root: Path, stage: str = "full")
 
     topology = data.get("模块拓扑", {})
     topology_nodes = topology.get("节点", []) if isinstance(topology, dict) else []
+    if not isinstance(topology_nodes, list):
+        errors.append("模块拓扑.节点 必须是数组")
+        topology_nodes = []
     topology_ids = {
         node.get("编号")
         for node in topology_nodes
@@ -367,7 +511,11 @@ def validate_architecture(data: dict[str, Any], root: Path, stage: str = "full")
             warnings.append(f"模块树节点未登记到模块拓扑.节点: {module_id}")
 
     if isinstance(topology, dict):
-        for edge in topology.get("依赖图", []):
+        edges = topology.get("依赖图", [])
+        if not isinstance(edges, list):
+            errors.append("模块拓扑.依赖图 必须是数组")
+            edges = []
+        for edge in edges:
             if not isinstance(edge, dict):
                 continue
             src = edge.get("从")
@@ -376,6 +524,15 @@ def validate_architecture(data: dict[str, Any], root: Path, stage: str = "full")
                 warnings.append(f"依赖图来源模块未登记: {src}")
             if isinstance(dst, str) and dst not in topology_ids:
                 warnings.append(f"依赖图目标模块未登记: {dst}")
+        cycle_edges = edges
+        if stage == "skeleton":
+            cycle_edges = [edge for edge in edges if isinstance(edge, dict)
+                           and not any(isinstance(edge.get(key), str)
+                                       and edge[key].startswith(("__待", "__示例", "__注释__"))
+                                       for key in ("从", "到"))]
+        cycle = dependency_cycle(cycle_edges)
+        if cycle:
+            errors.append("模块依赖存在有向环: " + " -> ".join(cycle))
 
     implementation = data.get("实现清单", {})
     if isinstance(implementation, dict):
@@ -384,27 +541,30 @@ def validate_architecture(data: dict[str, Any], root: Path, stage: str = "full")
                 warnings.append(f"实现清单模块未登记到模块拓扑.节点: {module_id}")
             if not isinstance(item, dict):
                 continue
-            for file_item in (item.get("文件列表") or item.get("文件") or []):
-                if not isinstance(file_item, dict):
+            files: list[Any] = []
+            for field in ("文件列表", "文件"):
+                entries = item.get(field, [])
+                if not isinstance(entries, list):
+                    errors.append(f"实现清单.{module_id}.{field} 必须是数组")
+                else:
+                    files.extend(entries)
+            for file_item in files:
+                path_value = file_item if isinstance(file_item, str) else file_item.get("路径") if isinstance(file_item, dict) else None
+                if not isinstance(path_value, str) or not path_value.strip():
+                    errors.append(f"实现清单.{module_id} 文件必须是非空路径字符串或含路径的对象")
                     continue
-                path_value = file_item.get("路径")
                 if isinstance(path_value, str) and path_value and not (root / path_value).exists():
                     warnings.append(f"实现清单文件不存在: {path_value}")
     elif implementation is not None:
         errors.append("实现清单 必须是对象")
 
-    # 校验13 验证证据完整（全空为 error，类型问题为 warning）
-    ev_errors, ev_warnings = _check_verification_evidence(data)
-    errors.extend(ev_errors)
-    warnings.extend(ev_warnings)
-    # 校验14 上下文恢复点完整
-    warnings.extend(_check_recovery_point(data, derive_recovery_core_subfields(schema)))
-    # 校验19 模块详情字段完整性
-    warnings.extend(_check_module_detail_fields(data, derive_module_detail_subfields(schema)))
+    # 完成阶段统一检查 schema core 字段、验证证据、恢复点与模块详情底线。
+    if stage == "full":
+        errors.extend(completion_issues(data, schema))
     # 校验21 架构切片同步
     warnings.extend(_check_slice_sync(data, root))
 
-    return errors, warnings
+    return list(dict.fromkeys(errors)), list(dict.fromkeys(warnings))
 
 
 
@@ -421,11 +581,17 @@ def main(argv: list[str] | None = None) -> int:
         lambda: _archlib.load_architecture_json(args.architecture)
     )
     if io_error is not None:
-        print(f"ERROR: {io_error}", file=sys.stderr)
+        if args.json:
+            print(json.dumps({"status": "unknown", "错误": [io_error], "警告": []}, ensure_ascii=False))
+        else:
+            print(f"ERROR: {io_error}", file=sys.stderr)
         return io_exit
 
     if not isinstance(data, dict):
-        print("ERROR: architecture 根节点必须是对象", file=sys.stderr)
+        if args.json:
+            print(json.dumps({"status": "unknown", "错误": ["architecture 根节点必须是对象"], "警告": []}, ensure_ascii=False))
+        else:
+            print("ERROR: architecture 根节点必须是对象", file=sys.stderr)
         return 2
 
     errors, warnings = validate_architecture(

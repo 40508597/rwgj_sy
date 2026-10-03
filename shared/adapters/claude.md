@@ -7,9 +7,13 @@ Claude 或 Claude Code 使用本协议时，应把 `SKILL.md` 作为项目级工
 - 上下文较长时，必须优先读取 `上下文恢复点`，不要凭记忆续跑。
 - 无法运行脚本时，按文本规则手工校验并记录原因。
 
+`<gate_check_path>` 是 resolve_tool.py 对 gate_check 返回的 JSON.path，表示完整脚本绝对路径，不再追加脚本名。
+
 ## 收尾门禁（A 档：可选 Stop hook）
 
 使用 `optional/claude_stop_hook.py` 将门禁结果转换为宿主决策。不要把 `gate_check.py` 的退出码直接当成 hook 的决策协议。适配器只检查受管项目中以「【任务完成】」开头的最终声明；问答、局部运行结果和「【未通过验证】」报告可正常结束。不要将整个项目的完成门禁挂到每个子任务上。
+
+完整交付调用 `python "<gate_check_path>" "<项目根>" --quality-required --json`；Stop 适配器也传入同一参数。先按 `../references/universal-quality.md` 配置本次事实与必需规则；缺失或未验证时阻止完成声明。
 
 在项目 `.claude/settings.json`（或用户级 settings）配置：
 

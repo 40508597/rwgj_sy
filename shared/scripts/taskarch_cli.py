@@ -29,8 +29,12 @@ def get_path(data: Any, dotted_path: str) -> Any:
     for part in dotted_path.split("."):
         if isinstance(current, dict):
             current = current.get(part)
-        elif isinstance(current, list) and part.isdigit():
-            current = current[int(part)]
+        elif isinstance(current, list) and part.isdecimal():
+            normalized = part.lstrip("0") or "0"
+            if len(normalized) > len(str(len(current))):
+                return None
+            index = int(normalized)
+            current = current[index] if index < len(current) else None
         else:
             return None
     return current
@@ -43,7 +47,7 @@ def cmd_slice(args: argparse.Namespace) -> int:
         return 0
     if args.module:
         details = data.get("模块详情", {}) if isinstance(data, dict) else {}
-        emit({"模块": args.module, "结果": details.get(args.module)})
+        emit({"模块": args.module, "结果": details.get(args.module) if isinstance(details, dict) else None})
         return 0
     emit({"错误": "需要 --path 或 --module"})
     return 2
@@ -99,7 +103,11 @@ def main(argv: list[str] | None = None) -> int:
     lineage_parser.set_defaults(func=cmd_lineage)
 
     args = parser.parse_args(argv)
-    return args.func(args)
+    result, error, exit_code = _archlib.run_with_io_errors(lambda: args.func(args))
+    if error is not None:
+        emit({"status": "unknown", "错误": error})
+        return exit_code
+    return result
 
 
 if __name__ == "__main__":

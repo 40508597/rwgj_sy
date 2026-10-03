@@ -31,19 +31,23 @@ RISK_WORDS_PATH = Path(__file__).resolve().parents[1] / "assets" / "risk-words.j
 
 
 def load_risk_words() -> dict[str, Any]:
-    """风险词单一真相源（shared/assets/risk-words.json）；不可读时按无风险词降级。"""
-    try:
-        data = _archlib.load_json_utf8(RISK_WORDS_PATH)
-    except (OSError, ValueError):
-        return {}
-    return data
+    """风险词单一真相源；读取错误不能被解释成低风险。"""
+    return _archlib.load_json_utf8(RISK_WORDS_PATH)
 
 
 def detect_risk(request: str, rules: dict[str, Any]) -> str:
     """风险词分级（单一真相源 risk-words.json，规则内「风险词」字段可覆盖）。"""
     risk_words = rules.get("风险词")
-    if not isinstance(risk_words, dict) or not risk_words:
-        risk_words = load_risk_words()
+    try:
+        if risk_words is None:
+            risk_words = load_risk_words()
+    except (OSError, UnicodeError, ValueError):
+        return "未知"
+    if (not isinstance(risk_words, dict)
+            or any(not isinstance(risk_words.get(level), list)
+                   or any(not isinstance(word, str) or not word.strip() for word in risk_words[level])
+                   for level in ("高", "中"))):
+        return "未知"
     if contains_any(request, risk_words.get("高", [])):
         return "高"
     if contains_any(request, risk_words.get("中", [])):
@@ -186,12 +190,12 @@ def main(argv: list[str] | None = None) -> int:
     try:
         rules = load_json(args.rules)
         result = detect_task_posture(args.request, args.project_root, rules)
-    except (OSError, json.JSONDecodeError, ValueError) as exc:
-        print(f"ERROR: {exc}", file=sys.stderr)
+    except (OSError, UnicodeError, ValueError) as exc:
+        print(json.dumps({"status": "unknown", "错误": str(exc)}, ensure_ascii=False))
         return 2
 
     print(json.dumps(result, ensure_ascii=False, indent=2))
-    return 0
+    return 2 if result["风险等级"] == "未知" else 0
 
 
 if __name__ == "__main__":

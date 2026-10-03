@@ -316,7 +316,7 @@
           "测试": "tests/test_auth.py::test_database_error"
         }
       ],
-      "配置项": [
+      "配置": [
         {
           "名称": "SESSION_TTL_MINUTES",
           "来源": "环境变量",
@@ -328,12 +328,12 @@
         "登录成功记录 user_id",
         "登录失败记录 username 和来源 IP，不记录明文密码"
       ],
-      "安全边界": [
+      "安全": [
         "密码只存储哈希",
         "登录失败不暴露用户是否存在",
         "会话 token 不写入日志"
       ],
-      "性能约束": [
+      "性能": [
         "validate_session 单次查询不超过 50ms",
         "sessions.token 必须有索引"
       ],

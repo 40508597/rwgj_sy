@@ -21,7 +21,11 @@
 from __future__ import annotations
 
 import argparse
+import copy
+import html
 import json
+import os
+import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -179,6 +183,7 @@ def to_progress_table(state: dict[str, Any] | None) -> str:
     """_state.json → 9 阶段进度表。"""
     if not state or not isinstance(state.get("stages"), list):
         return "_状态文件不存在或格式不正确（可运行 `manage_state.py init` 创建）_"
+    state = _state_for_render(state)
     status_icon = {"pending": "⭕ 待开始", "in_progress": "⏳ 进行中",
                    "completed": "✅ 已完成", "skipped": "⊘ 已跳过"}
     rows = []
@@ -186,7 +191,7 @@ def to_progress_table(state: dict[str, Any] | None) -> str:
         rows.append(f"| {stage.get('id', '?')} | {status_icon.get(stage.get('status'), stage.get('status'))} "
                     f"| {stage.get('description', '')} |")
     completion = state.get("completion", {})
-    header = (f"**整体完成度 {completion.get('percentage', 0)}%** "
+    header = (f"**整体完成度 {completion.get('percentage', 0):g}%** "
               f"（必需阶段 {completion.get('required_completed', 0)}/{completion.get('required_total', 0)}）\n\n")
     table = "| 阶段 | 状态 | 说明 |\n|------|------|------|\n" + "\n".join(rows)
     return header + table
@@ -219,10 +224,41 @@ def to_module_summary(data: dict[str, Any]) -> str:
     return table
 
 
+def _data_entities(topology: Any) -> list[dict[str, Any]]:
+    """Both schema-supported array and name-keyed object forms are renderable."""
+    if isinstance(topology, list):
+        return [entity for entity in topology if isinstance(entity, dict)]
+    if isinstance(topology, dict):
+        if "字段" in topology:
+            return [topology]
+        return [dict(entity, 名称=entity.get("名称") or name)
+                for name, entity in topology.items() if isinstance(entity, dict)]
+    return []
+
+
+def _state_for_render(state: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Completion is a derived view, never an authoritative stale cache."""
+    if not isinstance(state, dict) or not isinstance(state.get("stages"), list):
+        return None
+    snapshot = copy.deepcopy(state)
+    stages = snapshot["stages"]
+    if not stages or any(not isinstance(stage, dict) for stage in stages):
+        snapshot["completion"] = {"percentage": 0, "required_completed": 0,
+                                  "required_total": 0, "completed_stages": 0, "total_stages": len(stages)}
+        return snapshot
+    completed = sum(stage.get("status") == "completed" for stage in stages)
+    required = [stage for stage in stages if stage.get("required", True)]
+    snapshot["completion"] = {"percentage": round(completed / len(stages) * 100, 1),
+                              "required_completed": sum(stage.get("status") == "completed" for stage in required),
+                              "required_total": len(required), "completed_stages": completed,
+                              "total_stages": len(stages)}
+    return snapshot
+
+
 def to_data_tables(data: dict[str, Any]) -> str:
     """数据拓扑 → 表/字段/约束表格。"""
-    topology = data.get("数据拓扑")
-    if not isinstance(topology, list) or not topology:
+    topology = _data_entities(data.get("数据拓扑"))
+    if not topology:
         return "_无数据拓扑数据_"
     rows = []
     for table in topology:
@@ -255,7 +291,8 @@ def _build_json_payload(data: dict[str, Any], state: dict[str, Any] | None,
         "功能树": _func_nodes(data),
         "数据拓扑": data.get("数据拓扑", []),
         "模块详情": data.get("模块详情", {}),
-        "进度": state,
+        "进度": _state_for_render(state),
+        "数据实体": _data_entities(data.get("数据拓扑")),
         "质量问题": {"错误": errors, "警告": warnings},
     }
 
@@ -315,7 +352,7 @@ def render_markdown_report(data: dict[str, Any], state: dict[str, Any] | None,
 # HTML 单文件交互版（零外部依赖：无 CDN、无 Web 服务，纯原生 JS/CSS + 内联 SVG）
 # ---------------------------------------------------------------------------
 
-HTML_TEMPLATE = """<!DOCTYPE html>
+HTML_TEMPLATE = r"""<!DOCTYPE html>
 <html lang="zh">
 <head>
 <meta charset="utf-8">
@@ -389,7 +426,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   <section class="tab" id="tab-data"><div class="card"><h2>数据拓扑</h2><div id="data-table"></div></div></section>
   <section class="tab" id="tab-quality"><div class="card"><h2>质量问题</h2><div id="quality-box"></div></div></section>
 </main>
-<div id="detail-panel"><button class="close" onclick="closeDetail()">×</button><h3 id="detail-title"></h3><pre id="detail-body"></pre></div>
+<div id="detail-panel"><button class="close" id="detail-close">×</button><h3 id="detail-title"></h3><pre id="detail-body"></pre></div>
 <script>
 const DATA = @DATA@;
 function esc(s) { return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
@@ -417,7 +454,7 @@ function renderDep() {
     if (!layers.includes(l)) layers.push(l);
   });
   layers.sort(function(a,b){ return (LAYER_ORDER.indexOf(a)+1||99) - (LAYER_ORDER.indexOf(b)+1||99); });
-  const pos = {}; const colCount = layers.length;
+  const pos = Object.create(null); const colCount = layers.length;
   layers.forEach(function(layer, col){
     const colNodes = nodes.filter(n=>String(n.层级||"未分层")===layer);
     colNodes.forEach(function(n, row){
@@ -441,7 +478,7 @@ function renderDep() {
     const p = pos[String(n.编号)]; if (!p) return;
     const id = esc(String(n.编号));
     const label = esc(String(n.名称||n.编号)) + (n.说明 ? '<tspan x="'+(p.x+boxW/2)+'" dy="14" font-size="9" fill="#6b7686">'+esc(String(n.说明).slice(0,16))+'</tspan>' : '');
-    s += '<g onclick="showModule(\''+id+'\')"><rect class="node-box" x="'+p.x+'" y="'+p.y+'" width="'+boxW+'" height="'+boxH+'"/>' +
+    s += '<g data-module="'+id+'"><rect class="node-box" x="'+p.x+'" y="'+p.y+'" width="'+boxW+'" height="'+boxH+'"/>' +
          '<text x="'+(p.x+boxW/2)+'" y="'+(p.y+boxH/2+4)+'" text-anchor="middle" font-size="12">'+label+'</text></g>';
   });
   s += '</svg>';
@@ -453,8 +490,8 @@ function renderTree() {
   const nodes = DATA.功能树 || [];
   const el = document.getElementById("func-tree");
   if (!nodes.length) { el.innerHTML = "<p>无功能树数据</p>"; return; }
-  const byId = {}; nodes.forEach(n=>{ if (n.编号!=null) byId[String(n.编号)] = n; });
-  const childrenOf = {}; nodes.forEach(n=>{ childrenOf[String(n.编号)] = (n.子节点||[]).map(String).filter(k=>byId[k]); });
+  const byId = Object.create(null); nodes.forEach(n=>{ if (n.编号!=null) byId[String(n.编号)] = n; });
+  const childrenOf = Object.create(null); nodes.forEach(n=>{ childrenOf[String(n.编号)] = (n.子节点||[]).map(String).filter(k=>byId[k]); });
   const roots = nodes.map(n=>String(n.编号)).filter(id=>!nodes.some(o=>((o.子节点||[]).map(String).includes(id))));
   function nodeHtml(id) {
     const n = byId[id];
@@ -464,7 +501,7 @@ function renderTree() {
       if (n.验收标准) tags += '<span class="tag">✔可验收</span>'; else tags += '<span class="tag warn">⚠️无验收</span>';
       const land = n.架构落位;
       if (!land || !land.测试) tags += '<span class="tag warn">无测试落位</span>';
-      return '<div class="leaf" onclick="showModule(\''+esc(id)+'\')">'+esc(n.名称||id)+tags+'</div>';
+      return '<div class="leaf" data-module="'+esc(id)+'">'+esc(n.名称||id)+tags+'</div>';
     }
     return '<details open><summary>'+esc(n.名称||id)+'</summary>' + kids.map(nodeHtml).join("") + '</details>';
   }
@@ -504,7 +541,7 @@ function renderModules() {
 
 // ---- 数据拓扑 ----
 function renderData() {
-  const topology = DATA.数据拓扑 || []; const el = document.getElementById("data-table");
+  const topology = DATA.数据实体 || []; const el = document.getElementById("data-table");
   if (!topology.length) { el.innerHTML = "<p>无数据拓扑数据</p>"; return; }
   let rows = "";
   topology.forEach(function(t){
@@ -538,6 +575,11 @@ function showModule(id) {
   panel.style.display = "block";
 }
 function closeDetail() { document.getElementById("detail-panel").style.display = "none"; }
+document.getElementById("detail-close").addEventListener("click", closeDetail);
+document.addEventListener("click", function(event) {
+  const node = event.target.closest("[data-module]");
+  if (node) showModule(node.getAttribute("data-module"));
+});
 
 renderDep(); renderTree(); renderProgress(); renderModules(); renderData(); renderQuality();
 </script>
@@ -556,11 +598,12 @@ def render_html_report(data: dict[str, Any], state: dict[str, Any] | None,
     project = data.get("项目", {})
     name = project.get("名称") if isinstance(project, dict) else None
     title = f"架构可视化报告{('：' + str(name)) if name else ''}"
-    data_json = json.dumps(payload, ensure_ascii=False).replace("</", "<\\/")
-    return (HTML_TEMPLATE
-            .replace("@TITLE@", title)
-            .replace("@TIME@", now_iso())
-            .replace("@DATA@", data_json))
+    data_json = (json.dumps(payload, ensure_ascii=False)
+                 .replace("&", "\\u0026").replace("<", "\\u003c").replace(">", "\\u003e")
+                 .replace("\u2028", "\\u2028").replace("\u2029", "\\u2029"))
+    replacements = {"@TITLE@": html.escape(title, quote=True), "@TIME@": now_iso(), "@DATA@": data_json}
+    # One pass: marker-like text in user data is never interpreted as template.
+    return re.sub(r"@TITLE@|@TIME@|@DATA@", lambda match: replacements[match.group()], HTML_TEMPLATE)
 
 
 def render_json_output(data: dict[str, Any], state: dict[str, Any] | None,
@@ -594,8 +637,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--json", action="store_true", help="等价于 --format json（兼容）")
     args = parser.parse_args(argv)
 
+    source_paths: set[Path] = set()
     data, io_error, io_exit = _archlib.run_with_io_errors(
-        lambda: _archlib.load_architecture_json(args.architecture)
+        lambda: _archlib.load_architecture_json(args.architecture, source_paths)
     )
     if io_error is not None:
         print(f"ERROR: {io_error}", file=sys.stderr)
@@ -606,11 +650,27 @@ def main(argv: list[str] | None = None) -> int:
 
     state = None
     state_path = _resolve_state_path(args.architecture.resolve(), args.state_path)
+    if state_path is not None:
+        source_paths.add(state_path)
     if state_path is not None and state_path.exists():
         try:
-            state = json.loads(state_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            state = None
+            import manage_state
+            state = manage_state.load_state(state_path)
+        except (OSError, UnicodeError, ValueError) as exc:
+            print(f"ERROR: 状态输入错误: {exc}", file=sys.stderr)
+            return 2
+
+    if args.output:
+        try:
+            for source in source_paths:
+                same = args.output.resolve() == source.resolve()
+                if args.output.exists() and source.exists():
+                    same = same or os.path.samefile(args.output, source)
+                if same:
+                    raise _archlib.ArchitectureInputError(f"渲染输出不得覆盖输入真相源或状态文件: {source}")
+        except (OSError, ValueError) as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return 2
 
     # 质量红线标注：进程内复用 check_quality_redlines（不重复实现口径）
     try:
@@ -628,8 +688,12 @@ def main(argv: list[str] | None = None) -> int:
         text = render_json_output(data, state, errors, warnings, args.max_nodes)
 
     if args.output:
-        args.output.parent.mkdir(parents=True, exist_ok=True)
-        args.output.write_text(text, encoding="utf-8")
+        try:
+            args.output.parent.mkdir(parents=True, exist_ok=True)
+            args.output.write_text(text, encoding="utf-8")
+        except (OSError, UnicodeError) as exc:
+            print(f"ERROR: 渲染输出失败: {exc}", file=sys.stderr)
+            return 2
         print(f"✅ 已渲染 {fmt.upper()} 视图: {args.output}")
     else:
         print(text)

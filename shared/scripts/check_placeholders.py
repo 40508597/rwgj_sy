@@ -20,6 +20,7 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import _archlib  # noqa: E402
+from validate_architecture import completion_issues  # noqa: E402
 
 _archlib.configure_utf8_stdout()
 
@@ -233,7 +234,7 @@ def find_incomplete_module_details(
     """
     md = data.get("模块详情")
     if not isinstance(md, dict) or not md:
-        return []  # 字段整体缺失由 find_missing_core_fields 覆盖
+        return ["root.模块详情（缺失、不是对象或为空）"]
 
     required_subs = resolve_module_detail_subfields(schema)
     issues: list[str] = []
@@ -281,7 +282,8 @@ def categorize_placeholders(
     md_incomplete = find_incomplete_module_details(data, schema)
 
     return {
-        "critical": value_cats["critical"] + key_critical + missing_core + md_incomplete,
+        "critical": list(dict.fromkeys(value_cats["critical"] + key_critical + missing_core
+                                      + md_incomplete + completion_issues(data, schema))),
         "important": value_cats["important"],
         "optional": value_cats["optional"],
     }

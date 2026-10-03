@@ -14,34 +14,29 @@ from scan_code_drift import DEFAULT_IGNORE_DIRS
 
 _archlib.configure_utf8_stdout()
 
+STRUCTURE_IGNORE_DIRS = DEFAULT_IGNORE_DIRS | {".agents", ".codex", ".idea", ".vscode"}
+
+
+def iter_structure_files(project_root: Path):
+    """只盘点子目录中的常规文件，不推断内容、源码类型或语言。"""
+    root = project_root.resolve()
+    def unreadable(error: OSError):
+        raise error
+    for directory, dirs, files in os.walk(root, followlinks=False, onerror=unreadable):
+        current = Path(directory)
+        dirs[:] = sorted(name for name in dirs if name not in STRUCTURE_IGNORE_DIRS
+                         and not (current / name).is_symlink())
+        if current == root:
+            continue
+        for name in sorted(files):
+            path = current / name
+            if not path.is_symlink() and path.is_file():
+                yield path.relative_to(root).as_posix()
+
 
 def is_capability_package_itself(project_root: Path) -> bool:
-    """判断当前目录是否是任务架构能力包仓库自身。
-
-    能力包的特征（任一即认定）：
-    - 根 SKILL.md 存在且 YAML frontmatter 的 name 字段为「任务架构」
-    - 根 AGENT-USAGE.md 存在（这是能力包的通用入口说明文件，普通项目一般没有）
-
-    命中即豁免：能力包不应被自己触发任务架构，也不应被当作受管项目来管理。
-    """
-    skill_md = project_root / "SKILL.md"
-    if skill_md.is_file():
-        try:
-            text = skill_md.read_text(encoding="utf-8")
-        except OSError:
-            text = ""
-        # 解析 YAML frontmatter（仅前几行，不引入 yaml 依赖）
-        if text.startswith("---"):
-            end = text.find("---", 3)
-            if end != -1:
-                front = text[3:end]
-                for line in front.splitlines():
-                    stripped = line.strip()
-                    if stripped.startswith("name:") and "任务架构" in stripped:
-                        return True
-    if (project_root / "AGENT-USAGE.md").is_file():
-        return True
-    return False
+    """委托共享分类器：受管锚点优先，入口名称和分发结构必须同时成立。"""
+    return _archlib.is_capability_package(project_root)
 
 
 def should_trigger_task_architecture(project_root: Path) -> tuple[bool, list[str]]:
@@ -51,11 +46,7 @@ def should_trigger_task_architecture(project_root: Path) -> tuple[bool, list[str
     Returns:
         (should_trigger: bool, reasons: list[str])
     """
-    # 自指豁免：本能力包仓库自身不是受管项目，永远不触发任务架构。
-    # 判据——当前目录是任务架构能力包：根 SKILL.md 的 YAML frontmatter name=任务架构，
-    # 或根 AGENT-USAGE.md 存在（能力包的通用入口文件）。命中即直接豁免。
-    # 与 validate_task_architecture_system.py 的「根 architecture.json 不应在能力包存在」
-    # 约束对账，避免能力包自身被误判为受管项目而陷入自管自的死循环。
+    # 有受管锚点的项目不能因拷入技能入口而被豁免。
     if is_capability_package_itself(project_root):
         return False, ["ℹ️  此为任务架构能力包仓库，不参与触发检测（能力包自管自身不在适用场景内）"]
 
@@ -78,46 +69,25 @@ def should_trigger_task_architecture(project_root: Path) -> tuple[bool, list[str
     if reasons:
         return True, reasons  # 已有受管锚点，无需重复扫描代码量。
 
-    # 检查2：是否是多模块项目
-    common_module_dirs = ["src", "lib", "modules", "packages", "services", "components"]
-    module_count = sum(1 for d in common_module_dirs if (project_root / d).exists())
-
-    if module_count >= 2:
-        reasons.append(f"✓ 检测到多模块结构（{module_count} 个模块目录）")
-
-    # 检查3：是否有复杂的项目配置
-    config_files = [
-        "package.json", "pom.xml", "Cargo.toml", "go.mod",
-        "requirements.txt", "pyproject.toml", "Gemfile"
-    ]
-    has_config = any((project_root / f).exists() for f in config_files)
-
-    if has_config:
-        reasons.append("✓ 发现项目配置文件（非临时脚本）")
-
-    # 检查4：代码规模
-    code_count = 0
-    code_extensions = {".py", ".js", ".ts", ".jsx", ".tsx", ".go", ".rs", ".java", ".c", ".cpp", ".cs"}
-
+    # 未受管目录仅给复杂度建议：多目录和实际文件规模，不依赖语言生态配置。
+    module_count = 0
+    file_count = 0
     try:
-        if module_count >= 2 and has_config:
-            for _ in _archlib.iter_actual_files(project_root, code_extensions, DEFAULT_IGNORE_DIRS):
-                code_count += 1
-                if code_count > 10:
+        module_count = sum(1 for path in project_root.iterdir()
+                           if path.is_dir() and not path.is_symlink() and path.name not in STRUCTURE_IGNORE_DIRS)
+        if module_count >= 2:
+            reasons.append(f"✓ 发现 {module_count} 个项目子目录（尚未判定为业务模块）")
+            for _ in iter_structure_files(project_root):
+                file_count += 1
+                if file_count > 10:
                     break
     except OSError:
-        # 目录扫描遇权限错误等不可读目录时降级处理，用已扫到的部分继续
-        pass
+        return False, ["⚠ 项目目录未能完整盘点，请结合真实任务人工判断适用范围"]
 
-    if code_count > 10:
-        reasons.append(f"✓ 代码文件数量至少 {code_count} （非小 demo）")
-
-    # 判定逻辑
-    should_trigger = (
-        arch_json.exists() or
-        (arch_dir.exists() and arch_dir.is_dir()) or
-        (module_count >= 2 and has_config and code_count > 10)
-    )
+    should_trigger = module_count >= 2 and file_count > 10
+    if should_trigger:
+        reasons.append(f"✓ 子目录中常规文件至少 {file_count} 个；只建议评估架构需求，不代表识别为源码")
+        reasons.append("ℹ 文件规模提示不强制完整流程，任务范围由明确需求和受管架构决定")
 
     if not should_trigger and reasons:
         reasons.insert(0, "ℹ️  项目特征不明显，可能不需要任务架构")
@@ -158,7 +128,8 @@ def main() -> int:
 
     if should_trigger:
         print()
-        print("✅ 建议使用任务架构技能")
+        print("✅ 已有架构锚点，应接管受管项目" if _archlib.is_managed(project_root)
+              else "✅ 建议结合当前任务评估任务架构的适用范围")
         print()
         print("触发方式：")
         print("  • 告诉 Agent：「使用任务架构做 XXX」")

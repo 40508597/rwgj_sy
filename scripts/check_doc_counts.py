@@ -34,6 +34,10 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 README = REPO_ROOT / "README.md"
 # 总文件数为近似口径（README 写 ~N），容差内不算漂移
 TOTAL_FILES_TOLERANCE = 5
+REQUIRED_METRICS = {
+    "子能力层数", "参考文档数", "工具脚本数", "必需阶段数", "平台适配数", "Schema 数",
+    "资产模板数", "历史归档", "设计文档数", "顶层入口文件", "单元测试", "CI 工作流", "总文件数",
+}
 
 
 def _count_required_stages() -> int:
@@ -102,7 +106,12 @@ def read_claims() -> dict[str, int]:
         name = m.group(1).strip()
         nums = re.findall(r"\d+", m.group(2))
         if name and nums:
+            if name in claims:
+                raise ValueError(f"README 技术指标重复: {name}")
             claims[name] = int(nums[0])
+    missing = sorted(REQUIRED_METRICS - claims.keys())
+    if missing:
+        raise ValueError("README 技术指标缺失: " + ", ".join(missing))
     return claims
 
 
@@ -195,8 +204,12 @@ def main() -> int:
         print("ERROR: README.md 不存在，无法对账", file=sys.stderr)
         return 2
 
-    claims = read_claims()
-    actual = actual_counts()
+    try:
+        claims = read_claims()
+        actual = actual_counts()
+    except (OSError, UnicodeError, ValueError) as exc:
+        print(f"ERROR: 无法完整对账: {exc}", file=sys.stderr)
+        return 1
 
     mismatches: list[str] = []
     for name, expected in claims.items():

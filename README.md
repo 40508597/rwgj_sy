@@ -15,6 +15,8 @@
 
 ## 一、仓库简介
 
+本备份包含 2026-10-04 通用质量升级：架构决策记录、按指定关系检查模块边界与循环、项目配置的质量指标与 CRAP、绑定选定输入的真实执行收据，以及在隔离副本中故意引入字节故障验收检查器。规则与事实协议不限制项目语言，`.e`、未知工程格式、二进制和无后缀实现单元均可接入；外部信息不足时显示未验证，不声称内置全语言解析器。完整交付使用 gate_check 的 --quality-required。说明与模板见 [通用质量协议](shared/references/universal-quality.md)。技能元数据名规范为 task-architecture，中文标题与使用说明保留。
+
 - **角色**：薄入口技能包，承载任务架构规则与共享工具
 - **使用方**：Codex / Claude Code / Trae / Cursor / Windsurf / Cline / Continue / CLI Agent / 自研 Agent
 - **核心特性**：真相源分离（能力在仓库，项目状态在调用方 `architecture/`）、跨平台一致（差异只写在 `shared/adapters/`）
@@ -155,6 +157,9 @@
 | `render_architecture.py` | 可视化 | 单向渲染真相源（md=Mermaid 报告 / html=单文件交互 / json=结构化） |
 | `demo_project.py` | 演示 | 临时受管项目端到端验证链（接入 verify-all） |
 | `resolve_tool.py` | 定位 | 解析工具脚本绝对路径（项目锚点优先 → 安装目录兜底；--json / --list） |
+| `check_project_quality.py` | 通用质量 | 根据选定范围的观察事实检查依赖边界、循环、质量指标、CRAP、决策记录和执行收据；缺证据为未验证 |
+| `run_verification.py` | 执行证据 | 运行明确 argv，记录命令结果、选定输入前后哈希与原始输出，供质量门禁复核 |
+| `run_quality_probes.py` | 检查器验收 | 在两份隔离副本中运行正常与故意改坏样例，核对目标检查是否检出，固定分母保留失败与未知 |
 
 **F+B+C 三件套机制**：
 - **F（占位符）**：让缺失可见 - `__待填__` 强制填写
@@ -264,10 +269,7 @@
 
 **工具降级策略**：工具不可用时按文本规则降级执行，并在验证证据中记录"未运行原因"。
 
-**性能与规模**：
-- 工具脚本运行时间通常 < 5 秒（10K 行代码内）
-- 切片目录支持单文件 1MB 以内
-- 超过此规模建议分模块使用
+**性能与规模**：结构检查与实际执行分别评估；构建、测试及故障样例运行时间取决于调用方项目和指定命令。大型工程按模块和关系划定检查范围，并保留未采集范围。
 
 ### 4.5 技术指标
 
@@ -276,18 +278,18 @@
 | 指标 | 数值 |
 |------|------|
 | 子能力层数 | 4 |
-| 参考文档数 | 20 |
-| 工具脚本数 | 24（shared/scripts 21 + scripts/3；其中 3 个内部辅助不计入用户工具表，由 check_doc_counts.py 自动对账）|
+| 参考文档数 | 21 |
+| 工具脚本数 | 27（shared/scripts 24 + scripts/3；其中 3 个内部辅助不计入用户工具表，由 check_doc_counts.py 自动对账）|
 | 必需阶段数 | 9（manage_state.STANDARD_STAGES required=True）|
 | 平台适配数 | 4 |
 | Schema 数 | 2 |
-| 资产模板数 | 6（shared/assets 顶层 .json）|
+| 资产模板数 | 8（shared/assets 顶层 .json）|
 | 历史归档 | 4（shared/legacy/ 下含 README.md 索引 + 3 份历史 SKILL）|
 | 设计文档数 | 6（docs/ 下 1 篇回归断言 + docs/adr/ 5 篇决策记录含索引）|
 | 顶层入口文件 | 2（SKILL.md / AGENT-USAGE.md）|
-| 单元测试 | 16（tests/，stdlib unittest，用例数由 check_doc_counts.py 动态统计）|
+| 单元测试 | 26（tests/，stdlib unittest，用例数由 check_doc_counts.py 动态统计）|
 | CI 工作流 | 1（.github/workflows/verify.yml）|
-| 总文件数 | ~116（不含 .git/、缓存和生成的验证报告，含测试与 CI）|
+| 总文件数 | ~132（不含 .git/、缓存和生成的验证报告，含测试与 CI）|
 
 #### 4.5.1 分发最小运行集
 
@@ -299,7 +301,7 @@ skills/task-architecture   skills/project-depth-core   skills/architecture-json 
 shared/scripts             shared/references           shared/adapters            shared/assets
 ```
 
-> 参考实现：DSH 宿主插件 dph-task-architecture v2 即按此最小集把能力树内嵌随包分发，零配置可用。
+最小集仅包含核心运行能力。若选择 Claude Stop hook，需额外分发 `optional/claude_stop_hook.py`；一键项目验证可额外分发 `verify-all.sh`，其 --project 模式不依赖 tests/、README 或开发自检脚本。完整 --self-test 则需要开发分发资产。安装、提供源码或配置示例都不等于宿主集成已经启用。
 
 ### 4.6 适用场景评估
 
@@ -361,13 +363,22 @@ shared/scripts             shared/references           shared/adapters          
 适用场景：项目需要隔离的能力定义，或离线/无网络环境。
 
 ```bash
-# 1. 把整个目录（除 .git/）复制到项目根目录
-cp -r <rwgj-源目录>/<项目根>/   # Windows: xcopy /E
-# 注：复制时排除 .git/、.source.json（如果不需要追溯来源）
+# Git Bash / POSIX shell：分别设置实际源目录和项目根目录
+TASK_ARCH_SOURCE="/absolute/path/to/task-architecture"
+TASK_ARCH_PROJECT="/absolute/path/to/project"
+TASK_ARCH_INSTALL="$TASK_ARCH_PROJECT/.agents/skills/task-architecture"
+mkdir -p "$TASK_ARCH_INSTALL"
+cp "$TASK_ARCH_SOURCE/SKILL.md" "$TASK_ARCH_INSTALL/"
+cp -R "$TASK_ARCH_SOURCE/skills" "$TASK_ARCH_SOURCE/shared" "$TASK_ARCH_INSTALL/"
+# 可选一键项目验证入口：
+cp "$TASK_ARCH_SOURCE/verify-all.sh" "$TASK_ARCH_INSTALL/"
 
-# 2. 告诉 Agent
-#    "读取 AGENT-USAGE.md，使用任务架构处理本项目。"
+# 告诉 Agent：读取 .agents/skills/task-architecture/SKILL.md，处理本项目。
 ```
+
+只分发运行能力集到上述子目录，保留项目根现有 README、.gitignore、CLAUDE.md 和 .github。不要复制能力仓库的安装/自检标识到业务项目根。项目的 architecture.json 与 architecture/ 独立保存在项目根，并按项目协作要求版本化。Windows PowerShell 可用 Copy-Item -LiteralPath 复制同一组文件到同一子目录。
+
+选择 Claude Stop hook 时另复制 `optional/claude_stop_hook.py` 到安装目录的 `optional/`，按 `shared/adapters/claude.md` 合并配置并实际验证宿主加载；核心最小集本身不包含已启用的 hook。
 
 #### 两种模式对比
 
@@ -420,8 +431,10 @@ cp -r <本目录> ~/.proma/agent-workspaces/<workspace-id>/skills/rwgj/
 
 **3. 一键验证脚本**
 ```bash
-# 本技能包提供 Proma 友好的一键验证脚本
-bash verify-all.sh
+# 能力包自身自检（只能证明包与工具的回归结果）
+bash verify-all.sh --self-test
+# 实际项目验证（读取调用方架构与质量配置，不用样例替代）
+bash verify-all.sh --project "/absolute/path/to/project"
 
 # 或在 Proma Agent 对话中：
 运行一键验证脚本，检查项目架构完整性
@@ -557,14 +570,16 @@ python shared/scripts/run_with_progress.py validate_architecture.py '验证架�
 
 技能自带 Python 脚本（数量口径见 §4.5），**工具不可用时按文本规则降级执行**。
 
-**运行环境**：脚本要求 Python 3.9+（使用 `list[...]` / `X | None` 类型语法）；`verify-all.sh` 一键验证需 Git Bash / WSL 环境（或直接依赖 GitHub Actions CI，push/PR 自动运行，含 3.9/3.10/3.11 版本矩阵）。
+**运行环境**：随包脚本使用 Python 3.9+；这是检查工具运行时，被检查项目的语言不受限制。`verify-all.sh` 一键验证需 Git Bash / WSL 环境，也可直接运行 Python 测试。本轮在 Windows 与 Python 3.12.14 的本地运行时验证；仓库 CI 配置中的版本矩阵不等于本轮已经运行的结果。
+
+下列相对脚本路径展示参数用法；实际执行先按 LAYER 的 resolve_tool 规则取完整脚本绝对路径，保持工作目录为调用方项目。包自身回归运行 `bash verify-all.sh --self-test`；项目完整验证运行 `bash "<安装目录>/verify-all.sh" --project "<项目根>"`。默认有受管架构锚点时选择项目模式；仅能力包自身无项目锚点时自动自检。一键项目模式与 gate 使用同一文件盘点语义：实际运行 --all-files --json，声明文件缺失阻断，未登记文件保留原始列表作为提示；不按格式猜业务代码，不将导出的报告、审计文件或可视化自动当作业务实现。输入/返回码与输出矛盾记为 unknown。独立 scan_code_drift CLI 仍把任一种清单偏差返回 1，其清单需要按当前用途解释；以上提示不等于未登记文件内容已通过语义检查。
 
 #### 5.4.1 架构验证类
 
 ```bash
 python shared/scripts/validate_architecture.py architecture/index.json
-python shared/scripts/validate_protocol_semantics.py
-python shared/scripts/validate_agent_output.py
+python shared/scripts/validate_protocol_semantics.py . --architecture architecture/index.json
+python shared/scripts/validate_agent_output.py shared/assets/example-agent-output.json
 python scripts/validate_task_architecture_system.py
 ```
 
@@ -573,7 +588,7 @@ python scripts/validate_task_architecture_system.py
 ```bash
 python shared/scripts/scan_code_drift.py . --architecture architecture/index.json --max-items 200
 python shared/scripts/diff_architecture.py old.json new.json
-python shared/scripts/gate_check.py
+python shared/scripts/gate_check.py . --quality-required --json
 ```
 
 #### 5.4.3 初始化与脚手架类
@@ -628,6 +643,8 @@ python shared/scripts/check_quality_redlines.py architecture/index.json \
 # 人工/LLM：独立审计问卷（10 问语义质量，由第二个会话填写，可留痕归档）
 python shared/scripts/audit_architecture.py generate architecture/index.json --output audit-report.json
 python shared/scripts/audit_architecture.py report audit-report.json
+# q1..q10 各一次；yes/no 需非空字符串证据；na 需证据或不适用原因。
+# 生成模板成功不代表审计通过；任一 no 返回 1。
 ```
 
 原则：**质量红线拦截明显坏，独立审计记录质量判断，最终权威永远是人的工程判断。验证全绿 ≠ 架构正确。**
@@ -688,9 +705,9 @@ python shared/scripts/render_architecture.py architecture/index.json --max-nodes
 ```
 
 执行流程：
-1. `project-depth-core` 展开功能簇（增删改查 + 状态 + 提醒 + 分类 + 同步...）
+1. 先经 LAYER 锁定范围，`project-depth-core` 展开本次目标成立所需的功能簇；提醒、分类、同步等按实际需求评估
 2. `architecture-json` 生成 `architecture/` 切片目录（功能树、模块树、模块详情...）
-3. 用户确认后进入实现
+3. 按用户已有授权进入逐块实现；只在缺少必需信息或新增范围时确认
 
 #### 5.7.2 修改已有功能
 

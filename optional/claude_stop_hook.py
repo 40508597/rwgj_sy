@@ -35,7 +35,7 @@ def decide(event: dict) -> dict:
         code, data, raw = 2, None, "收尾门禁脚本缺失"
     else:
         code, data, raw = _archlib.run_subprocess_json(
-            [sys.executable, str(script), str(project), "--json"])
+            [sys.executable, str(script), str(project), "--quality-required", "--json"])
     if code == 0 and isinstance(data, dict) and data.get("verdict") == "pass" and data.get("code") == 0:
         return {}
     reason = "【未通过验证】收尾门禁未通过。修复失败项，或按此首行报告未验证内容，不得声明任务完成。"

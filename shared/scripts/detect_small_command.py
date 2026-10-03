@@ -36,6 +36,70 @@ RISK_WORDS_PATH = Path(__file__).resolve().parents[1] / "assets" / "risk-words.j
 
 TIER_ORDER = ("完整流程", "最小闭环", "完全跳过")
 
+ACTION_PATTERN = (r"修改|改为|改成|调整|修复|删除|删掉|清空|重构|迁移|新增|添加|创建|实现|"
+                  r"启动|重启|运行|执行|部署|发布|付款|转账|授权|优化")
+NEGATIVE_PREFIX = re.compile(
+    r"^(?:请|先|务必)?(?:不是要|并非要|不要|禁止|不得|无需|不需要|不必|不用|别|勿|不(?="
+    + ACTION_PATTERN + r"))(?!只|仅)")
+TEXT_EDIT = re.compile(r"(?:按钮文字|说明文字|文字|文案|标题|标签|提示语|名称)"
+                       r"\s*(?:改为|改成|设置为|换成|替换为)\s*(?P<value>.+)$")
+QUOTED_TEXT = re.compile(r'“[^”]*”|「[^」]*」|『[^』]*』|《[^》]*》|"[^"]*"|\x27[^\x27]*\x27|‘[^’]*’')
+CLAUSE_SEPARATOR = re.compile(
+    r"[，,；;。？?!！\n]+|然后|随后|而后|并且|同时|接着|以及|但是|而是|不过|"
+    r"但(?=只|请|直接|把|将|修改|删除|重构|运行|新增)|"
+    r"并(?=" + ACTION_PATTERN + r")|再(?=" + ACTION_PATTERN + r")")
+
+
+def intent_clauses(request: str) -> tuple[list[str], list[str]]:
+    """提取实际意图与明确限制；不将引用的操作对象当成普通文案。
+
+    仅屏蔽明确文字编辑上下文的引用值。否定范围含转折/例外或后续操作
+    标记时保持保守，交给原词表判定。该辅助判断不能替代模型理解。
+    """
+    literals: list[str] = []
+
+    def hold(match: re.Match[str]) -> str:
+        literals.append(match.group())
+        return f"\x00{len(literals) - 1}\x00"
+
+    protected = QUOTED_TEXT.sub(hold, request)
+    active: list[str] = []
+    constraints: list[str] = []
+    for part in CLAUSE_SEPARATOR.split(protected):
+        part = part.strip()
+        if not part:
+            continue
+
+        def restore(match: re.Match[str]) -> str:
+            prefix = part[:match.start()]
+            text_edit = re.search(
+                r"(?:按钮文字|文字|文案|标题|标签|提示语|名称)"
+                r"[^\x00]*?(?:改为|改成|设置为|换成|替换为)\s*$", prefix)
+            return "文本值" if text_edit else literals[int(match.group(1))]
+
+        part = re.sub(r"\x00(\d+)\x00", restore, part)
+        edit = TEXT_EDIT.search(part)
+        if edit:
+            value = edit.group("value")
+            continuation = re.search(r"(?:并|且|再|请|直接|实际|帮我|替我|给我|把|将)\s*(?:"
+                                     + ACTION_PATTERN + r")", value)
+            if not continuation and len(re.findall(ACTION_PATTERN, value)) <= 1:
+                part = part[:edit.start("value")] + "文本值"
+        negative = NEGATIVE_PREFIX.match(part)
+        ambiguous = re.search(r"以外|之外|除了|除非|(?:只|仅|请|直接|实际|帮我|替我|给我|\s)\s*"
+                              r"(?:修改|删除|重构|运行|执行|新增|部署|发布)",
+                              part[negative.end():] if negative else part)
+        unchanged = re.fullmatch(
+            r"(?:实际|原有|现有)?[^，；。]*?(?:逻辑|代码|接口|行为|实现)\s*(?:保持原样|保持不变|不变)", part)
+        # 没有分隔符的连续操作无法可靠确定否定范围，不能直接删去整个请求。
+        if negative and len(re.findall(ACTION_PATTERN, part[negative.end():])) > 1:
+            ambiguous = True
+        if (negative and not ambiguous) or unchanged:
+            constraints.append(part)
+        else:
+            active.append(part)
+    return active, constraints
+
 
 def load_risk_words() -> dict[str, Any]:
     """风险词不可读时明确报错，不能将未知风险伪装成低风险。"""
@@ -77,6 +141,8 @@ def _classify_clause(request: str, rules: dict[str, Any]) -> tuple[str, list[str
 
     分类来源：None=词表命中；"自指问答"/"提问句式"=句式判定（档位为完全跳过）。
     """
+    if NEGATIVE_PREFIX.match(request) or re.match(r"^(?:请|先|务必)?不要(?:只|仅)", request):
+        return "完整流程", ["否定范围不明确，保留完整流程"], None
     default = rules.get("默认档位", "完整流程")
     if default not in TIER_ORDER:
         default = "完整流程"
@@ -102,6 +168,15 @@ def _classify_clause(request: str, rules: dict[str, Any]) -> tuple[str, list[str
 
     skip_hits = _archlib.collect_matches(request, tier_words("完全跳过", rules))
     read_hits = [word for word in skip_hits if word in ("查看", "看看", "看一下", "查一下", "了解", "了解一下")]
+    read_prefix = re.match(r"^(?:请|先|帮我)?(?:只读(?:打开|阅读|查看)|只阅读|仅阅读|阅读|浏览)", request)
+    if read_prefix:
+        read_hits.append(read_prefix.group())
+    # An operation word inside a document title does not request that operation.
+    read_document = re.fullmatch(r"(?:请|先)?(?:只|仅|只读)?(?:查看|阅读|打开|浏览)"
+                                 r"[^，。；]*?(?:说明|文档|记录|日志|指南|手册)", request)
+    continuation = re.search(r"(?:并|且|再|然后|接着|后|实际|直接)\s*(?:" + ACTION_PATTERN + r")", request)
+    if read_document and not continuation:
+        return "完全跳过", ["只读文档对象"], "纯只读查看"
     if read_hits and not action_hits and not minimal_hits:
         return "完全跳过", [f"只读:{word}" for word in read_hits], "纯只读查看"
 
@@ -123,15 +198,16 @@ def _classify_clause(request: str, rules: dict[str, Any]) -> tuple[str, list[str
 
 def classify(request: str, rules: dict[str, Any]) -> tuple[str, list[str], str | None]:
     """分句后逐项判定，整体采用最严格档位，问答不能覆盖后续操作。"""
-    clauses = [part.strip() for part in re.split(
-        r"[，,；;。？?!！\n]+|然后|并且|同时|接着|以及|并(?=修改|删除|重构|运行|新增)|再(?=修改|删除|重构|运行|新增)",
-        request) if part.strip()]
+    clauses, constraints = intent_clauses(request)
     if not clauses:
+        if constraints:
+            return "完全跳过", [f"用户限制:{part}" for part in constraints], "仅有操作限制"
         clauses = [request]
     results = [_classify_clause(part, rules) for part in clauses]
     selected = min(results, key=lambda result: TIER_ORDER.index(result[0]))
     tier = selected[0]
     evidence = _archlib.unique([item for result in results if result[0] == tier for item in result[1]])
+    evidence.extend(f"用户限制:{part}" for part in constraints)
     return tier, evidence, selected[2]
 
 
@@ -153,6 +229,7 @@ def detect_risk(request: str, rules: dict[str, Any]) -> tuple[str, list[str]]:
 
 def closed_loop_type(request: str, rules: dict[str, Any]) -> str:
     """最小闭环内分型：仅运行类词命中=运行；命中任一修改类词=修改（修改优先）。"""
+    request = "；".join(intent_clauses(request)[0])
     item = tier_item("最小闭环", rules)
     modify_words = item.get("修改类词", [])
     run_words = item.get("运行类词", [])
@@ -214,6 +291,8 @@ def skip_reason(request: str, rules: dict[str, Any], source: str | None) -> str:
         return "概念问答"
     if source == "纯只读查看":
         return source
+    if source == "仅有操作限制":
+        return "仅有操作限制，无明确执行请求"
     mapping = tier_item("完全跳过", rules).get("原因映射", {})
     if isinstance(mapping, dict):
         for category, words in mapping.items():
@@ -231,7 +310,8 @@ def detect_small_command(request: str, project_root: Path, rules: dict[str, Any]
     """
     tier, evidence, source = classify(request, rules)
     managed = _archlib.is_managed(project_root)
-    risk_level, risk_words = detect_risk(request, rules)
+    active, constraints = intent_clauses(request)
+    risk_level, risk_words = detect_risk("；".join(active), rules)
 
     notes: list[str] = []
 
@@ -272,6 +352,8 @@ def detect_small_command(request: str, project_root: Path, rules: dict[str, Any]
 
     if effective == "完全跳过" and not notes:
         notes.append(skip_reason(request, rules, source))
+
+    forbidden.extend(f"遵守用户限制:{part}" for part in constraints)
 
     # 降级=True 表示非完整流程（含完全跳过档）
     return {

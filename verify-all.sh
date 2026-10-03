@@ -7,15 +7,180 @@
 # 「一键验证」该有的「汇总所有结果」语义。set -e 在此只会让 cat/sed 等外部命令
 # 首错即停，已执行的检查结果丢失，与目标相反。
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+
+# Explicit modes separate the capability repository's regressions from a managed project.
+# A project anchor always selects project verification in auto mode, even after a bad
+# whole-package copy put SKILL.md or AGENT-USAGE.md beside the project's architecture.
+VERIFY_MODE=auto
+PROJECT_DIR="$(pwd -P)"
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --self-test)
+            [ "$VERIFY_MODE" = auto ] || { echo "Choose one verification mode" >&2; exit 2; }
+            VERIFY_MODE=self-test
+            shift
+            ;;
+        --project)
+            [ "$VERIFY_MODE" = auto ] && [ "$#" -ge 2 ] || { echo "--project requires one project directory" >&2; exit 2; }
+            VERIFY_MODE=project
+            PROJECT_DIR="$2"
+            shift 2
+            ;;
+        --help|-h)
+            echo "Usage: bash verify-all.sh [--self-test | --project PROJECT]"
+            echo "Auto: managed project anchors first; only this capability directory self-tests."
+            exit 0
+            ;;
+        *) echo "Unknown argument: $1" >&2; exit 2 ;;
+    esac
+done
+PROJECT_DIR="$(cd "$PROJECT_DIR" 2>/dev/null && pwd -P)" || { echo "Project directory is unavailable" >&2; exit 2; }
+export PYTHONIOENCODING=utf-8
+export PYTHONDONTWRITEBYTECODE=1
+
+if [ "$VERIFY_MODE" = auto ]; then
+    if [ -f "$PROJECT_DIR/architecture.json" ] || [ -d "$PROJECT_DIR/architecture" ]; then
+        VERIFY_MODE=project
+    elif [ "$PROJECT_DIR" = "$SCRIPT_DIR" ] && python -c 'import sys; from pathlib import Path; sys.path.insert(0, str(Path(sys.argv[1]) / "shared" / "scripts")); from _archlib import is_capability_package; raise SystemExit(0 if is_capability_package(Path(sys.argv[1])) else 1)' "$SCRIPT_DIR"; then
+        VERIFY_MODE=self-test
+    else
+        VERIFY_MODE=project
+    fi
+fi
+
+if [ "$VERIFY_MODE" = self-test ]; then
+    if [ -f "$SCRIPT_DIR/architecture.json" ] || [ -d "$SCRIPT_DIR/architecture" ]; then
+        echo "Capability self-test refuses a directory containing managed project architecture; use --project." >&2
+        exit 2
+    fi
+    python -c 'import sys; from pathlib import Path; sys.path.insert(0, str(Path(sys.argv[1]) / "shared" / "scripts")); from _archlib import is_capability_package; raise SystemExit(0 if is_capability_package(Path(sys.argv[1])) else 1)' "$SCRIPT_DIR" || { echo "Capability package identity is incomplete" >&2; exit 2; }
+    if [ ! -d "$SCRIPT_DIR/tests" ] || [ ! -f "$SCRIPT_DIR/README.md" ] || [ ! -f "$SCRIPT_DIR/scripts/demo_project.py" ] || [ ! -f "$SCRIPT_DIR/scripts/check_doc_counts.py" ] || [ ! -f "$SCRIPT_DIR/scripts/validate_task_architecture_system.py" ]; then
+        echo "Capability self-test requires the development distribution; a minimum runtime install can use --project." >&2
+        exit 2
+    fi
+    cd "$SCRIPT_DIR" || exit 2
+else
+    # Every command uses the actual caller project and a complete argv. No sample,
+    # template or package-state file is substituted for missing project evidence.
+    cd "$PROJECT_DIR" || exit 2
+    echo "检测模式: 受管项目验证模式（project；实际架构与严格质量门禁）"
+    PROJECT_REPORT="$PROJECT_DIR/verification-report-$(date +%Y%m%d_%H%M%S).md"
+    PROJECT_LOG=$(mktemp) || exit 2
+    trap 'rm -f -- "$PROJECT_LOG"' EXIT
+    PROJECT_TOTAL=0
+    PROJECT_PASS=0
+    PROJECT_FAIL=0
+    PROJECT_UNKNOWN=0
+    printf '# 受管项目验证报告\n\n项目：%s\n\n模式：project（真实项目，严格质量门禁）\n' "$PROJECT_DIR" > "$PROJECT_REPORT" || exit 2
+    run_project_check() {
+        local name="$1" rc
+        shift
+        PROJECT_TOTAL=$((PROJECT_TOTAL + 1))
+        "$@" > "$PROJECT_LOG" 2>&1
+        rc=$?
+        if [ "$rc" -eq 0 ]; then
+            PROJECT_PASS=$((PROJECT_PASS + 1))
+        elif [ "$rc" -eq 1 ]; then
+            PROJECT_FAIL=$((PROJECT_FAIL + 1))
+        else
+            PROJECT_UNKNOWN=$((PROJECT_UNKNOWN + 1))
+        fi
+        printf '%s: exit %s\n' "$name" "$rc"
+        {
+            printf '\n## %s\n\n退出码：%s\n\n```text\n' "$name" "$rc"
+            cat "$PROJECT_LOG"
+            printf '\n```\n'
+        } >> "$PROJECT_REPORT"
+    }
+    PROJECT_ARCH="$PROJECT_DIR/architecture.json"
+    [ -f "$PROJECT_ARCH" ] || PROJECT_ARCH="$PROJECT_DIR/architecture/index.json"
+    run_project_check '核心占位符与完成底线' python "$SCRIPT_DIR/shared/scripts/check_placeholders.py" "$PROJECT_ARCH"
+    run_project_check '架构完整性' python "$SCRIPT_DIR/shared/scripts/validate_architecture.py" "$PROJECT_ARCH"
+    run_project_check '完成可声明性' python "$SCRIPT_DIR/shared/scripts/judge_progress.py" "$PROJECT_ARCH" --state-path "$PROJECT_DIR/architecture/_state.json"
+    run_project_check '协议语义' python "$SCRIPT_DIR/shared/scripts/validate_protocol_semantics.py" "$PROJECT_DIR" --architecture "$PROJECT_ARCH"
+    project_inventory_check() {
+        python - "$SCRIPT_DIR/shared/scripts/scan_code_drift.py" "$PROJECT_DIR" "$PROJECT_ARCH" <<'PY'
+import json
+import subprocess
+import sys
+
+command=[sys.executable, sys.argv[1], sys.argv[2], "--architecture", sys.argv[3], "--all-files", "--json"]
+try:
+    result=subprocess.run(command, capture_output=True, text=True, encoding="utf-8", errors="strict", check=False)
+except (OSError, UnicodeError) as exc:
+    print(f"UNKNOWN: file inventory could not execute: {exc}", file=sys.stderr)
+    raise SystemExit(2)
+# Preserve the actual collector output even if it cannot be used for a verdict.
+print(result.stdout, end="" if result.stdout.endswith("\n") else "\n")
+if result.stderr:
+    print(result.stderr, end="" if result.stderr.endswith("\n") else "\n", file=sys.stderr)
+
+def unique_object(pairs):
+    obj={}
+    for key,value in pairs:
+        if key in obj:
+            raise ValueError("duplicate inventory key")
+        obj[key]=value
+    return obj
+
+def invalid_number(value):
+    raise ValueError("non-finite inventory number")
+
+try:
+    if result.returncode not in (0,1):
+        raise ValueError(f"collector returned {result.returncode}")
+    data=json.loads(result.stdout, object_pairs_hook=unique_object, parse_constant=invalid_number)
+    if not isinstance(data,dict):
+        raise ValueError("inventory must be an object")
+    lists=[]
+    for key in ("声明但不存在","存在但未登记","已登记代码文件"):
+        items=data.get(key)
+        if not isinstance(items,list) or any(not isinstance(item,str) or not item.strip() for item in items) or len(items)!=len(set(items)):
+            raise ValueError(f"invalid inventory field: {key}")
+        lists.append(items)
+    missing,undocumented,declared=lists
+    scope=data.get("扫描范围")
+    if not isinstance(scope,dict) or scope.get("模式")!="all-files" or scope.get("检查内容")!="file-inventory-only":
+        raise ValueError("inventory scope is unavailable or inconsistent")
+    expected_rc=1 if missing or undocumented else 0
+    if result.returncode!=expected_rc:
+        raise ValueError("collector return code contradicts inventory")
+except (ValueError, TypeError) as exc:
+    print(f"UNKNOWN: inventory cannot establish the required file-presence result: {exc}", file=sys.stderr)
+    raise SystemExit(2)
+
+print(f"范围说明：全部声明路径核查存在性；缺失 {len(missing)} 项阻断。未登记 {len(undocumented)} 项保留为提示，按所有格式盘点，不推断文件是否为业务代码，也不证明其内容或依赖语义已检查。")
+raise SystemExit(1 if missing else 0)
+PY
+    }
+    run_project_check '已登记实现单元与文件存在性' project_inventory_check
+    run_project_check '完整交付严格质量门禁' python "$SCRIPT_DIR/shared/scripts/gate_check.py" "$PROJECT_DIR" --architecture "$PROJECT_ARCH" --quality-required --json
+    printf '\n检查总数：%s；通过：%s；失败：%s；未知：%s；跳过：0\n' "$PROJECT_TOTAL" "$PROJECT_PASS" "$PROJECT_FAIL" "$PROJECT_UNKNOWN" | tee -a "$PROJECT_REPORT"
+    printf '报告：%s\n' "$PROJECT_REPORT"
+    [ "$PROJECT_FAIL" -eq 0 ] || exit 1
+    [ "$PROJECT_UNKNOWN" -eq 0 ] || exit 2
+    exit 0
+fi
+
 # 报告以 UTF-8 读取；Python 子进程（包括内联脚本）必须使用相同输出编码。
 export PYTHONIOENCODING=utf-8
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 REPORT_FILE="verification-report-${TIMESTAMP}.md"
 
-# 临时日志目录：用 mktemp 跨平台，避免硬编码 /tmp（Windows Git Bash 下 /tmp 可能不存在）
-TMPDIR_VERIFY=$(mktemp -d 2>/dev/null || mktemp -d -t verify)
-trap 'rm -rf "$TMPDIR_VERIFY" 2>/dev/null' EXIT
+# 临时日志放在能力包外，避免把本次运行日志计入能力包文件数量。
+# 解析绝对父目录后创建；清理时再次解析目标，只允许删除本脚本创建的目录。
+VERIFY_TEMP_PARENT="$(cd "$SCRIPT_DIR/.." && pwd -P)" || exit 1
+TMPDIR_VERIFY=$(mktemp -d "${VERIFY_TEMP_PARENT}/.task-architecture-verify-XXXXXX") || exit 1
+cleanup_verify() {
+    local target
+    target=$(cd "$TMPDIR_VERIFY" 2>/dev/null && pwd -P) || return
+    case "$target" in
+        "$VERIFY_TEMP_PARENT"/.task-architecture-verify-*) rm -rf -- "$target" ;;
+        *) echo "Refusing cleanup outside verification workspace" >&2 ;;
+    esac
+}
+trap cleanup_verify EXIT
 
 echo "======================================"
 echo "任务架构验证工具集 - 一键验证"
@@ -130,12 +295,7 @@ skip_check() {
 # 检测当前目录是否为任务架构能力包仓库自身。
 # 能力包自检模式下，项目级 architecture/ 检查应跳过，改跑能力包样例/系统一致性检查；
 # 受管项目模式下，继续按 architecture.json / architecture/index.json 严格验证项目状态。
-IS_CAPABILITY_PACKAGE=0
-if [ -f "SKILL.md" ] && grep -q "name: 任务架构" SKILL.md 2>/dev/null; then
-    IS_CAPABILITY_PACKAGE=1
-elif [ -f "AGENT-USAGE.md" ]; then
-    IS_CAPABILITY_PACKAGE=1
-fi
+IS_CAPABILITY_PACKAGE=1  # project mode already exited above; identity was verified
 
 if [ "$IS_CAPABILITY_PACKAGE" -eq 1 ]; then
     echo "检测模式: 能力包自检模式（跳过调用方项目级 architecture/ 检查）"
@@ -233,7 +393,7 @@ if [ "$IS_CAPABILITY_PACKAGE" -eq 1 ]; then
     run_check \
         "事中裁判冒烟（C-放行路径）" \
         "ok=1; for s in 需求理解 功能树 模块树 模块详情 入口定义 数据拓扑 实现清单 测试责任 验证证据; do python '${SCRIPT_DIR}/shared/scripts/manage_state.py' update \"\$s\" completed --state-path '${TMPDIR_VERIFY}/state.json' > /dev/null || ok=0; done; test \"\$ok\" = 1 && python '${SCRIPT_DIR}/shared/scripts/judge_progress.py' '${SCRIPT_DIR}/shared/assets/example-architecture.json' --state-path '${TMPDIR_VERIFY}/state.json' > /dev/null" \
-        "全部必需阶段完成后裁判应放行（期望退出码 0）"
+        "结构样例与模拟阶段记录验证裁判判定路径（期望0）；不代表实际项目或业务完整交付"
     run_check \
         "事中裁判冒烟（C-阻塞路径）" \
         "python '${SCRIPT_DIR}/shared/scripts/judge_progress.py' '${SCRIPT_DIR}/shared/assets/architecture-template-with-placeholders.json' --state-path '${TMPDIR_VERIFY}/state.json' > /dev/null" \
@@ -279,8 +439,8 @@ fi
 # 2. 验证架构完整性（能力包模式用示例架构；项目模式用项目架构）
 if [ "$IS_CAPABILITY_PACKAGE" -eq 1 ]; then
     run_check \
-        "架构完整性验证（示例架构）" \
-        "python '${SCRIPT_DIR}/shared/scripts/validate_architecture.py' '${SCRIPT_DIR}/shared/assets/example-architecture.json'" \
+        "结构样例底线验证（不代表完整交付）" \
+        "python '${SCRIPT_DIR}/shared/scripts/validate_architecture.py' '${SCRIPT_DIR}/shared/assets/example-architecture.json' --stage skeleton" \
         "能力包自检：验证 example-architecture.json 与 schema/校验脚本保持一致"
 elif [ -n "$ARCH_FILE" ]; then
     run_check \
@@ -297,10 +457,24 @@ if [ "$IS_CAPABILITY_PACKAGE" -eq 1 ]; then
     DRIFT_PROJ="${TMPDIR_VERIFY}/drift_proj"
     mkdir -p "${DRIFT_PROJ}/src/user" "${DRIFT_PROJ}/tests/user"
     cp "${SCRIPT_DIR}/shared/assets/example-architecture.json" "${DRIFT_PROJ}/architecture.json"
-    for f in src/user/service.py src/user/repository.py src/user/schema.py \
-             tests/user/test_create_user.py tests/user/test_get_user.py tests/user/test_service.py; do
-        echo "content" > "${DRIFT_PROJ}/${f}"
-    done
+    python - "$SCRIPT_DIR" "$DRIFT_PROJ" <<'PY'
+import sys
+import json
+from pathlib import Path
+sys.path.insert(0, str(Path(sys.argv[1]) / "shared" / "scripts"))
+from _archlib import collect_implementation_files, load_architecture_json
+from scan_code_drift import collect_declared_files
+project=Path(sys.argv[2])
+data=load_architecture_json(project / "architecture.json")
+declared=collect_declared_files(data, project)
+for relative in declared:
+    target=project / relative
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("structural drift fixture; no business verification claim\n", encoding="utf-8")
+data["上下文恢复点"]["当前阶段"]="自检实现单元已生成；业务行为未验证"
+data["上下文恢复点"]["已触碰文件"]=sorted(declared)
+(project / "architecture.json").write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+PY
     run_check \
         "代码架构偏移扫描（正例）" \
         "python '${SCRIPT_DIR}/shared/scripts/scan_code_drift.py' '${DRIFT_PROJ}' --architecture '${DRIFT_PROJ}/architecture.json'" \
@@ -315,9 +489,10 @@ if [ "$IS_CAPABILITY_PACKAGE" -eq 1 ]; then
     mkdir -p "${DRIFT_PROJ}/architecture"
     cp "${TMPDIR_VERIFY}/state.json" "${DRIFT_PROJ}/architecture/_state.json"
     run_check \
-        "收尾门禁检查（正例）" \
-        "python '${SCRIPT_DIR}/shared/scripts/gate_check.py' '${DRIFT_PROJ}' --architecture '${DRIFT_PROJ}/architecture.json'" \
-        "能力包自检：无漂移临时项目应通过收尾门禁"
+        "缺质量配置的完整交付拦截" \
+        "python '${SCRIPT_DIR}/shared/scripts/gate_check.py' '${DRIFT_PROJ}' --architecture '${DRIFT_PROJ}/architecture.json' --quality-required --json" \
+        "结构与状态样例缺少实际质量配置，完整交付必须返回 unknown（期望 2）" \
+        2
 elif [ -n "$ARCH_FILE" ]; then
     run_check \
         "代码架构偏移扫描" \
@@ -329,11 +504,11 @@ fi
 
 # 4. 门禁检查（能力包自检：gate_check 已随代码偏移正例覆盖；受管项目：真实门禁）
 if [ "$IS_CAPABILITY_PACKAGE" -eq 1 ]; then
-    skip_check "硬门禁检查（项目级）" "能力包自检模式：gate_check 正例已在上方代码偏移自检中覆盖"
+    skip_check "硬门禁检查（项目级）" "能力包自检模式：真实完整交付正例由端到端演示覆盖；上方检查缺质量配置不得放行"
 else
     run_check \
         "硬门禁检查" \
-        "python '${SCRIPT_DIR}/shared/scripts/gate_check.py'" \
+        "python '${SCRIPT_DIR}/shared/scripts/gate_check.py' . --quality-required --json" \
         "执行硬约束门禁规则检查"
 fi
 

@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "rules": [
+    {"id": "module-boundaries", "check": "dependency", "required": true, "severity": "error", "source": "project-export", "scope": ["module-a", "module-b"], "kind": "import", "allow": [["module-a", "module-b"]]},
+    {"id": "no-import-cycle", "check": "acyclic", "required": true, "severity": "error", "source": "project-export", "scope": ["module-a", "module-b"], "kind": "import"},
+    {"id": "change-risk", "check": "crap", "required": false, "severity": "warning", "source": "metrics-export", "scope": ["implementation-unit"], "coverage_method": "line", "max": 30}
+  ]
+}

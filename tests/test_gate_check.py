@@ -20,7 +20,9 @@ class TestGateCheck(unittest.TestCase):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         self.root = Path(tmp.name)
-        (self.root / "architecture.json").write_text("{}", encoding="utf-8")
+        (self.root / "architecture.json").write_text(json.dumps({
+            "实现清单": {}, "上下文恢复点": {"当前阶段": "验证完成", "已触碰文件": []}
+        }), encoding="utf-8")
         self.valid = (0, {"错误": [], "警告": []}, "")
         self.clean = (0, {"声明但不存在": [], "存在但未登记": []}, "")
         for name, result in [
@@ -86,8 +88,7 @@ class TestGateCheck(unittest.TestCase):
                                     drift=(2, None, "unavailable"))[0], False)
 
     def test_malformed_recovery_is_unknown(self):
-        state = self.root / "architecture" / "tasks" / "state.json"
-        state.parent.mkdir(parents=True)
+        state = self.root / "architecture.json"
         for content in ["{broken", "[]", '{"上下文恢复点": []}',
                         '{"上下文恢复点": {"已触碰文件": [123]}}']:
             with self.subTest(content=content):
@@ -101,13 +102,14 @@ class TestGateCheck(unittest.TestCase):
             self.assertIsNone(self.run_gate()[0])
 
     def test_actual_desync_still_fails(self):
-        arch = self.root / "architecture"
-        arch.mkdir()
-        (arch / "index.json").write_text(json.dumps({
-            "上下文恢复点": {"当前阶段": "架构设计", "已触碰文件": []}
-        }), encoding="utf-8")
+        files = []
         for i in range(gate_check.DRIFT_FILE_THRESHOLD + 1):
             (self.root / f"app{i}.py").write_text("pass", encoding="utf-8")
+            files.append(f"app{i}.py")
+        (self.root / "architecture.json").write_text(json.dumps({
+            "实现清单": {"app": {"文件列表": files}},
+            "上下文恢复点": {"当前阶段": "架构设计", "已触碰文件": []}
+        }), encoding="utf-8")
         self.assertIs(self.run_gate()[0], False)
 
     def test_cli_unknown_exit_and_compatible_envelope(self):
@@ -131,13 +133,14 @@ class TestCompletionIntegration(unittest.TestCase):
         self.root = Path(tmp.name)
         assets = Path(__file__).resolve().parents[1] / "shared/assets"
         data = json.loads((assets / "example-architecture.json").read_text(encoding="utf-8"))
-        sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-        from demo_project import MANIFEST_FILES
-        for rel in MANIFEST_FILES:
+        from scan_code_drift import collect_declared_files
+        manifest_files = sorted(collect_declared_files(data, self.root))
+        for rel in manifest_files:
             path = self.root / rel
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text("pass\n", encoding="utf-8")
-        data["上下文恢复点"]["已触碰文件"] = MANIFEST_FILES
+        data["上下文恢复点"]["当前阶段"] = "收尾验证"
+        data["上下文恢复点"]["已触碰文件"] = manifest_files
         self.arch = self.root / "architecture.json"
         self.arch.write_text(json.dumps(data), encoding="utf-8")
         self.state_path = self.root / "architecture/_state.json"

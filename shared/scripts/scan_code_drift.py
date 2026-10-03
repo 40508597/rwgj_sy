@@ -1,12 +1,19 @@
 #!/usr/bin/env python3
-"""Scan for drift between architecture implementation lists and code files."""
+"""Check registered files and scan a project inventory without reading file contents.
+
+The legacy suffix-filtered scan remains the CLI default for compatibility.
+``--all-files`` scans every regular file in the declared scope, including empty
+files, extensionless files and binary engineering artifacts. Registered files
+are ALWAYS checked, irrespective of the actual-file scan's suffix filter.
+"""
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -14,186 +21,231 @@ import _archlib  # noqa: E402
 
 _archlib.configure_utf8_stdout()
 
-
 DEFAULT_EXTENSIONS = {
-    ".py",
-    ".js",
-    ".jsx",
-    ".ts",
-    ".tsx",
-    ".go",
-    ".rs",
-    ".java",
-    ".cs",
-    ".php",
-    ".rb",
-    ".swift",
-    ".kt",
-    ".vue",
-    ".svelte",
-    ".md",
-    ".json",
+    ".py", ".js", ".jsx", ".ts", ".tsx", ".go", ".rs", ".java",
+    ".cs", ".php", ".rb", ".swift", ".kt", ".vue", ".svelte", ".md", ".json",
 }
-
 DEFAULT_IGNORE_DIRS = {
-    ".git",
-    ".hg",
-    ".svn",
-    "__pycache__",
-    "node_modules",
-    ".venv",
-    "venv",
-    "env",
-    "dist",
-    "build",
-    ".next",
-    ".turbo",
-    ".pytest_cache",
-    "architecture",
+    ".git", ".hg", ".svn", "__pycache__", "node_modules", ".venv", "venv",
+    "env", "dist", "build", ".next", ".turbo", ".pytest_cache", "architecture",
 }
-
 DEFAULT_IGNORE_FILE_PREFIXES = (".tmp-",)
 
 
+def _safe_path(root: Path, value: str, label: str, *, relative: bool = True) -> Path:
+    """Validate lexical and resolved boundaries, including symlink targets."""
+    if not isinstance(value, str) or not value or any(c in value for c in ("\x00", "\n", "\r")):
+        raise _archlib.ArchitectureInputError(f"{label}必须是非空路径且不得含 NUL 或换行")
+    normalized = value.replace("\\", "/")
+    win_path = PureWindowsPath(normalized)
+    path = Path(normalized)
+    if relative and (path.is_absolute() or win_path.drive or win_path.root):
+        raise _archlib.ArchitectureInputError(f"{label}必须是项目内的相对路径: {value!r}")
+    candidate = Path(os.path.abspath(root / path)) if not path.is_absolute() else Path(os.path.abspath(path))
+    try:
+        candidate.relative_to(root)
+        candidate.resolve().relative_to(root)
+    except ValueError as exc:
+        raise _archlib.ArchitectureInputError(f"{label}越出项目根目录: {value!r}") from exc
+    return candidate
+
+
+def _project_root(project_root: Path) -> Path:
+    if "\x00" in str(project_root):
+        raise _archlib.ArchitectureInputError("项目目录路径不得含 NUL")
+    root = project_root.resolve()
+    if not root.is_dir():
+        raise _archlib.ArchitectureInputError(f"项目目录不存在或不是目录: {root}")
+    return root
+
+
+def _load_project_architecture(root: Path, architecture_path: Path) -> dict[str, Any]:
+    """Validate pointer/slice bounds before reading any of their contents."""
+    path = _safe_path(root, str(architecture_path), "架构文件路径", relative=False)
+    data = _archlib._read_architecture_file(path)
+    if not isinstance(data, dict):
+        raise _archlib.ArchitectureInputError("architecture 根节点必须是对象")
+    if "指向" in data:
+        pointer = data["指向"]
+        if not isinstance(pointer, str) or not pointer or any(c in pointer for c in ("\x00", "\n", "\r")):
+            raise _archlib.ArchitectureInputError("架构指向必须是非空路径字符串且不得含 NUL 或换行")
+        # A pointer is relative to its containing architecture file, not root.
+        pointer_value = pointer.replace("\\", "/")
+        if Path(pointer_value).is_absolute() or PureWindowsPath(pointer_value).drive or PureWindowsPath(pointer_value).root:
+            raise _archlib.ArchitectureInputError("架构指向必须是项目内的相对路径")
+        target = _safe_path(root, str(path.parent / pointer.replace("\\", "/")), "架构指向", relative=False)
+        data = _archlib._read_architecture_file(target)
+        path = target
+        if not isinstance(data, dict):
+            raise _archlib.ArchitectureInputError("architecture 指向的根节点必须是对象")
+    slicing = data.get("架构切片", {})
+    if not isinstance(slicing, dict):
+        raise _archlib.ArchitectureInputError("架构切片必须是对象")
+    if slicing.get("启用"):
+        items = slicing.get("切片清单", [])
+        if not isinstance(items, list):
+            raise _archlib.ArchitectureInputError("切片清单必须是数组")
+        slice_root = _archlib.project_root_for_architecture(path)
+        for index, item in enumerate(items):
+            if not isinstance(item, dict) or not isinstance(item.get("路径"), str):
+                raise _archlib.ArchitectureInputError(f"切片清单[{index}]必须提供路径字符串")
+            _safe_path(root, item["路径"], f"切片清单[{index}].路径")
+            slice_path = _safe_path(root, str(slice_root / item["路径"].replace("\\", "/")), "架构切片路径", relative=False)
+            if not slice_path.is_file():
+                raise _archlib.ArchitectureInputError(f"启用的架构切片不存在或不是文件: {slice_path}")
+    # Use the same pointer-chain/slice semantics as all other architecture
+    # consumers after lexical bounds checks, with this caller's explicit root.
+    return _archlib.load_architecture_json(architecture_path, project_root=root)
+
+
 def looks_like_file_path(value: str, root: Path) -> bool:
+    """Legacy optional tree hints; authoritative registration uses the manifest."""
     normalized = value.replace("\\", "/").strip()
-    if not normalized or "\n" in normalized:
+    if not normalized or any(c in normalized for c in ("\x00", "\n", "\r")):
         return False
     if normalized.startswith(("http://", "https://")):
         return False
-    first_token = normalized.split()[0]
-    if first_token in {"python", "python3", "node", "npm", "pnpm", "yarn", "uv", "pytest"}:
+    if normalized.split()[0] in {"python", "python3", "node", "npm", "pnpm", "yarn", "uv", "pytest"}:
         return False
     path = Path(normalized)
-    suffix = path.suffix.lower()
-    if "/" in normalized and suffix in DEFAULT_EXTENSIONS:
+    if "/" in normalized and (path.suffix.lower() in DEFAULT_EXTENSIONS or "." in path.name):
         return True
-    if "/" in normalized and "." in path.name:
+    if normalized.startswith(".") and path.suffix.lower() in DEFAULT_EXTENSIONS:
         return True
-    if normalized.startswith(".") and suffix in DEFAULT_EXTENSIONS:
-        return True
-    if " " not in normalized and suffix in DEFAULT_EXTENSIONS and (root / normalized).exists():
-        return True
-    return False
+    return " " not in normalized and path.suffix.lower() in DEFAULT_EXTENSIONS and (root / normalized).exists()
 
 
 def _iter_values(value: Any) -> list[Any]:
-    values: list[Any] = []
     if isinstance(value, dict):
-        for child in value.values():
-            values.extend(_iter_values(child))
-    elif isinstance(value, list):
-        for child in value:
-            values.extend(_iter_values(child))
-    else:
-        values.append(value)
-    return values
+        return [leaf for child in value.values() for leaf in _iter_values(child)]
+    if isinstance(value, list):
+        return [leaf for child in value for leaf in _iter_values(child)]
+    return [value]
 
 
 def collect_declared_files(data: dict[str, Any], root: Path) -> set[str]:
+    """Use the shared explicit manifest contract, irrespective of file suffix."""
     declared: set[str] = set()
-    implementation = data.get("实现清单", {})
-    if isinstance(implementation, dict):
-        for item in implementation.values():
-            if not isinstance(item, dict):
-                continue
-            for file_item in (item.get("文件列表") or item.get("文件") or []):
-                if isinstance(file_item, dict) and isinstance(file_item.get("路径"), str):
-                    declared.add(file_item["路径"].replace("\\", "/").rstrip("/"))
-
-    for key in ["功能树", "模块树"]:
+    for value in _archlib.collect_implementation_files(data):
+        candidate = _safe_path(root, value, "实现清单文件路径")
+        declared.add(candidate.relative_to(root).as_posix())
+    for key in ("功能树", "模块树"):
         for value in _iter_values(data.get(key, [])):
             if isinstance(value, str) and looks_like_file_path(value, root):
-                declared.add(value.replace("\\", "/").rstrip("/"))
-
-    return {item for item in declared if item}
-
-
-def collect_actual_files(root: Path, extensions: set[str], ignore_dirs: set[str]) -> set[str]:
-    return _archlib.collect_actual_files(
-        root,
-        extensions,
-        ignore_dirs,
-        ignore_file_prefixes=DEFAULT_IGNORE_FILE_PREFIXES,
-    )
+                candidate = _safe_path(root, value, f"{key}文件路径")
+                declared.add(candidate.relative_to(root).as_posix())
+    return declared
 
 
-def scan_code_drift(project_root: Path, architecture_path: Path, extensions: set[str]) -> dict[str, list[str]]:
-    data = _archlib.load_architecture_json(architecture_path)
-    if not isinstance(data, dict):
-        raise ValueError("architecture 根节点必须是对象")
+def collect_actual_files(root: Path, extensions: set[str], ignore_dirs: set[str],
+                         *, all_files: bool = False, skipped_links: list[str] | None = None) -> set[str]:
+    """Inventory regular files only; never open or infer their contents/language."""
+    actual: set[str] = set()
 
-    declared = collect_declared_files(data, project_root)
-    actual = collect_actual_files(project_root, extensions, DEFAULT_IGNORE_DIRS)
-    # 架构元数据文件（根指针 / 总索引 / 进度状态）不属于业务实现，不计入漂移。
-    # 单文件模式下 --architecture 恰好是 architecture.json，discard 掩盖了指针问题；
-    # 切片模式下指针文件与索引分离，必须显式排除，否则误报「存在但未登记」。
-    try:
-        arch_rel = architecture_path.resolve().relative_to(project_root.resolve()).as_posix()
-        actual.discard(arch_rel)
-    except ValueError:
-        pass
-    for meta_rel in ("architecture.json", "architecture/index.json", "architecture/_state.json"):
-        actual.discard(meta_rel)
-    declared_files = {item for item in declared if Path(item).suffix.lower() in extensions}
+    def raise_walk_error(error: OSError) -> None:
+        raise error
 
-    missing_declared = sorted(item for item in declared_files if not (project_root / item).exists())
-    undocumented = sorted(item for item in actual if item not in declared_files)
+    for directory, dirs, files in os.walk(root, onerror=raise_walk_error, followlinks=False):
+        retained: list[str] = []
+        for name in sorted(dirs):
+            if name in ignore_dirs:
+                continue
+            candidate = _safe_path(root, str(Path(directory) / name), "扫描目录", relative=False)
+            if candidate.is_symlink():
+                if skipped_links is not None:
+                    skipped_links.append(candidate.relative_to(root).as_posix())
+                continue
+            retained.append(name)
+        dirs[:] = retained
+        for name in sorted(files):
+            if name.startswith(DEFAULT_IGNORE_FILE_PREFIXES):
+                continue
+            if not all_files and Path(name).suffix.lower() not in extensions:
+                continue
+            candidate = _safe_path(root, str(Path(directory) / name), "扫描文件", relative=False)
+            if candidate.is_file() and (all_files or candidate.stat().st_size > 0):
+                actual.add(candidate.relative_to(root).as_posix())
+    return actual
 
+
+def scan_code_drift(project_root: Path, architecture_path: Path, extensions: set[str],
+                    *, all_files: bool = False, explicit_extensions: bool = False) -> dict[str, Any]:
+    root = _project_root(project_root)
+    data = _load_project_architecture(root, architecture_path)
+    declared = collect_declared_files(data, root)
+    skipped_links: list[str] = []
+    actual = collect_actual_files(root, extensions, DEFAULT_IGNORE_DIRS,
+                                  all_files=all_files, skipped_links=skipped_links)
+    arch_path = _safe_path(root, str(architecture_path), "架构文件路径", relative=False)
+    def identity(relative: str) -> str:
+        # normcase follows the host filesystem: Windows aliases such as
+        # Core.PY/core.py match, while POSIX keeps distinct case-sensitive names.
+        return os.path.normcase(str((root / relative).resolve()))
+
+    metadata = {identity(arch_path.relative_to(root).as_posix()),
+                *(identity(item) for item in ("architecture.json", "architecture/index.json", "architecture/_state.json"))}
+    actual = {item for item in actual if identity(item) not in metadata}
+    declared_identities = {identity(path) for path in declared}
+    # Declaration completeness is deliberately independent of scan scope.
+    missing = sorted(item for item in declared if not (root / item).is_file())
+    mode = "all-files" if all_files else ("explicit-extensions" if explicit_extensions else "legacy-extensions")
     return {
-        "声明但不存在": missing_declared,
-        "存在但未登记": undocumented,
-        "已登记代码文件": sorted(declared_files),
+        "声明但不存在": missing,
+        "存在但未登记": sorted(item for item in actual if identity(item) not in declared_identities),
+        "已登记代码文件": sorted(declared),
+        "扫描范围": {
+            "模式": mode,
+            "扩展名": None if all_files else sorted(extensions),
+            "忽略目录": sorted(DEFAULT_IGNORE_DIRS),
+            "忽略文件前缀": list(DEFAULT_IGNORE_FILE_PREFIXES),
+            "空文件": "included" if all_files else "excluded",
+            "声明文件核查": "all-declared-paths",
+            "未扫描符号链接目录": sorted(skipped_links),
+            "检查内容": "file-inventory-only",
+        },
     }
 
 
-def emit_text(result: dict[str, list[str]], max_items: int) -> None:
-    missing = result["声明但不存在"]
-    undocumented = result["存在但未登记"]
-    print(f"代码漂移扫描: 声明但不存在 {len(missing)} 项, 存在但未登记 {len(undocumented)} 项")
-    for label, items in [("声明但不存在", missing), ("存在但未登记", undocumented)]:
+def emit_text(result: dict[str, Any], max_items: int) -> None:
+    missing, undocumented = result["声明但不存在"], result["存在但未登记"]
+    print(f"文件漂移扫描: 模式 {result['扫描范围']['模式']}, 声明但不存在 {len(missing)} 项, 存在但未登记 {len(undocumented)} 项")
+    for label, items in (("声明但不存在", missing), ("存在但未登记", undocumented)):
         print(f"{label}: {len(items)} 项")
         for item in items[:max_items]:
             print(f"  - {item}")
         if len(items) > max_items:
             print(f"  ... 已截断 {len(items) - max_items} 项")
+    print("范围说明：声明路径全部核查；仅检查文件清单，不判断文件内容或代码语义。")
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Scan code drift against architecture.json.")
+    parser = argparse.ArgumentParser(description="Check project file drift against architecture.json.")
     parser.add_argument("project", type=Path, help="Project root")
-    parser.add_argument("--architecture", type=Path, default=Path("architecture.json"), help="Architecture JSON")
-    parser.add_argument("--extensions", default=",".join(sorted(DEFAULT_EXTENSIONS)), help="Comma-separated extensions")
+    parser.add_argument("--architecture", type=Path, default=Path("architecture.json"), help="Architecture JSON inside project")
+    scope = parser.add_mutually_exclusive_group()
+    scope.add_argument("--all-files", action="store_true", help="Inventory every regular file in scope, without suffix filtering")
+    scope.add_argument("--extensions", default=None, help="Filter actual-file inventory only; registered files always checked")
     parser.add_argument("--json", action="store_true", help="Emit machine-readable JSON")
     parser.add_argument("--max-items", type=int, default=80, help="Max text items per section")
     args = parser.parse_args(argv)
-
-    project_root = args.project.resolve()
-    architecture_path = args.architecture
-    if not architecture_path.is_absolute():
-        architecture_path = project_root / architecture_path
-
-    if not project_root.exists():
-        print(f"ERROR: 项目目录不存在: {project_root}", file=sys.stderr)
-        return 2
-    if not architecture_path.exists():
-        print(f"ERROR: architecture 文件不存在: {architecture_path}", file=sys.stderr)
-        return 2
-
-    extensions = {item.strip().lower() for item in args.extensions.split(",") if item.strip()}
-    extensions = {item if item.startswith(".") else f".{item}" for item in extensions}
-
     try:
-        result = scan_code_drift(project_root, architecture_path, extensions)
-    except (OSError, ValueError) as exc:
+        root = _project_root(args.project)
+        architecture_path = args.architecture
+        if not architecture_path.is_absolute():
+            architecture_path = root / architecture_path
+        extensions = set(DEFAULT_EXTENSIONS)
+        if args.extensions is not None:
+            extensions = {item.strip().lower() for item in args.extensions.split(",") if item.strip()}
+            extensions = {item if item.startswith(".") else f".{item}" for item in extensions}
+        result = scan_code_drift(root, architecture_path, extensions,
+                                 all_files=args.all_files, explicit_extensions=args.extensions is not None)
+    except (OSError, ValueError, UnicodeError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
-
     if args.json:
         print(json.dumps(result, ensure_ascii=False, indent=2))
     else:
-        emit_text(result, args.max_items)
-
+        emit_text(result, max(0, args.max_items))
     return 1 if result["声明但不存在"] or result["存在但未登记"] else 0
 
 

@@ -20,8 +20,15 @@ def flatten(value: Any, prefix: str = "") -> dict[str, Any]:
     if isinstance(value, dict):
         result: dict[str, Any] = {}
         for key, child in value.items():
-            child_prefix = f"{prefix}.{key}" if prefix else str(key)
+            # Quote structural punctuation so a literal key cannot collide with
+            # a nested object/list path. Ordinary historic paths stay readable.
+            if not key or any(char in key for char in '.[]\\"'):
+                child_prefix = f"{prefix}[{json.dumps(key, ensure_ascii=False)}]"
+            else:
+                child_prefix = f"{prefix}.{key}" if prefix else str(key)
             result.update(flatten(child, child_prefix))
+        if not value:
+            result[prefix] = {}
         return result
     if isinstance(value, list):
         result = {}
@@ -45,7 +52,7 @@ def diff_architecture(old: Any, new: Any) -> dict[str, list[dict[str, Any]] | li
     changed = [
         {"路径": key, "旧值": old_flat[key], "新值": new_flat[key]}
         for key in sorted(old_keys & new_keys)
-        if old_flat[key] != new_flat[key]
+        if type(old_flat[key]) is not type(new_flat[key]) or old_flat[key] != new_flat[key]
     ]
     return {"新增": added, "删除": removed, "修改": changed}
 

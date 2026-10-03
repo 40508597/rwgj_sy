@@ -26,12 +26,24 @@ the behaviours previously hard-coded per script, so no caller regresses.
 from __future__ import annotations
 
 import json
+import copy
 import os
+import re
 import sys
 from pathlib import Path
 from typing import Any, Callable, Iterable, TypeVar
 
 T = TypeVar("T")
+
+
+class ArchitectureInputError(ValueError):
+    """Malformed architecture input, distinct from an internal programming error."""
+
+
+def _read_architecture_file(path: Path) -> Any:
+    if "\x00" in str(path):
+        raise ArchitectureInputError("架构文件路径不得包含 NUL 字符")
+    return json.loads(path.read_text(encoding="utf-8-sig"))
 
 
 def configure_utf8_stdout() -> None:
@@ -63,58 +75,142 @@ def project_root_for_architecture(path: Path) -> Path:
     return path.parent
 
 
-def hydrate_slices(data: Any, architecture_path: Path) -> Any:
+def _contained_path(root: Path, relative: str, label: str, *,
+                    base: Path | None = None, allow_parent: bool = False) -> Path:
+    """Resolve a project-relative input and reject lexical or link escapes."""
+    normalized = relative.replace("\\", "/")
+    if not normalized or "\x00" in normalized:
+        raise ArchitectureInputError(f"{label}路径不得为空或包含 NUL 字符")
+    rel = Path(normalized)
+    if rel.is_absolute() or rel.drive or re.match(r"^[A-Za-z]:", normalized) or (".." in rel.parts and not allow_parent):
+        raise ArchitectureInputError(f"{label}必须是项目内的相对路径: {relative}")
+    target = (base if base is not None else root) / rel
+    try:
+        target.resolve().relative_to(root.resolve())
+    except ValueError as exc:
+        raise ArchitectureInputError(f"{label}路径超出项目范围: {relative}") from exc
+    return target
+
+
+def _merge_slice_value(left: Any, right: Any, field: str) -> Any:
+    """Combine independent declarations without last-writer data loss."""
+    if isinstance(left, dict) and isinstance(right, dict):
+        merged = copy.deepcopy(left)
+        for key, value in right.items():
+            merged[key] = (_merge_slice_value(merged[key], value, f"{field}.{key}")
+                           if key in merged else copy.deepcopy(value))
+        return merged
+    if isinstance(left, list) and isinstance(right, list):
+        merged = copy.deepcopy(left)
+        for value in right:
+            if isinstance(value, dict) and isinstance(value.get("编号"), str):
+                matches = [i for i, old in enumerate(merged)
+                           if isinstance(old, dict) and old.get("编号") == value["编号"]]
+                if len(matches) > 1:
+                    raise ArchitectureInputError(f"架构切片编号重复: {field}[{value['编号']}]")
+                if matches:
+                    index = matches[0]
+                    merged[index] = _merge_slice_value(merged[index], value, f"{field}[{value['编号']}]")
+                    continue
+            if not any(type(old) is type(value) and old == value for old in merged):
+                merged.append(copy.deepcopy(value))
+        return merged
+    if type(left) is type(right) and left == right:
+        return copy.deepcopy(left)
+    raise ArchitectureInputError(f"架构切片声明冲突: {field}；请在切片中统一该字段的值")
+
+
+def hydrate_slices(data: Any, architecture_path: Path,
+                   source_paths: set[Path] | None = None, *, project_root: Path | None = None) -> Any:
     """Merge enabled physical slices back into an in-memory architecture dict.
 
     Pass-through when ``data`` is not a dict or when slicing is disabled.
     Skips the ``切片元信息`` metadata key so it never leaks into business data.
-    Missing slice files are silently skipped (callers that need strictness can
-    re-check existence afterwards).
+    A physical slice is authoritative for its declared fields. Missing files,
+    ownership violations and conflicting declarations are input errors.
     """
     if not isinstance(data, dict):
         return data
     slice_state = data.get("架构切片", {})
-    if not isinstance(slice_state, dict) or not slice_state.get("启用"):
+    if not isinstance(slice_state, dict) or slice_state.get("启用") is not True:
         return data
     slice_items = slice_state.get("切片清单", [])
     if not isinstance(slice_items, list) or not slice_items:
         return data
-    project_root = project_root_for_architecture(architecture_path)
+    project_root = project_root if project_root is not None else project_root_for_architecture(architecture_path)
     hydrated = dict(data)
+    owned_fields: set[str] = set()
     for item in slice_items:
         if not isinstance(item, dict) or not isinstance(item.get("路径"), str):
-            continue
-        slice_path = project_root / item["路径"]
+            continue  # 模板占位项留给 F 检查，不改变其 incomplete/退出码 1 契约。
+        slice_path = _contained_path(project_root, item["路径"], "架构切片")
+        try:
+            slice_path.resolve().relative_to((project_root / "architecture").resolve())
+        except ValueError as exc:
+            raise ArchitectureInputError(f"权威架构切片必须位于项目 architecture/ 内: {slice_path}") from exc
         if not slice_path.exists():
-            continue
-        slice_data = json.loads(slice_path.read_text(encoding="utf-8-sig"))
+            raise ArchitectureInputError(f"权威架构切片文件不存在: {slice_path}")
+        if source_paths is not None:
+            source_paths.add(slice_path)
+        slice_data = _read_architecture_file(slice_path)
         if not isinstance(slice_data, dict):
-            continue
-        for key, value in slice_data.items():
-            if key != "切片元信息":
-                hydrated[key] = value
+            raise ArchitectureInputError(f"架构切片 {slice_path} 根节点必须是对象")
+        payload = {key: value for key, value in slice_data.items() if key != "切片元信息"}
+        if any(key in payload for key in ("指向", "架构切片")):
+            raise ArchitectureInputError(f"架构切片不得覆盖入口或切片配置: {slice_path}")
+        contains = item.get("包含")
+        if "包含" in item:
+            if not isinstance(contains, list) or any(not isinstance(key, str) or not key for key in contains):
+                raise ArchitectureInputError(f"架构切片包含必须是字段名称数组: {slice_path}")
+            extra = sorted(set(payload) - set(contains))
+            if extra:
+                raise ArchitectureInputError(f"架构切片越出包含范围: {slice_path}: {', '.join(extra)}")
+            absent = sorted(set(contains) - set(payload))
+            if absent:
+                raise ArchitectureInputError(f"架构切片缺少声明包含字段: {slice_path}: {', '.join(absent)}")
+        for key, value in payload.items():
+            hydrated[key] = (_merge_slice_value(hydrated[key], value, key)
+                             if key in owned_fields else copy.deepcopy(value))
+            owned_fields.add(key)
     return hydrated
 
 
-def load_architecture_json(path: Path) -> Any:
+def load_architecture_json(path: Path, source_paths: set[Path] | None = None, *,
+                           project_root: Path | None = None) -> Any:
     """Read an architecture JSON, following the ``指向`` pointer and hydrating slices.
 
     Equivalent to the inline ``load_json`` that used to live in five scripts.
     Supports both pointer form (``{"指向": "architecture/index.json"}``) and
     legacy inline single-file form.
     """
-    data = json.loads(path.read_text(encoding="utf-8-sig"))
-    if isinstance(data, dict) and isinstance(data.get("指向"), str):
-        target = path.parent / data["指向"]
-        data = json.loads(target.read_text(encoding="utf-8-sig"))
-        return hydrate_slices(data, target)
-    return hydrate_slices(data, path)
+    explicit_root = project_root is not None
+    project_root = project_root if explicit_root else project_root_for_architecture(path)
+    seen: set[Path] = set()
+    current = path
+    while True:
+        identity = current.resolve()
+        try:
+            identity.relative_to(project_root.resolve())
+        except ValueError as exc:
+            raise ArchitectureInputError(f"架构输入路径超出项目范围: {current}") from exc
+        if identity in seen:
+            raise ArchitectureInputError(f"架构指针循环: {current}")
+        seen.add(identity)
+        if source_paths is not None:
+            source_paths.add(current)
+        data = _read_architecture_file(current)
+        if isinstance(data, dict) and isinstance(data.get("指向"), str):
+            target = _contained_path(project_root, data["指向"], "架构指针", base=current.parent,
+                                     allow_parent=True)
+            current = target
+            continue
+        return hydrate_slices(data, current, source_paths, project_root=project_root)
 
 
 def collect_implementation_files(data: Any) -> set[str]:
     """Return the set of forward-slash file paths declared in ``实现清单``.
 
-    Accepts either ``文件列表`` or ``文件`` as the per-item file container.
+    Combines ``文件列表`` and ``文件`` as per-item file containers.
     Empty/missing manifests return an empty set (never raise).
     """
     declared: set[str] = set()
@@ -122,13 +218,24 @@ def collect_implementation_files(data: Any) -> set[str]:
         return declared
     implementation = data.get("实现清单", {})
     if not isinstance(implementation, dict):
-        return declared
-    for item in implementation.values():
+        raise ArchitectureInputError("实现清单必须是模块对象")
+    for module, item in implementation.items():
         if not isinstance(item, dict):
-            continue
-        for file_item in (item.get("文件列表") or item.get("文件") or []):
-            if isinstance(file_item, dict) and isinstance(file_item.get("路径"), str):
-                declared.add(file_item["路径"].replace("\\", "/").rstrip("/"))
+            raise ArchitectureInputError(f"实现清单.{module}必须是对象")
+        for field in ("文件列表", "文件"):
+            files = item.get(field, [])
+            if not isinstance(files, list):
+                raise ArchitectureInputError(f"实现清单.{module}.{field}必须是数组")
+            for file_item in files:
+                if isinstance(file_item, dict) and isinstance(file_item.get("路径"), str):
+                    path = file_item["路径"]
+                elif isinstance(file_item, str):
+                    path = file_item
+                else:
+                    raise ArchitectureInputError(f"实现清单.{module}.{field}路径必须为字符串或路径对象")
+                if not path.strip() or any(char in path for char in ("\x00", "\n", "\r")):
+                    raise ArchitectureInputError(f"实现清单.{module}.{field}必须是非空路径且不得含 NUL 或换行")
+                declared.add(path.replace("\\", "/").rstrip("/"))
     return declared
 
 
@@ -144,22 +251,29 @@ def emit_validation_text(title: str, errors: Iterable[str], warnings: Iterable[s
 
 
 def run_with_io_errors(func: Callable[[], T]) -> tuple[T | None, str | None, int]:
-    """Run ``func`` and translate the two common IO/JSON errors into a friendly message.
+    """Run ``func`` and translate IO/encoding/JSON errors into a friendly message.
 
     Returns ``(result, error_message, exit_code)``:
     * success -> ``(result, None, 0)``
     * ``FileNotFoundError`` -> ``(None, "文件不存在: <name>", 2)``
     * ``json.JSONDecodeError`` -> ``(None, "JSON 语法错误: <exc>", 2)``
+    * ``UnicodeError`` / other ``OSError`` -> a readable input error, exit 2
 
     Anything else re-raises (callers that want broader catching wrap further).
     """
     try:
         return func(), None, 0
+    except ArchitectureInputError as exc:
+        return None, f"架构输入错误: {exc}", 2
     except FileNotFoundError as exc:
         name = exc.filename or str(exc)
         return None, f"文件不存在: {name}", 2
     except json.JSONDecodeError as exc:
         return None, f"JSON 语法错误: {exc}", 2
+    except UnicodeError as exc:
+        return None, f"文件编码错误（需要 UTF-8）: {exc}", 2
+    except OSError as exc:
+        return None, f"文件读取失败: {exc}", 2
 
 
 def collect_actual_files(root: Path, extensions: set[str], ignore_dirs: set[str],
@@ -286,3 +400,22 @@ def is_managed(project_root: Path) -> bool:
     共用，避免切片项目（仅 architecture/）在两个工具中给出矛盾信号。
     """
     return (project_root / "architecture.json").exists() or (project_root / "architecture").is_dir()
+
+
+def is_capability_package(project_root: Path) -> bool:
+    """Identify this complete capability package; project anchors take priority."""
+    if is_managed(project_root):
+        return False
+    required = ("SKILL.md", "shared/scripts/_archlib.py",
+                "shared/assets/schema/architecture.schema.json", "skills/task-architecture/LAYER.md")
+    if not all((project_root / relative).is_file() for relative in required):
+        return False
+    try:
+        text = (project_root / "SKILL.md").read_text(encoding="utf-8-sig")
+    except (OSError, UnicodeError):
+        return False
+    parts = text.split("---", 2)
+    if len(parts) != 3 or parts[0].strip():
+        return False
+    return re.search(r"^name[ \t]*:[ \t]*(?:任务架构|task-architecture|'任务架构'|'task-architecture'|\"任务架构\"|\"task-architecture\")[ \t]*(?:#.*)?$",
+                     parts[1], re.MULTILINE) is not None

@@ -113,10 +113,17 @@ class TestMainEndToEnd(unittest.TestCase):
     def test_json_to_file(self):
         with tempfile.TemporaryDirectory() as td:
             p = self._write_example(td)
-            out = Path(td) / "arch.json"
+            out = Path(td) / "arch-view.json"
             self.assertEqual(render.main([str(p), "--format", "json", "--output", str(out)]), 0)
             data = json.loads(out.read_text(encoding="utf-8"))
             self.assertEqual(len(data["模块"]), 7)
+
+    def test_output_cannot_overwrite_input(self):
+        with tempfile.TemporaryDirectory() as td:
+            p = self._write_example(td)
+            before = p.read_bytes()
+            self.assertEqual(render.main([str(p), "--format", "json", "--output", str(p)]), 2)
+            self.assertEqual(p.read_bytes(), before)
 
     def test_missing_file_returns_2(self):
         with tempfile.TemporaryDirectory() as td:

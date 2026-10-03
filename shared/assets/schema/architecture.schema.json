@@ -27,79 +27,320 @@
     "未决问题",
     "变更记录"
   ],
+  "$defs": {
+    "moduleNode": {
+      "type": "object",
+      "required": [
+        "编号"
+      ],
+      "properties": {
+        "编号": {
+          "type": "string"
+        },
+        "子模块": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/moduleNode"
+          }
+        }
+      }
+    }
+  },
   "properties": {
     "项目": {
       "type": "object",
       "x-importance": "core",
-      "required": ["名称", "类型"],
+      "required": [
+        "名称",
+        "类型"
+      ],
       "说明": "项目元信息，名称与类型是核心必填。",
       "properties": {
-        "名称": {"type": "string", "x-importance": "core"},
-        "类型": {"type": "string", "x-importance": "core"},
-        "语言": {"type": "string", "x-importance": "important"},
-        "框架": {"type": "string", "x-importance": "important"},
-        "说明": {"type": "string", "x-importance": "important"},
-        "目录约定": {"type": "string", "x-importance": "important"},
-        "创建时间": {"type": "string", "x-importance": "optional"},
-        "更新时间": {"type": "string", "x-importance": "optional"}
+        "名称": {
+          "type": "string",
+          "x-importance": "core",
+          "x-full-min-length": 1
+        },
+        "类型": {
+          "type": "string",
+          "x-importance": "core",
+          "x-full-min-length": 1
+        },
+        "语言": {
+          "type": "string",
+          "x-importance": "important"
+        },
+        "框架": {
+          "type": "string",
+          "x-importance": "important"
+        },
+        "说明": {
+          "type": "string",
+          "x-importance": "important"
+        },
+        "目录约定": {
+          "type": "string",
+          "x-importance": "important"
+        },
+        "创建时间": {
+          "type": "string",
+          "x-importance": "optional"
+        },
+        "更新时间": {
+          "type": "string",
+          "x-importance": "optional"
+        }
       }
     },
-    "运行形态": {"type": "array", "x-importance": "important"},
-    "功能树": {"type": "array", "x-importance": "core"},
-    "专业能力索引": {"type": "array", "x-importance": "important"},
+    "运行形态": {
+      "type": "array",
+      "x-importance": "important"
+    },
+    "功能树": {
+      "type": "array",
+      "x-importance": "core",
+      "x-full-min-items": 1
+    },
+    "专业能力索引": {
+      "type": "array",
+      "x-importance": "important"
+    },
     "入口": {
       "type": "object",
       "x-importance": "core",
-      "required": ["用户入口", "接口入口", "事件入口", "系统入口"],
+      "required": [
+        "用户入口",
+        "接口入口",
+        "事件入口",
+        "系统入口"
+      ],
       "properties": {
-        "用户入口": {"type": "array", "x-importance": "core"},
-        "接口入口": {"type": "array", "x-importance": "core"},
-        "命令入口": {"type": "array", "x-importance": "optional"},
-        "事件入口": {"type": "array", "x-importance": "core"},
-        "系统入口": {"type": "array", "x-importance": "core"},
-        "资源入口": {"type": "array", "x-importance": "optional"}
+        "用户入口": {
+          "type": "array",
+          "x-importance": "core"
+        },
+        "接口入口": {
+          "type": "array",
+          "x-importance": "core"
+        },
+        "命令入口": {
+          "type": "array",
+          "x-importance": "optional"
+        },
+        "事件入口": {
+          "type": "array",
+          "x-importance": "core"
+        },
+        "系统入口": {
+          "type": "array",
+          "x-importance": "core"
+        },
+        "资源入口": {
+          "type": "array",
+          "x-importance": "optional"
+        }
       }
     },
     "模块拓扑": {
       "type": "object",
       "x-importance": "core",
-      "required": ["节点", "依赖图"],
+      "required": [
+        "节点",
+        "依赖图"
+      ],
       "properties": {
-        "节点": {"type": "array", "x-importance": "core"},
-        "依赖图": {"type": "array", "x-importance": "core"}
+        "节点": {
+          "type": "array",
+          "x-importance": "core",
+          "items": {
+            "type": "object",
+            "required": [
+              "编号"
+            ],
+            "properties": {
+              "编号": {
+                "type": "string"
+              }
+            }
+          },
+          "x-full-min-items": 1
+        },
+        "依赖图": {
+          "type": "array",
+          "x-importance": "core",
+          "items": {
+            "type": "object",
+            "required": [
+              "从",
+              "到"
+            ],
+            "properties": {
+              "从": {
+                "type": "string"
+              },
+              "到": {
+                "type": "string"
+              }
+            }
+          }
+        }
       }
     },
-    "模块树": {"type": "array", "x-importance": "core"},
+    "模块树": {
+      "type": "array",
+      "x-importance": "core",
+      "items": {
+        "$ref": "#/$defs/moduleNode"
+      },
+      "x-full-min-items": 1
+    },
     "模块详情": {
       "type": "object",
       "x-importance": "core",
       "说明": "每个实现模块必须有完整详情，子字段底线见 模块详情子字段底线。空对象 {} 视为 critical 缺失。",
-      "x-required-subfields": ["职责", "非职责", "所属功能树节点", "上游依赖", "下游消费者", "内部结构", "状态机", "数据读写责任", "错误边界", "配置", "安全", "日志审计", "性能", "测试责任"],
-      "x-subfield-importance": "core"
+      "x-required-subfields": [
+        "职责",
+        "非职责",
+        "所属功能树节点",
+        "上游依赖",
+        "下游消费者",
+        "内部结构",
+        "状态机",
+        "数据读写责任",
+        "错误边界",
+        "配置",
+        "安全",
+        "日志审计",
+        "性能",
+        "测试责任"
+      ],
+      "x-subfield-importance": "core",
+      "additionalProperties": {
+        "type": "object"
+      },
+      "x-full-min-properties": 1
     },
-    "页面拓扑": {"type": ["array", "object"], "x-importance": "important"},
-    "数据拓扑": {"type": ["array", "object"], "x-importance": "important"},
-    "交付物": {"type": "array", "x-importance": "important"},
-    "系统集成": {"type": "array", "x-importance": "important"},
-    "接口契约": {"type": "object", "x-importance": "important"},
+    "页面拓扑": {
+      "type": [
+        "array",
+        "object"
+      ],
+      "x-importance": "important"
+    },
+    "数据拓扑": {
+      "type": [
+        "array",
+        "object"
+      ],
+      "x-importance": "important"
+    },
+    "交付物": {
+      "type": "array",
+      "x-importance": "important"
+    },
+    "系统集成": {
+      "type": "array",
+      "x-importance": "important"
+    },
+    "接口契约": {
+      "type": "object",
+      "x-importance": "important"
+    },
     "实现清单": {
       "type": "object",
       "x-importance": "core",
-      "说明": "每个实现模块必须有实现清单，列出文件清单/入口文件/依赖模块/已完成/未完成。"
+      "说明": "每个实现模块必须有实现清单，列出文件清单/入口文件/依赖模块/已完成/未完成。",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "文件列表": {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "路径"
+                  ],
+                  "properties": {
+                    "路径": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "文件": {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "路径"
+                  ],
+                  "properties": {
+                    "路径": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "x-full-min-properties": 1
     },
-    "完整细节": {"type": "object", "x-importance": "optional"},
-    "测试责任矩阵": {"type": "array", "x-importance": "core"},
+    "完整细节": {
+      "type": "object",
+      "x-importance": "optional"
+    },
+    "测试责任矩阵": {
+      "type": "array",
+      "x-importance": "core",
+      "x-full-min-items": 1
+    },
     "验证证据": {
       "type": "object",
       "x-importance": "core",
       "说明": "验证证据必须至少包含六类一项，每类记录命令/截图/手检/未验证项。全空视为 critical 缺失。",
       "properties": {
-        "自动化测试": {"type": "array", "x-importance": "core"},
-        "架构校验": {"type": "array", "x-importance": "core"},
-        "浏览器验收": {"type": "array", "x-importance": "core"},
-        "截图": {"type": "array", "x-importance": "core"},
-        "手动检查": {"type": "array", "x-importance": "core"},
-        "未验证项": {"type": "array", "x-importance": "core"}
+        "自动化测试": {
+          "type": "array",
+          "x-importance": "core"
+        },
+        "架构校验": {
+          "type": "array",
+          "x-importance": "core"
+        },
+        "浏览器验收": {
+          "type": "array",
+          "x-importance": "core"
+        },
+        "截图": {
+          "type": "array",
+          "x-importance": "core"
+        },
+        "手动检查": {
+          "type": "array",
+          "x-importance": "core"
+        },
+        "未验证项": {
+          "type": "array",
+          "x-importance": "core"
+        }
       }
     },
     "架构切片": {
@@ -107,13 +348,34 @@
       "x-importance": "important",
       "说明": "切片清单需与磁盘 architecture/ 目录实际文件双向对账（校验21）。",
       "properties": {
-        "启用": {"type": "boolean", "x-importance": "important"},
-        "架构模式": {"type": "string", "x-importance": "important"},
-        "总索引文件": {"type": "string", "x-importance": "important"},
-        "根入口文件": {"type": "string", "x-importance": "important"},
-        "切片目录": {"type": "string", "x-importance": "important"},
-        "切片清单": {"type": "array", "x-importance": "core"},
-        "同步规则": {"type": "array", "x-importance": "important"}
+        "启用": {
+          "type": "boolean",
+          "x-importance": "important"
+        },
+        "架构模式": {
+          "type": "string",
+          "x-importance": "important"
+        },
+        "总索引文件": {
+          "type": "string",
+          "x-importance": "important"
+        },
+        "根入口文件": {
+          "type": "string",
+          "x-importance": "important"
+        },
+        "切片目录": {
+          "type": "string",
+          "x-importance": "important"
+        },
+        "切片清单": {
+          "type": "array",
+          "x-importance": "core"
+        },
+        "同步规则": {
+          "type": "array",
+          "x-importance": "important"
+        }
       }
     },
     "上下文恢复点": {
@@ -121,24 +383,102 @@
       "x-importance": "core",
       "说明": "上下文恢复点是断点续跑的依据，核心子字段缺失视为 critical。",
       "properties": {
-        "当前任务": {"type": ["string", "array"], "x-importance": "core"},
-        "当前阶段": {"type": ["string", "array"], "x-importance": "core"},
-        "继续位置": {"type": ["string", "array"], "x-importance": "core"},
-        "下一步": {"type": ["string", "array"], "x-importance": "core"},
-        "已触碰文件": {"type": "array", "x-importance": "core"},
-        "用户明确约束": {"type": "array", "x-importance": "core"},
-        "剩余风险": {"type": "array", "x-importance": "core"},
-        "最近完成": {"type": ["string", "array"], "x-importance": "important"},
-        "进行中模块": {"type": ["string", "array"], "x-importance": "important"},
-        "待确认问题": {"type": "array", "x-importance": "important"},
-        "未验证项": {"type": "array", "x-importance": "important"},
-        "已运行命令": {"type": "array", "x-importance": "important"},
-        "压缩摘要": {"type": "string", "x-importance": "optional"},
-        "用户明确不要": {"type": "array", "x-importance": "important"},
-        "更新时间": {"type": "string", "x-importance": "optional"}
-      }
+        "当前任务": {
+          "type": [
+            "string",
+            "array"
+          ],
+          "x-importance": "core"
+        },
+        "当前阶段": {
+          "type": [
+            "string",
+            "array"
+          ],
+          "x-importance": "core"
+        },
+        "继续位置": {
+          "type": [
+            "string",
+            "array"
+          ],
+          "x-importance": "core"
+        },
+        "下一步": {
+          "type": [
+            "string",
+            "array"
+          ],
+          "x-importance": "core"
+        },
+        "已触碰文件": {
+          "type": "array",
+          "x-importance": "core"
+        },
+        "用户明确约束": {
+          "type": "array",
+          "x-importance": "core"
+        },
+        "剩余风险": {
+          "type": "array",
+          "x-importance": "core"
+        },
+        "最近完成": {
+          "type": [
+            "string",
+            "array"
+          ],
+          "x-importance": "important"
+        },
+        "进行中模块": {
+          "type": [
+            "string",
+            "array"
+          ],
+          "x-importance": "important"
+        },
+        "待确认问题": {
+          "type": "array",
+          "x-importance": "important"
+        },
+        "未验证项": {
+          "type": "array",
+          "x-importance": "important"
+        },
+        "已运行命令": {
+          "type": "array",
+          "x-importance": "important"
+        },
+        "压缩摘要": {
+          "type": "string",
+          "x-importance": "optional"
+        },
+        "用户明确不要": {
+          "type": "array",
+          "x-importance": "important"
+        },
+        "更新时间": {
+          "type": "string",
+          "x-importance": "optional"
+        }
+      },
+      "x-full-required": [
+        "当前任务",
+        "当前阶段",
+        "继续位置",
+        "下一步",
+        "已触碰文件",
+        "用户明确约束",
+        "剩余风险"
+      ]
     },
-    "未决问题": {"type": "array", "x-importance": "important"},
-    "变更记录": {"type": "array", "x-importance": "important"}
+    "未决问题": {
+      "type": "array",
+      "x-importance": "important"
+    },
+    "变更记录": {
+      "type": "array",
+      "x-importance": "important"
+    }
   }
 }

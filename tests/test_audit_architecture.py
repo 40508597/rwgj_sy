@@ -21,6 +21,8 @@ def build_report(conclusions: list[str] | None = None) -> dict:
         if conclusions is not None:
             item["结论"] = conclusions[i] if i < len(conclusions) else "na"
         item["证据"] = "单测样例证据" if item["结论"] in ("yes", "no") else ""
+        if item["结论"] == "na":
+            item["不适用原因"] = "测试项目未包含该维度，并已逐项确认范围"
         item["审计方"] = "unittest"
     return q
 
@@ -67,14 +69,14 @@ class TestValidateReport(unittest.TestCase):
         _, errors, _ = audit_architecture.validate_report(report)
         self.assertTrue(any("q1" in e for e in errors))
 
-    def test_yes_without_evidence_warns(self):
+    def test_yes_without_evidence_fails(self):
         report = build_report(["yes"] * 10)
         report["问题清单"][0]["证据"] = ""
         _, errors, warnings = audit_architecture.validate_report(report)
-        self.assertEqual(errors, [])
-        self.assertTrue(any("q1" in w for w in warnings))
+        self.assertTrue(any("q1" in error for error in errors))
+        self.assertEqual(warnings, [])
 
-    def test_na_without_evidence_ok(self):
+    def test_na_with_reason_ok(self):
         report = build_report(["na"] * 10)
         passed, errors, warnings = audit_architecture.validate_report(report)
         self.assertEqual(passed, 0)

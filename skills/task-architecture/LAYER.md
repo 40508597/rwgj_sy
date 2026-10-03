@@ -1,5 +1,7 @@
 # 任务架构总入口
 
+项目语言、文件后缀、框架和 IDE 不限制技能启用。架构决策、模块依赖、代码质量、真实执行证据或故意改坏样例验收时，按需读 `../../shared/references/universal-quality.md`。按可取得的事实能力选择检查方式；声明、推断、未采集和过期结果不得冒充实测通过。完整实现交付运行 gate_check 时加 --quality-required，并先在调用方项目配置本次适用的规则与观察事实；小任务继续遵循范围降级。
+
 > 这是薄入口，不是能力全集。**按任务范围启用约束**：完整流程依次进入深度设计和架构物化层，协议层仅按需；最小闭环与完全跳过按下文规则执行。
 
 > 下文脚本路径均为相对表述，执行前一律先用解析器取绝对路径：
@@ -8,7 +10,7 @@
 > python "<技能安装目录>/shared/scripts/resolve_tool.py" gate_check --json
 > ```
 >
-> 先从本次加载的 SKILL.md 绝对路径得到技能安装目录；解析器本身无需调用方拥有 shared/。命令在调用方项目目录执行，所得绝对路径记为 `<resolved>`；后续工具使用这个路径。
+> 先从本次加载的 SKILL.md 绝对路径得到技能安装目录；解析器本身无需调用方拥有 shared/。命令在调用方项目目录执行，每个工具分别解析；JSON 的 `path` 是脚本文件的完整绝对路径，不是目录。下文 `<工具名_path>` 表示对应工具的 `path`，用引号包裹执行，不再追加脚本名。
 >
 > 解析顺序：项目级锚点（`architecture.json` / `architecture/` 所在目录）→ 本技能安装目录 `shared/scripts/`。两处都不存在＝工具缺失：按对应参考文档文本规则降级，并在验证证据中记录「未运行原因」。（v1.2 起，此解析器取代旧版「两次存在性检查」散文流程。）
 
@@ -26,7 +28,7 @@
 用户已明确使用本技能，或已发现受管锚点时直接按本次范围处理。只有新项目是否适用尚不明确时运行一次自动检测；同一任务不重复扫描：
 
 ```bash
-python <resolved>/detect_should_trigger.py
+python "<detect_should_trigger_path>"
 ```
 
 > 若需关闭自动检测（常驻型工具中减少提醒摩擦），设置环境变量 `TASK_ARCH_AUTO_TRIGGER=off`，
@@ -65,7 +67,7 @@ python <resolved>/detect_should_trigger.py
 ### 1. 强制读取进度状态（如果存在）
 
 ```bash
-python <resolved>/manage_state.py show --state-path architecture/_state.json
+python "<manage_state_path>" show --state-path architecture/_state.json
 ```
 
 完整流程和最小闭环先读已有状态；只展示与本次任务有关的阶段、阻塞项和下一步。修改类任务缺少状态时先初始化；纯运行任务不为记录流程而创建状态，需说明状态缺失并记录执行证据。完全跳过档不读写状态。
@@ -83,7 +85,7 @@ python <resolved>/manage_state.py show --state-path architecture/_state.json
 ## 小命令降级（三档判定）
 
 ```bash
-python <resolved>/detect_small_command.py --request "<用户需求文本>" --project-root <项目根>
+python "<detect_small_command_path>" --request "<用户需求文本>" --project-root <项目根>
 ```
 
 三档：**完全跳过**（概念问答/一次性脚本/纯只读查看）/ **最小闭环**（启动项目、运行单条命令、修改某个元素；分运行类与修改类）/ **完整流程**（新功能、重构、漂移排查）。判定链、词表、三档细节与回执模板详见 `../../shared/references/small-command-degradation.md`；规则真相源 `../../shared/assets/small-command-rules.json`。
@@ -137,16 +139,16 @@ python <resolved>/detect_small_command.py --request "<用户需求文本>" --pro
 每个相关变更批次完成后跑三重校验；同一批次无需每次落盘都重复运行。先检查占位符和一致性，通过后才推进对应阶段；不要为了让门禁变绿提前标记未完成工作：
 
 ```bash
-python <resolved>/check_placeholders.py architecture/index.json     # ① 核心占位符
-python <resolved>/validate_architecture.py architecture/index.json  # ② 结构与一致性
-python <resolved>/manage_state.py update <阶段名> completed --note "完成说明"   # ③ 推进已验证阶段
+python "<check_placeholders_path>" architecture/index.json     # ① 核心占位符
+python "<validate_architecture_path>" architecture/index.json  # ② 结构与一致性
+python "<manage_state_path>" update <阶段名> completed --note "完成说明"   # ③ 推进已验证阶段
 ```
 
 阶段名为 9 个必需＋可选接口契约，真相源 `manage_state.py` 的 STANDARD_STAGES；21 项完整清单见 `../../shared/references/validation-checklist.md`（按需读取），校验结果写入变更记录。
 
 ### 完成前自检（缺一不可）
 
-完整交付前统一运行 `python <resolved>/gate_check.py <项目根> --json`。它共用事中裁判的占位符、状态和架构规则，再检查漂移与脱轨；0=通过，1=明确失败，2=无法判定，后两者均不得声明验证通过。核对：
+完整实现交付前统一运行 `python "<gate_check_path>" <项目根> --quality-required --json`。它共用事中裁判的占位符、状态和架构规则，再检查漂移、脱轨与本次必需质量规则；规则/事实缺失也为未验证。0=通过，1=明确失败，2=无法判定，后两者均不得声明验证通过。核对：
 
 - [ ] 🔴 无核心占位符　- [ ] 🔴 所有必需阶段已完成　- [ ] 🔴 架构先行　- [ ] 🔴 代码与架构一致（无漂移）
 - [ ] 🟡 质量红线无 🔴　- [ ] 🟡 验证证据已记录　- [ ] 🟡 恢复点已更新　- [ ] 🟡 变更记录已追加　- [ ] 🟡 剩余风险已说明
@@ -174,8 +176,8 @@ python <resolved>/manage_state.py update <阶段名> completed --note "完成说
 
 1. 检测当前项目的 `architecture.json` 或 `architecture/`。
 2. 有指针则跟随总索引；仅有目录则读取 `architecture/index.json`，缺失时报告未验证。
-3. 能力文件优先从当前项目根目录的 `skills/`、`shared/` 读取。
-4. 当前项目没有能力文件时，从本技能安装目录读取 `skills/`、`shared/`。
+3. 按需要的具体文件，优先从当前项目根目录的 `skills/`、`shared/` 读取。
+4. 项目缺少对应文件时逐项回退到本技能安装目录；仅有同名目录不算该文件存在。
 5. **不得把项目状态、恢复点、变更记录或架构切片写入全局技能目录**。
 
 子技能中的 `../../shared/` 路径按同一规则解析；也可交给 `resolve_tool.py` 统一处理。
