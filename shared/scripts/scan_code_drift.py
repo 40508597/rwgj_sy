@@ -44,7 +44,8 @@ def _safe_path(root: Path, value: str, label: str, *, relative: bool = True) -> 
     candidate = Path(os.path.abspath(root / path)) if not path.is_absolute() else Path(os.path.abspath(path))
     try:
         candidate.relative_to(root)
-        candidate.resolve().relative_to(root)
+        # Both sides must resolve aliases such as Windows 8.3 directory names.
+        candidate.resolve().relative_to(root.resolve())
     except ValueError as exc:
         raise _archlib.ArchitectureInputError(f"{label}越出项目根目录: {value!r}") from exc
     return candidate

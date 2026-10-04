@@ -54,7 +54,7 @@ class TestRealProbes(unittest.TestCase):
     def setUp(self):
         temp = tempfile.TemporaryDirectory()
         self.addCleanup(temp.cleanup)
-        self.base = Path(temp.name)
+        self.base = Path(temp.name).resolve()
         self.project = self.base / "工程 with spaces"
         self.project.mkdir()
         (self.project / "input.易工程").write_bytes(b"\x00prefix OK! suffix\xff")

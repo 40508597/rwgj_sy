@@ -111,6 +111,7 @@ def run_gate(project: Path, architecture: str, *, quality_required: bool = False
     v1.2 优化（A3）：同时产出统一 envelope 的分项数据
     [{name, status: pass|fail|unknown, detail}]，供宿主门禁/控制台/CI 一处解析。
     """
+    project = project.resolve()
     lines: list[str] = []
     stages: list[dict] = []
 

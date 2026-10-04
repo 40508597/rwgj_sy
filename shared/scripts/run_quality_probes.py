@@ -56,7 +56,8 @@ def _child(root: Path, value: str) -> Path:
     candidate = root / normalized
     _no_links(candidate)
     resolved = candidate.resolve()
-    if not _inside(resolved, root) or resolved == root:
+    canonical_root = root.resolve()
+    if not _inside(resolved, canonical_root) or resolved == canonical_root:
         raise ProbeInputError(f"path is outside the project: {value!r}")
     return resolved
 
@@ -204,7 +205,7 @@ def _run(case: dict[str, Any], copy: Path, logs: Path, label: str) -> dict[str, 
 def run_suite(project: Path, suite_path: Path, workspace: Path) -> dict[str, Any]:
     for path in (project, suite_path, workspace):
         _no_links(path.absolute())
-    project, suite_path, workspace = project.resolve(), suite_path.resolve(), workspace.absolute()
+    project, suite_path, workspace = project.resolve(), suite_path.resolve(), workspace.resolve()
     if not project.is_dir() or not _inside(suite_path, project) or not suite_path.is_file():
         raise ProbeInputError("project must exist and suite must be a file inside it")
     if _inside(workspace.resolve(), project) or workspace.exists() or not workspace.parent.is_dir():

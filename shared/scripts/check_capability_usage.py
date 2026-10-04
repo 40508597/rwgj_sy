@@ -73,7 +73,7 @@ def project_relative_path(raw: Any) -> Path:
 def project_file(project: Path, raw: Any) -> Path:
     path = project_relative_path(raw)
     result = (project / path).resolve()
-    if not result.is_relative_to(project):
+    if not result.is_relative_to(project.resolve()):
         raise Invalid(f"file path follows a link outside project: {raw}")
     return result
 

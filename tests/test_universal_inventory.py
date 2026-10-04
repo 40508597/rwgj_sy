@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 PACKAGE = Path(os.environ.get("TASKARCH_PACKAGE", str(Path(__file__).resolve().parents[1])))
 sys.path.insert(0, str(PACKAGE / "shared/scripts"))
@@ -121,6 +122,37 @@ class UniversalInventory(unittest.TestCase):
         result = self.scan(all_files=True)
         self.assertEqual(result["已登记代码文件"], ["模块/项目.e"])
         self.assertEqual(result["存在但未登记"], [])
+
+    def test_declared_files_accept_same_directory_path_alias(self):
+        alias = self.base / "SHORT~1"
+        canonical = self.base / "canonical-directory"
+        original_resolve = Path.resolve
+
+        def resolve(path, *args, **kwargs):
+            if path == alias or alias in path.parents:
+                return canonical / path.relative_to(alias)
+            return original_resolve(path, *args, **kwargs)
+
+        data = {"实现清单": {"module": {"文件列表": ["bin/入口.custom"]}}}
+        with mock.patch.object(Path, "resolve", resolve):
+            self.assertEqual(scanner.collect_declared_files(data, alias), {"bin/入口.custom"})
+
+    def test_directory_alias_does_not_allow_resolved_external_target(self):
+        alias = self.base / "SHORT~1"
+        canonical = self.base / "canonical-directory"
+        original_resolve = Path.resolve
+
+        def resolve(path, *args, **kwargs):
+            if path == alias:
+                return canonical
+            if alias in path.parents:
+                return self.base / "outside" / path.relative_to(alias)
+            return original_resolve(path, *args, **kwargs)
+
+        data = {"实现清单": {"module": {"文件列表": ["bin/入口.custom"]}}}
+        with mock.patch.object(Path, "resolve", resolve):
+            with self.assertRaises(_archlib.ArchitectureInputError):
+                scanner.collect_declared_files(data, alias)
 
     def test_registered_directory_is_not_accepted_as_a_file(self):
         (self.root / "工程.e").mkdir()
