@@ -60,17 +60,35 @@ def strings(value: Any, label: str, *, nonempty=False) -> list[str]:
     return value
 
 
-def project_file(project: Path, raw: Any) -> Path:
+def project_relative_path(raw: Any) -> Path:
     if not isinstance(raw, str) or not raw.strip() or "\x00" in raw:
         raise Invalid("expected a project-relative file path")
     raw = raw.replace("\\", "/")
     path = Path(raw)
     if path.is_absolute() or path.drive or re.match(r"^[A-Za-z]:", raw) or ".." in path.parts:
         raise Invalid(f"file path escapes project: {raw}")
+    return path
+
+
+def project_file(project: Path, raw: Any) -> Path:
+    path = project_relative_path(raw)
     result = (project / path).resolve()
     if not result.is_relative_to(project):
         raise Invalid(f"file path follows a link outside project: {raw}")
     return result
+
+
+def project_scope(project: Path, raw: Any) -> Path:
+    """Validate a scope, resolving only its fixed prefix before any wildcard."""
+    path = project_relative_path(raw)
+    fixed = []
+    for part in path.parts:
+        if "*" in part or "?" in part:
+            break
+        fixed.append(part)
+    # Glob components are patterns, not valid Windows filesystem names. Real
+    # access targets are still fully resolved and bounded by project_file.
+    return project_file(project, Path(*fixed).as_posix())
 
 
 def parts(pointer: Any) -> list[str]:
@@ -107,7 +125,7 @@ def in_file_scope(raw: str, scopes: list[str], project: Path) -> bool:
     for scope in scopes:
         if scope == "**":
             return True  # Still bounded by project_file above.
-        base = project_file(project, scope)
+        base = project_scope(project, scope)
         normalized = scope.replace("\\", "/")
         if "*" in normalized or "?" in normalized:
             if path_glob_matches(relative, normalized):
@@ -347,7 +365,7 @@ def evaluate_usage(project: Path | str, architecture_path: Path | str = "archite
             for field in ("node_ids", "read_scope", "write_scope", "allowed_writeback"):
                 strings(item.get(field), f"{cid}.{field}")
             for scope in item["read_scope"] + item["write_scope"]:
-                project_file(project, scope)
+                project_scope(project, scope)
             for pointer in item["allowed_writeback"]:
                 tokens = parts(pointer)
                 if not tokens or tokens[0] in {"项目", "专业能力索引", "架构切片"}:

@@ -22,7 +22,19 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Run unit tests
         shell: bash
-        run: python -m unittest discover -s tests > /dev/null
+        run: |
+          python - <<'PY'
+          import sys
+          import unittest
+
+          suite = unittest.defaultTestLoader.discover("tests")
+          result = unittest.TextTestRunner().run(suite)
+          for test, detail in result.errors + result.failures:
+              title = str(test).replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A").replace(",", "%2C").replace(":", "%3A")
+              message = detail.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+              print(f"::error title={title}::{message}", flush=True)
+          sys.exit(0 if result.wasSuccessful() else 1)
+          PY
       - name: Run verify-all.sh
         shell: bash
         run: bash verify-all.sh

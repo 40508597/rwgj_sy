@@ -4,6 +4,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import os
 import stat
 import subprocess
 import sys
@@ -197,7 +198,7 @@ class SourceIntegrityTests(unittest.TestCase):
         guide = self.root / self.item["entry"]
         license_path = self.root / self.item["license_file"]
         license_path.unlink()
-        license_path.hardlink_to(guide)
+        os.link(guide, license_path)
         self.item["files"][self.item["license_file"]] = self.item["files"][self.item["entry"]]
         self.expect("fail")
 
