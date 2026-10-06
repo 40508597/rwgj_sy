@@ -560,7 +560,7 @@ if [ -f "${SCRIPT_DIR}/README.md" ]; then
     run_check \
         "文档数字对账" \
         "python '${SCRIPT_DIR}/scripts/check_doc_counts.py'" \
-        "README 技术指标表与仓库实际盘点一致（参考文档/工具脚本/必需阶段/适配/归档等）"
+        "README 技术指标表与仓库实际盘点一致（参考文档/工具脚本/必需阶段/归档等）"
 else
     skip_check "文档数字对账" "README.md 不存在"
 fi

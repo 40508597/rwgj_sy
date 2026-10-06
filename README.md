@@ -23,6 +23,7 @@
 - **角色**：薄入口技能包，承载任务架构规则与共享工具
 - **使用方**：支持 `SKILL.md` 技能规范的智能体宿主（含自研 CLI Agent），不绑定具体产品
 - **核心特性**：真相源分离（能力在仓库，项目状态在调用方 `architecture/`）、规则单源（所有宿主读同一份 `shared/`，不维护宿主专用规则文件）
+- **职责边界**：本技能提供通用工程规则与检查工具；具体宿主负责技能加载、命令调用和自动化集成。本包不提供宿主专用钩子或配置。
 
 ---
 
@@ -133,7 +134,7 @@
 | 物化架构 | `architecture-json` | 落得稳 |
 | 外围协议 | `agent-protocol` | 跑得广 |
 
-#### 4.1.2 共享资源（6 类）
+#### 4.1.2 共享资源
 
 > 数量口径统一由 §4.5 技术指标表维护（check_doc_counts.py 自动对账），本表不重复数字。
 
@@ -723,21 +724,26 @@ git push origin main
 
 ### 6.4 发布流程
 
-发布以「CHANGELOG 定稿 → README 同步 → 打 tag → 打包 → 建 Release」为固定顺序，发布包与 GitHub 自动生成的源码归档范围一致（整个仓库，去掉 `.git/`、缓存与本地报告）：
+发布以「CHANGELOG 定稿 → README 同步 → 打 tag → 打包 → 建 Release」为固定顺序。发布包包含标签对应的全部已提交文件；`.git/`、未提交的草稿、缓存和本地报告不进入归档。发布前运行 `bash verify-all.sh --self-test`，确认本次变更已经提交且版本说明与该提交一致。
 
 ```bash
 # 1. CHANGELOG.md：把 [Unreleased] 更名为 [x.y.z] - YYYY-MM-DD，并补齐条目
 # 2. README §二「发布版本」表同步新增一行
-# 3. 打标签并推送（tag 与提交一起推送）
+# 3. 确认本次代码与文档已提交，再打标签并推送（tag 与提交一起推送）
 git tag -a vx.y.z -m "任务架构 rwgj vx.y.z：<主题>"
 git push origin main --follow-tags
 
-# 4. 打包发布版（排除 .git/ 与缓存，示例见下）
+# 4. 从发布标签生成 ZIP（输出到仓库外，避免混入下一次发布）
+release_archive="../rwgj-vx.y.z.zip"
+git archive --format=zip --prefix=task-architecture/ --output="$release_archive" vx.y.z
+
 # 5. 创建 GitHub Release 并附带发布包
-gh release create vx.y.z "rwgj-vx.y.z.zip" --title "任务架构 rwgj vx.y.z" --notes-file CHANGELOG.md
+gh release create vx.y.z "$release_archive" --title "任务架构 rwgj vx.y.z" --notes-file CHANGELOG.md
 ```
 
 只分发给业务项目时按 §4.5.1 的最小运行集裁剪；仓库自身保留完整资产以便自检与 CI。
+
+从 v1.2.0 或更早版本升级时，曾在宿主设置中配置旧 Stop hook 的使用方，应移除或替换指向 `optional/claude_stop_hook.py` 的命令；该脚本自 v1.2.1 起已退役。通用收尾门禁和完成声明契约仍见 `shared/references/universal-agent-protocol.md`，自动调用与拦截由宿主负责。未配置旧钩子的使用方无需迁移钩子设置。
 
 ---
 

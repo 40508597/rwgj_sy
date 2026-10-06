@@ -16,11 +16,11 @@ assignees: ""
 
 ## 落位位置（按 README §6.2 归类）
 
-- [ ] 新 Skill 子层（skills/<name>/）
+- [ ] 内部子能力层（skills/<name>/<职责文件>.md）
 - [ ] 参考文档（shared/references/<name>.md）
 - [ ] 工具脚本（shared/scripts/<name>.py）
 - [ ] Schema（shared/assets/schema/<name>.schema.json）
-- [ ] 平台适配（shared/adapters/<platform>.md）
+- [ ] 通用智能体协议（shared/references/universal-agent-protocol.md）
 - [ ] 其他
 
 ## 验收标准

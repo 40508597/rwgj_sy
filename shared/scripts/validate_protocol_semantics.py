@@ -3,7 +3,7 @@
 
 The checker is intentionally small and read-only. It verifies that the upgraded
 protocol keeps project goals inside architecture.json, preserves the core
-reference files, adapter files, and script/schema hooks. It does not replace
+reference files and shared validation tools/schemas. It does not replace
 engineering review.
 """
 
