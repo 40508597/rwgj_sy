@@ -3,7 +3,13 @@
 本仓库以「17 个历史版本 + 当前 rwgj 入口」为时间线；完整提交历史见 `git log --reverse --oneline`。
 本文件只记录影响使用方的里程碑变更，遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 规范。
 
-## [Unreleased]
+## [1.2.0] - 2026-10-06
+
+### 2026-10-06 文档整理与发布
+
+- 移除宿主专属内容：删除专属集成章节与相关引用（README / CLAUDE.md / ENFORCEMENT-GUIDE.md），公开内容不再绑定具体宿主产品与私有工具链。
+- README「版本演进」重写为「时间线总览 + 发布版本 + 能力继承关系」三段式，新增 §6.4 发布流程；删除按宿主罗列的适配对照表，`shared/adapters/` 保留为运行资产。
+- 发布 v1.2.0：打包发布资产（zip）并上传 GitHub Release；README 徽章与版本表同步。
 
 ### 2026-10-04 GitHub 编程专业子技能
 

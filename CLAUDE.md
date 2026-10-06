@@ -1,7 +1,7 @@
 # 任务架构能力包——AI 在本仓库工作须知
 
 > 本文件只承载「AI 在本能力仓库工作时必须知道的硬约束与路径」。
-> 完整能力地图、使用说明、版本演进、Proma 集成等见 [README.md](README.md)。
+> 完整能力地图、使用说明、版本演进与发布说明见 [README.md](README.md)。
 > 强制执行机制见 [ENFORCEMENT-GUIDE.md](ENFORCEMENT-GUIDE.md)。
 
 ## 仓库定位

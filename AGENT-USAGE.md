@@ -1,6 +1,6 @@
 # 任务架构通用能力包使用说明
 
-本包用于任意编程智能体，例如 Codex、Claude Code、Trae、Cursor、Windsurf、Cline、Continue 或自研 CLI Agent。
+本包用于支持 `SKILL.md` 技能规范的任意编程智能体宿主（含自研 CLI Agent）。
 
 ## 使用方式
 
@@ -66,7 +66,7 @@ shared/assets/
 shared/adapters/
 ```
 
-不要让不同平台维护多份分叉规则。Codex、Claude Code、Trae、Cursor、Windsurf、Cline 和自研 Agent 都读取同一套能力来源。
+不要让不同宿主维护多份分叉规则：所有宿主都读取同一套能力来源。
 
 ## CLI 边界
 

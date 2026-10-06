@@ -1,7 +1,7 @@
 # 任务架构（rwgj）
 
-> 任务架构通用智能体能力包，全局薄入口，承载任务架构规则、能力定义与共享工具。
-> 让 Codex、Claude Code、Trae、Cursor、Windsurf、Cline、Continue、CLI Agent 与自研 Agent 按同一套任务架构协议工作。
+> 任务架构能力包：全局薄入口，承载任务架构规则、能力定义与共享工具。
+> 面向支持 `SKILL.md` 技能规范的智能体宿主：同一套规则、同一份工具、同一份证据。
 
 [![Project license: MIT](https://img.shields.io/badge/Project-MIT-yellow.svg)](LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/40508597/rwgj_sy?style=social)](https://github.com/40508597/rwgj_sy)
@@ -9,7 +9,6 @@
 [![GitHub release](https://img.shields.io/github/v/release/40508597/rwgj_sy)](https://github.com/40508597/rwgj_sy/releases)
 [![verify](https://github.com/40508597/rwgj_sy/actions/workflows/verify.yml/badge.svg)](https://github.com/40508597/rwgj_sy/actions/workflows/verify.yml)
 [![中文文档](https://img.shields.io/badge/文档-中文-red.svg)](README.md)
-[![跨平台](https://img.shields.io/badge/平台-Codex%20%7C%20Claude%20%7C%20Trae%20%7C%20Cursor%20%7C%20...-blue)](README.md)
 
 ---
 
@@ -22,26 +21,41 @@
 当前版本包含 2026-10-04 通用质量升级：架构决策记录、按指定关系检查模块边界与循环、项目配置的质量指标与 CRAP、绑定选定输入的真实执行收据，以及在隔离副本中故意引入字节故障验收检查器。规则与事实协议不限制项目语言，`.e`、未知工程格式、二进制和无后缀实现单元均可接入；外部信息不足时显示未验证，不声称内置全语言解析器。完整交付使用 gate_check 的 --quality-required。说明与模板见 [通用质量协议](shared/references/universal-quality.md)。技能元数据名规范为 task-architecture，中文标题与使用说明保留。
 
 - **角色**：薄入口技能包，承载任务架构规则与共享工具
-- **使用方**：Codex / Claude Code / Trae / Cursor / Windsurf / Cline / Continue / CLI Agent / 自研 Agent
-- **核心特性**：真相源分离（能力在仓库，项目状态在调用方 `architecture/`）、跨平台一致（差异只写在 `shared/adapters/`）
+- **使用方**：支持 `SKILL.md` 技能规范的智能体宿主（含自研 CLI Agent），不绑定具体产品
+- **核心特性**：真相源分离（能力在仓库，项目状态在调用方 `architecture/`）、规则单源（所有宿主读同一份 `shared/`，差异只写在 `shared/adapters/`）
 
 ---
 
 ## 二、版本演进
 
-本仓库以 **17 个历史版本** + 当前 rwgj 入口为时间线，按目录内文件夹的 mtime 顺序**逐个 commit** 形成完整演进链。
+本仓库以 **17 个历史版本 + 当前 rwgj 入口** 为时间线：早期版本按目录内文件夹的 mtime 顺序**逐个 commit**，形成可追溯的演进链；现行入口（rwgj）按语义化版本发布，配套 Git tag 与 GitHub Release。
 
 完整 commit 历史：`git log --reverse --oneline`
 
-**版本阶段**：
-- **任务架构 1.0 ~ 1.1.9**（11 个版本）：早期演进
-- **任务架构 1.2 / 1.3**：动态任务姿态、跨智能体协议
-- **任务架构-通用智能体版**：平台无关化变体
-- **任务架构-能力体系 1.0 / 1.1.1 / 1.1.2**：能力体系化（1.1.2 = 现行入口的前身）
-- **rwgj (current)**：薄入口化、组织化
-- **rwgj v1.1.0（2026-08-04 发布）**：F+B+C 强制机制成熟 + 质量工程（质量红线、独立审计、CI/单测/数字对账）
+### 2.1 时间线总览
 
-**能力继承关系**：
+| 阶段 | 版本 | 主题 | 去向 |
+|------|------|------|------|
+| 早期演进 | 任务架构 1.0 ~ 1.1.9（11 个版本）| 主动性设计、功能簇、交互完整性、多层递进、分治、功能树/模块树、工具链起步 | 历史提交；1.1 文本归档 |
+| 动态姿态 | 任务架构 1.2 | 动态任务姿态、三轴任务校准 | [`shared/legacy/任务架构1.2-SKILL.md`](shared/legacy/任务架构1.2-SKILL.md) |
+| 协议外壳 | 任务架构 1.3 | 协议适配层、虚拟模块审议、硬门禁、标准输出契约 | [`shared/legacy/任务架构1.3-SKILL.md`](shared/legacy/任务架构1.3-SKILL.md) |
+| 平台无关化 | 任务架构-通用智能体版 | 去掉平台绑定，统一规则来源 | 历史提交 |
+| 能力体系化 | 任务架构-能力体系 1.0 / 1.1.1 / 1.1.2 | 能力分层与目录化（1.1.2 = 现行入口的前身）| 历史提交 |
+| 薄入口 | rwgj（current） | 薄入口 + 内部四层 + 按需专业能力 | 根 [`SKILL.md`](SKILL.md) |
+
+> 归档说明：`shared/legacy/` 只保留 1.1 / 1.2 / 1.3 三份历史 `SKILL.md` 文本与索引，用于追溯能力来源，不参与运行时规则；其余历史版本可在 `git log --reverse --oneline` 中逐条查看。
+
+### 2.2 发布版本
+
+| 版本 | 发布时间 | 内容摘要 | 标识 |
+|------|----------|----------|------|
+| rwgj v1.0.0 | 2026-06-04 | 首个发布：技能包雏形与跨环境兼容 | tag `v1.0.0` |
+| rwgj v1.1.0 | 2026-08-04 | 薄入口化 + F+B+C 强制执行机制 + 质量工程（质量红线、独立审计、CI / 单测 / 数字对账）| tag `v1.1.0` |
+| rwgj v1.2.0 | 2026-10-06 | 专业子技能 15 项、通用质量协议、能力规划与核验、架构可视化；文档整理与发布包 | tag `v1.2.0` + Release |
+
+完整变更明细见 [CHANGELOG.md](CHANGELOG.md)；发布包（zip）与源码归档见 GitHub Releases。
+
+### 2.3 能力继承关系
 
 | 来源版本 | 保留能力 | 当前位置 |
 |----------|----------|----------|
@@ -51,9 +65,11 @@
 | 1.1.7 / 1.1.8 | validate/scan/diff/init 工具链 | `shared/scripts/` |
 | 1.1.9 | 受控主动性、防扁平化、注意力保护、完成前自检 | `project-depth-core` + `architecture-json` |
 | 1.2 | 动态任务姿态建议器、三轴任务校准 | `shared/scripts/` + 辅助参考 |
-| 1.3 | 跨智能体协议、适配层、虚拟模块审议、硬门禁、标准输出契约 | `agent-protocol` |
+| 1.3 | 协议适配层、虚拟模块审议、硬门禁、标准输出契约 | `agent-protocol` |
+| 2026-10-04 升级 | 专业子技能目录、质量事实与执行收据、能力规划/使用核验、架构可视化 | `shared/subskills/` + `shared/scripts/` |
 
 **继承原则**：
+
 ```text
 1.1 做认知内核
 1.2 做结构落位
@@ -178,17 +194,6 @@
 
 完整使用指南：[ENFORCEMENT-GUIDE.md](ENFORCEMENT-GUIDE.md)
 
-#### 4.1.4 平台适配
-
-| 平台 | 适配文件 | 状态 |
-|------|----------|------|
-| Claude Code | `shared/adapters/claude.md` | ✓ |
-| Codex | `shared/adapters/codex.md` | ✓ |
-| Trae | `shared/adapters/trae.md` | ✓ |
-| 通用 CLI Agent | `shared/adapters/generic-cli-agent.md` | ✓ |
-
-> 适配层**只写差异**，**不复制规则**。其余平台（Cursor / Windsurf / Cline / Continue）无独立差异时走 `generic-cli-agent` 适配。
-
 ### 4.2 子能力层详细说明
 
 #### 4.2.1 `task-architecture` — 总入口
@@ -230,10 +235,10 @@
 
 #### 4.2.4 `agent-protocol` — 外围协议层
 
-- **职责**：跨平台、门禁、标准化、能力降级
+- **职责**：跨宿主兼容、门禁、标准化、能力降级
 - **加载时机**：仅在需要时（**不得抢占 `project-depth-core` 入口优先级**）
 - **5 大触发条件**：
-  1. 跨 Codex/Claude/Trae/Cursor/Windsurf/Cline/Continue/自研 Agent
+  1. 跨工具、跨会话使用（同一能力包服务不同宿主与多次会话）
   2. 标准化模块提案、门禁、风险/验证报告
   3. 虚拟模块智能体审议
   4. 能力降级记录
@@ -337,7 +342,7 @@ shared/scripts             shared/references           shared/adapters          
 shared/subskills
 ```
 
-使用默认专业目录时，`shared/subskills/` 中的 GUIDE、固定来源和许可文件，以及根目录的许可与第三方声明一起分发。若选择 Claude Stop hook，需额外分发 `optional/claude_stop_hook.py`；一键项目验证可额外分发 `verify-all.sh`，其 --project 模式不依赖 tests/、README 或开发自检脚本。完整 --self-test 则需要开发分发资产。安装、提供源码或配置示例都不等于宿主集成已经启用。
+使用默认专业目录时，`shared/subskills/` 中的 GUIDE、固定来源和许可文件，以及根目录的许可与第三方声明一起分发。若选择宿主 Stop hook，需额外分发 `optional/claude_stop_hook.py`；一键项目验证可额外分发 `verify-all.sh`，其 --project 模式不依赖 tests/、README 或开发自检脚本。完整 --self-test 则需要开发分发资产。安装、提供源码或配置示例都不等于宿主集成已经启用。
 
 来源锁按原始字节校验。仓库的 `.gitattributes` 为 `shared/subskills/` 保留原始字节，避免 Git 自动换行转换破坏记录的哈希；重新分发时也保留这些来源与适配文件的编码和换行。
 
@@ -346,7 +351,7 @@ shared/subskills
 **强适用场景 ✓**：
 - 新建项目：从 0 到 1 完整功能设计
 - 复杂功能开发：需要多层递进 + 模块详情 + 验证责任
-- 跨智能体协作：Codex/Claude/Trae 团队协作
+- 跨会话协作：多会话 / 多工具接力，共用同一套架构真相源
 - 架构演进：从单文件迁移到切片目录
 - 代码与架构一致性治理：drift 检测、回归断言
 - 模糊需求澄清：通过功能簇展开把"想要什么"变成"应该是什么"
@@ -368,7 +373,7 @@ shared/subskills
 |------|----------|------------------|
 | 需求理解 | 文档/PR/口头 | 功能簇展开 + 强制停止规则 |
 | 架构设计 | 自由发挥 | 强制切片目录 + 模块详情底线 |
-| 跨平台 | 各平台独立实现 | 同一份能力 + 平台适配差异 |
+| 多宿主一致 | 每个工具各维护一套规则 | 同一份能力包；适配层只记差异 |
 | 一致性 | 人工 review | 工具验证结构与部分一致性，21 项语义清单配合工程复核 |
 | 代码 drift | 滞后发现 | 实时扫描 |
 | 上下文恢复 | 重新看文档 | 切片目录 + 恢复点 |
@@ -384,16 +389,12 @@ shared/subskills
 适用场景：多个项目共用同一套能力包，避免每个项目重复维护。
 
 ```bash
-# 1. 克隆或复制到全局 skills 目录
-#    路径根据你的平台/工具调整：
-#    - Codex/Claude: ~/.codex/skills/rwgj/ 或 ~/.claude/skills/rwgj/
-#    - Trae: ~/.trae/skills/rwgj/
-#    - 通用: ~/skills/rwgj/
+# 1. 克隆或复制到宿主技能目录（示例路径，按你的宿主替换 skills 目录）
+git clone https://github.com/40508597/rwgj_sy.git ~/.codex/skills/rwgj
 
-# 2. 让 Agent 触发（不同 Agent 触发方式略有差异）
-#    Codex/Claude: 通过 SKILL.md 自动识别
-#    Trae: 在项目根目录创建 .trae/skills/rwgj 软链接
-#    自研 Agent: 按 agent-protocol 适配层协议加载
+# 2. 触发：支持 SKILL.md 的宿主按 name/description 自动识别技能；
+#    不支持自动识别的宿主按 agent-protocol 适配层协议加载。
+#    项目内使用见下方「项目级复制模式」。
 ```
 
 #### 项目级复制模式
@@ -416,7 +417,7 @@ cp "$TASK_ARCH_SOURCE/verify-all.sh" "$TASK_ARCH_INSTALL/"
 
 只分发运行能力集到上述子目录，保留项目根现有 README、.gitignore、CLAUDE.md 和 .github。不要复制能力仓库的安装/自检标识到业务项目根。项目的 architecture.json 与 architecture/ 独立保存在项目根，并按项目协作要求版本化。Windows PowerShell 可用 Copy-Item -LiteralPath 复制同一组文件到同一子目录。
 
-选择 Claude Stop hook 时另复制 `optional/claude_stop_hook.py` 到安装目录的 `optional/`，按 `shared/adapters/claude.md` 合并配置并实际验证宿主加载；核心最小集本身不包含已启用的 hook。
+选择宿主 Stop hook 时另复制 `optional/claude_stop_hook.py` 到安装目录的 `optional/`，按 `shared/adapters/` 中对应适配说明合并配置并实际验证宿主加载；核心最小集本身不包含已启用的 hook。
 
 #### 两种模式对比
 
@@ -426,130 +427,6 @@ cp "$TASK_ARCH_SOURCE/verify-all.sh" "$TASK_ARCH_INSTALL/"
 | 项目真相源（architecture/）| 每个项目独立 | 跟随项目 |
 | 适配层差异（adapters/）| 跟随全局 | 跟随项目（可定制）|
 | 适合 | 标准化工作流 | 项目特化需求 |
-
-#### Proma Agent 专属集成指南
-
-**Proma** 是由 Claude Agent SDK 驱动的桌面应用，本技能包完全兼容 Proma Agent。
-
-##### 安装到 Proma 工作区
-
-```bash
-# 方式 1：全局安装（推荐）
-# 将本目录复制到 Proma 工作区的 skills 目录
-cp -r <本目录> ~/.proma/agent-workspaces/<workspace-id>/skills/rwgj/
-
-# 方式 2：作为附加目录
-# 在 Proma 工作区设置中添加本目录作为附加工作目录
-# 路径: C:\Users\<用户名>\Desktop\AI项目\技能\技能架构
-```
-
-##### Proma 特定功能集成
-
-**1. 协作子 Agent**
-```text
-与 Proma 内置的 collaboration MCP 工具集成，可以：
-- 创建并行验证子会话（多个独立验证任务）
-- 跨模块审议（不同子 Agent 审查不同模块）
-- 对抗性验证（一个实现，一个审查）
-
-示例：
-使用任务架构做架构设计，并创建 3 个子 Agent 分别验证功能完整性、性能风险和安全问题
-```
-
-**2. 定时架构验证**
-```text
-与 Proma 内置的 automation MCP 工具集成，可以：
-- 创建每日架构一致性检查任务
-- 定期扫描代码与架构偏移
-- 自动生成架构健康度报告
-
-示例：
-创建定时任务，每天早上 9 点自动运行架构验证并生成报告
-```
-
-**3. 一键验证脚本**
-```bash
-# 能力包自身自检（只能证明包与工具的回归结果）
-bash verify-all.sh --self-test
-# 实际项目验证（读取调用方架构与质量配置，不用样例替代）
-bash verify-all.sh --project "/absolute/path/to/project"
-
-# 或在 Proma Agent 对话中：
-运行一键验证脚本，检查项目架构完整性
-```
-
-**4. Proma Cloud API 集成**
-```text
-如果需要在验证流程中调用 AI 模型（如生成架构建议、智能分析），
-可以使用 Proma 内置的 proma_cloud MCP 工具获取 API 凭据。
-```
-
-##### Proma Agent 触发方式
-
-在 Proma Agent 对话中直接输入：
-
-```text
-使用任务架构做 XXX
-```
-
-Proma Agent 会自动：
-1. 加载 SKILL.md 薄入口
-2. 按三层顺序执行（project-depth-core → architecture-json → agent-protocol）
-3. 生成或更新 architecture/ 切片目录
-4. 运行验证工具并提供反馈
-
-##### Proma 工作区文件组织
-
-```text
-~/.proma/agent-workspaces/<workspace-id>/
-├── skills/
-│   └── rwgj/                    # 本技能包（全局安装）
-├── workspace-files/
-│   └── .context/                # 工作区级知识沉淀
-│       └── note.md              # 架构分析、方案对比
-└── <session-id>/
-    ├── .context/                # 会话级临时文档
-    │   ├── plan/                # 执行计划
-    │   └── todo.md              # 任务清单
-    └── architecture/            # 项目架构真相源（如果在会话中创建）
-```
-
-**关键原则**：
-- **能力文件**（本技能包）→ 工作区 skills/ 目录
-- **项目架构**（architecture/）→ 项目根目录或会话目录
-- **知识沉淀**（分析报告）→ workspace-files/.context/
-- **临时文档**（计划、TODO）→ 会话 .context/
-
-##### 快速验证工具增强
-
-本技能包为 Proma 提供了增强的工具脚本包装器：
-
-```bash
-# 使用增强版工具（提供进度反馈和友好错误提示）
-python shared/scripts/run_with_progress.py validate_architecture.py '验证架构文件' architecture.json
-```
-
-特性：
-- ✓ 实时进度反馈
-- ✓ 友好的错误提示
-- ✓ 智能问题诊断
-- ✓ 解决方案建议
-
-##### 与 Proma 内置工具协同
-
-| Proma 工具 | 任务架构协同场景 |
-|-----------|----------------|
-| `mcp__collaboration__delegate_agent` | 创建并行架构验证子会话 |
-| `mcp__collaboration__delegate_agents` | 批量创建模块审议子会话 |
-| `mcp__automation__create_automation` | 定期架构健康检查 |
-| `mcp__proma_cloud__get_credentials` | AI 辅助架构分析 |
-
-##### Proma 最佳实践
-
-1. **工作区级使用**：在同一工作区的多个项目中共享本技能包
-2. **知识沉淀**：重要的架构分析输出到 workspace-files/.context/note.md
-3. **定时验证**：设置每日自动架构检查任务
-4. **协作验证**：复杂项目使用子 Agent 并行验证不同维度
 
 ### 5.2 用户使用方式
 
@@ -597,7 +474,7 @@ python shared/scripts/run_with_progress.py validate_architecture.py '验证架�
                   ↓
    ┌────────[3] agent-protocol (按需)──────┐
    │ "跑得广"                              │
-   │ • 跨平台适配                            │
+   │ • 协议适配                              │
    │ • 硬门禁                               │
    │ • 标准化输出                            │
    │ • 能力降级记录                          │
@@ -743,20 +620,7 @@ python "<check_subskill_sources_path>" "<能力包根>" --json
 
 这些结果分别验证当前包、选定案例和当前安装的检查范围；骨架、使用记录或文件哈希通过不证明架构最优、全部业务语义正确或所有语言运行工具可用。浏览器观察按宿主操作与 review 证据记录，真实命令执行另附 execution 收据。
 
-### 5.5 平台适配说明
-
-技能通过 `shared/adapters/` 屏蔽平台差异：
-
-| 平台 | 适配文件 | 关键差异 |
-|------|----------|----------|
-| Claude Code | `shared/adapters/claude.md` | 工具调用格式、Skill 触发 |
-| Codex | `shared/adapters/codex.md` | 插件模型、沙箱 |
-| Trae | `shared/adapters/trae.md` | 远程工作流、上下文 |
-| 通用 CLI Agent | `shared/adapters/generic-cli-agent.md` | 标准 stdin/stdout 协议 |
-
-**适配原则**：所有平台读同一份 `shared/references/`，平台差异只写在 `adapters/`，**禁止维护分叉规则**。
-
-### 5.6 共享资源定位
+### 5.5 共享资源定位
 
 共享文件按**优先级**解析：
 
@@ -770,9 +634,9 @@ python "<check_subskill_sources_path>" "<能力包根>" --json
 - 不得把项目状态、恢复点、变更记录写入**全局**技能目录
 - 子能力层中的 `../../shared/` 路径按同一规则解析
 
-### 5.7 典型工作流示例
+### 5.6 典型工作流示例
 
-#### 5.7.1 新建项目并初始化
+#### 5.6.1 新建项目并初始化
 
 ```text
 用户："使用任务架构做一个 TODO 应用"
@@ -783,7 +647,7 @@ python "<check_subskill_sources_path>" "<能力包根>" --json
 2. `architecture-json` 生成 `architecture/` 切片目录（功能树、模块树、模块详情...）
 3. 按用户已有授权进入逐块实现；只在缺少必需信息或新增范围时确认
 
-#### 5.7.2 修改已有功能
+#### 5.6.2 修改已有功能
 
 ```text
 用户："用任务架构给 TODO 加个标签功能"
@@ -794,26 +658,16 @@ python "<check_subskill_sources_path>" "<能力包根>" --json
 2. `architecture-json` 更新 `architecture/features/` 和 `architecture/modules/`
 3. 触发 `scan_code_drift.py` 检查一致性
 
-#### 5.7.3 跨平台输出
-
-```text
-用户："用任务架构做 XXX，把结果导出成 Claude 能读的格式"
-```
-
-执行流程：
-1. 走完前两层
-2. `agent-protocol` 读取 `claude.md` 适配，输出标准契约
-
-### 5.8 最佳实践
+### 5.7 最佳实践
 
 1. **薄入口优先**：所有需求先说"使用任务架构做 XXX"，让系统自己路由
 2. **强制切片**：旧单文件 `architecture.json` 第一步必须迁移为 `architecture/`
 3. **工具优先**：工具可用时优先跑工具，工具不可用时按文本规则降级
-4. **平台一致**：所有 Agent 读同一份 `shared/`，平台差异只写在 `adapters/`
+4. **规则单源**：所有宿主读同一份 `shared/`，同类差异只写在 `shared/adapters/`
 5. **受控主动性**：Agent 主动补全时，必须遵守"不破坏用户显式约束"
 6. **完成前自检**：实现完成后必须跑 `check_regression_assertions.py` 验证
 
-### 5.9 故障排除
+### 5.8 故障排除
 
 | 问题 | 解决 |
 |------|------|
@@ -821,10 +675,10 @@ python "<check_subskill_sources_path>" "<能力包根>" --json
 | 工具运行报错 | 先 `python <script> --help` 看参数；工具失败可按文本规则降级 |
 | 架构文件不一致 | 跑 `python shared/scripts/validate_architecture.py architecture/index.json` 看具体错误 |
 | 代码和架构 drift | 跑 `python shared/scripts/scan_code_drift.py` 看具体 drift 列表 |
-| 跨平台输出异常 | 读 `shared/adapters/<platform>.md` 适配说明 |
+| 宿主行为差异 | 读 `shared/adapters/` 中对应适配说明 |
 | 子能力层路径找不到 | 检查 `../../shared/` 解析：项目根目录 vs 全局目录 |
 
-### 5.10 辅助参考链接
+### 5.9 辅助参考链接
 
 - 快速上手：`shared/references/quickstart.md`
 - 命令速查：`shared/references/commands-cheatsheet.md`
@@ -871,12 +725,30 @@ git push origin main
 - ✗ 在本仓库存项目业务状态（真相源在调用方）
 - ✗ 把子能力层细则复制到总入口
 - ✗ 让 `agent-protocol` 抢占 `project-depth-core` 入口优先级
-- ✗ 维护分叉规则（所有 Agent 读同一份）
+- ✗ 维护分叉规则（所有宿主读同一份）
+
+### 6.4 发布流程
+
+发布以「CHANGELOG 定稿 → README 同步 → 打 tag → 打包 → 建 Release」为固定顺序，发布包与 GitHub 自动生成的源码归档范围一致（整个仓库，去掉 `.git/`、缓存与本地报告）：
+
+```bash
+# 1. CHANGELOG.md：把 [Unreleased] 更名为 [x.y.z] - YYYY-MM-DD，并补齐条目
+# 2. README §二「发布版本」表同步新增一行
+# 3. 打标签并推送（tag 与提交一起推送）
+git tag -a vx.y.z -m "任务架构 rwgj vx.y.z：<主题>"
+git push origin main --follow-tags
+
+# 4. 打包发布版（排除 .git/ 与缓存，示例见下）
+# 5. 创建 GitHub Release 并附带发布包
+gh release create vx.y.z "rwgj-vx.y.z.zip" --title "任务架构 rwgj vx.y.z" --notes-file CHANGELOG.md
+```
+
+只分发给业务项目时按 §4.5.1 的最小运行集裁剪；仓库自身保留完整资产以便自检与 CI。
 
 ---
 
 ## 七、链接
 
-- **Agent 入口**：`SKILL.md`（薄入口）/ `AGENT-USAGE.md`（通用入口）
+- **技能入口**：`SKILL.md`（薄入口）/ `AGENT-USAGE.md`（通用入口）
 - **架构真相源**：`architecture.json` → `architecture/index.json`
 - **共享资源**：`shared/references/`、`shared/scripts/` + `scripts/`、`shared/adapters/`、`shared/assets/`（数量口径见 §4.5）
