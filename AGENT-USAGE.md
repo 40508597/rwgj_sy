@@ -35,7 +35,7 @@
    把理解结果写入 `architecture/` 架构文件夹、模块详情、实现清单和验证责任。
 
 3. skills/agent-protocol/PROTOCOL.md
-   仅在需要跨平台适配、标准输出、硬门禁或能力降级时读取。
+   仅在需要跨宿主协议、标准输出、硬门禁或能力降级时读取。
 ```
 
 ## 总路由
@@ -63,7 +63,6 @@
 shared/references/
 shared/scripts/
 shared/assets/
-shared/adapters/
 ```
 
 不要让不同宿主维护多份分叉规则：所有宿主都读取同一套能力来源。

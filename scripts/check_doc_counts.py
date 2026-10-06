@@ -35,7 +35,7 @@ README = REPO_ROOT / "README.md"
 # 总文件数为近似口径（README 写 ~N），容差内不算漂移
 TOTAL_FILES_TOLERANCE = 5
 REQUIRED_METRICS = {
-    "子能力层数", "参考文档数", "工具脚本数", "必需阶段数", "平台适配数", "Schema 数",
+    "子能力层数", "参考文档数", "工具脚本数", "必需阶段数", "Schema 数",
     "资产模板数", "历史归档", "设计文档数", "顶层入口文件", "单元测试", "CI 工作流", "总文件数",
 }
 
@@ -58,7 +58,6 @@ def actual_counts() -> dict[str, int]:
     references = REPO_ROOT / "shared" / "references"
     scripts = REPO_ROOT / "shared" / "scripts"
     top_scripts = REPO_ROOT / "scripts"
-    adapters = REPO_ROOT / "shared" / "adapters"
     schema_dir = REPO_ROOT / "shared" / "assets" / "schema"
     assets = REPO_ROOT / "shared" / "assets"
     legacy = REPO_ROOT / "shared" / "legacy"
@@ -77,7 +76,6 @@ def actual_counts() -> dict[str, int]:
         "参考文档数": len(list(references.glob("*.md"))),
         "工具脚本数": len(list(scripts.glob("*.py"))) + len(list(top_scripts.glob("*.py"))),
         "必需阶段数": _count_required_stages(),
-        "平台适配数": len(list(adapters.glob("*.md"))),
         "Schema 数": len(list(schema_dir.glob("*.schema.json"))),
         "资产模板数": len(list(assets.glob("*.json"))),
         "历史归档": len(list(legacy.glob("*.md"))),

@@ -9,7 +9,7 @@
 任务架构（rwgj）是一个**通用智能体能力包**，不是受管项目：
 - **承载**：能力定义、规则、Python 工具、参考文档（在 `skills/` + `shared/`）
 - **不承载**：任何调用方项目的业务状态、恢复点、变更记录
-- **核心特性**：真相源分离（能力在仓库，项目状态在调用方的 `architecture/` 目录）；跨平台一致（差异只写在 `shared/adapters/`）
+- **核心特性**：真相源分离（能力在仓库，项目状态在调用方的 `architecture/` 目录）；规则单源（所有宿主读同一份 `shared/`，不维护宿主专用规则文件）
 
 ## 真相源分离原则（铁律）
 
@@ -36,12 +36,12 @@
 ```text
 [1] project-depth-core 想得深（功能簇展开、反薄 Demo、智能关联）
   → [2] architecture-json 落得稳（写入 architecture/ 切片、模块详情）
-  → [3] agent-protocol 跑得广（仅按需：跨平台、门禁、标准输出）
+  → [3] agent-protocol 跑得广（仅按需：跨宿主协议、门禁、标准输出）
 ```
 
 ## 工具脚本
 
-- **Python 脚本数量口径见 README.md §4.5**：核心脚本与 optional/ 宿主适配器分开计数；不要在入口重复维护静态数字。
+- **Python 脚本数量口径见 README.md §4.5**：不要在入口重复维护静态数字。
 - **运行要求**：Python 3.9+（类型注解延迟求值）；`bash verify-all.sh` 需 Git Bash / WSL
 - **必读**：[ENFORCEMENT-GUIDE.md](ENFORCEMENT-GUIDE.md) —— F+B+C 三件套强制执行机制
 - 命令速查、工作流：`shared/references/commands-cheatsheet.md`、`commands-workflows.md`
@@ -65,7 +65,6 @@
 | 参考文档 | `shared/references/<name>.md` |
 | 工具脚本 | `shared/scripts/<name>.py` |
 | Schema | `shared/assets/schema/<name>.schema.json` |
-| 平台适配 | `shared/adapters/<platform>.md` |
 | 资产模板 | `shared/assets/<name>.json` |
 
 新增脚本务必复用 `shared/scripts/_archlib.py`（UTF-8 stdout 重配、IO 错误处理、subprocess JSON 封装、architecture 加载等共享底座），不要复制粘贴。

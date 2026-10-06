@@ -36,13 +36,6 @@ REQUIRED_PROTOCOL_FILES = [
     "shared/references/agent-output-contract.md",
 ]
 
-REQUIRED_ADAPTER_FILES = [
-    "shared/adapters/codex.md",
-    "shared/adapters/claude.md",
-    "shared/adapters/trae.md",
-    "shared/adapters/generic-cli-agent.md",
-]
-
 REQUIRED_TOOL_FILES = [
     "shared/scripts/validate_agent_output.py",
     "shared/assets/schema/agent-output.schema.json",
@@ -53,7 +46,6 @@ SKILL_REQUIRED_PHRASES = [
     "任意编程智能体",
     "动态姿势语境",
     "虚拟模块智能体",
-    "adapters/",
 ]
 
 
@@ -92,7 +84,7 @@ def validate_protocol(root: Path, architecture_path: Path, *,
     if isinstance(recovery, dict) and recovery.get("动态姿势语境") and not isinstance(recovery.get("动态姿势语境"), dict):
         warnings.append("上下文恢复点.动态姿势语境 如果存在，建议为对象")
 
-    for rel in REQUIRED_PROTOCOL_FILES + REQUIRED_ADAPTER_FILES + REQUIRED_TOOL_FILES:
+    for rel in REQUIRED_PROTOCOL_FILES + REQUIRED_TOOL_FILES:
         if not (capability / rel).is_file():
             errors.append(f"必需协议文件不存在: {rel}")
 
@@ -119,7 +111,7 @@ def validate_protocol(root: Path, architecture_path: Path, *,
     # capability package's own architecture may register its protocol assets.
     if root == capability:
         declared = _archlib.collect_implementation_files(data)
-        for rel in REQUIRED_PROTOCOL_FILES + REQUIRED_ADAPTER_FILES + REQUIRED_TOOL_FILES:
+        for rel in REQUIRED_PROTOCOL_FILES + REQUIRED_TOOL_FILES:
             if rel not in declared:
                 warnings.append(f"协议文件未登记到实现清单: {rel}")
 

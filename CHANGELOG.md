@@ -3,6 +3,15 @@
 本仓库以「17 个历史版本 + 当前 rwgj 入口」为时间线；完整提交历史见 `git log --reverse --oneline`。
 本文件只记录影响使用方的里程碑变更，遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 规范。
 
+## [1.2.1] - 2026-10-06
+
+### 2026-10-06 去宿主化清理
+
+- 删除宿主专用规则文件：`shared/adapters/` 整体移除（四份按平台编写的适配说明），不再为任何具体智能体维护专用规则或专用目录。
+- 删除宿主专用集成脚本：可选 Stop hook 脚本与 `optional/` 目录及其测试一并移除。
+- 通用内容上收：门禁一句话契约与完成宣告契约并入 `shared/references/universal-agent-protocol.md`；能力层路由、README、AGENT-USAGE、CLAUDE、CONTRIBUTING、principles-card 与协议校验脚本同步改为宿主无关表述。
+- 数字口径：`平台适配数` 指标从 README §4.5 与 `check_doc_counts.py` 移除；文件总量 219 → 212，测试文件 31 → 30。
+
 ## [1.2.0] - 2026-10-06
 
 ### 2026-10-06 文档整理与发布

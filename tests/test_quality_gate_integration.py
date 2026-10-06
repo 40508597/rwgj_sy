@@ -2,7 +2,6 @@
 from __future__ import annotations
 import copy
 import hashlib
-import importlib.util
 import json
 from pathlib import Path
 import sys
@@ -15,11 +14,6 @@ sys.path.insert(0, str(PACKAGE / "shared" / "scripts"))
 import gate_check
 import _archlib
 import detect_small_command
-
-_hook_spec = importlib.util.spec_from_file_location("quality_completion_hook", PACKAGE / "optional" / "claude_stop_hook.py")
-quality_hook = importlib.util.module_from_spec(_hook_spec)
-_hook_spec.loader.exec_module(quality_hook)
-
 
 class QualityGateIntegration(unittest.TestCase):
     def setUp(self):
@@ -151,32 +145,6 @@ class QualityGateIntegration(unittest.TestCase):
         cycle = find_cycle(edges, nodes)
         self.assertEqual(len(cycle), len(nodes) + 1)
         self.assertEqual(cycle[0], cycle[-1])
-
-    def test_completion_hook_actual_argv_requires_quality(self):
-        event = {"hook_event_name": "Stop", "cwd": str(self.root), "last_assistant_message": "【任务完成】完整交付", "stop_hook_active": False}
-        with patch.object(quality_hook.resolve_tool, "candidates_for", return_value=[("fixture", PACKAGE / "shared" / "scripts" / "gate_check.py")]), \
-             patch.object(quality_hook._archlib, "run_subprocess_json", return_value=(0, {"code": 0, "verdict": "pass"}, "")) as run:
-            self.assertEqual(quality_hook.decide(event), {})
-        argv = run.call_args.args[0]
-        self.assertIn("--quality-required", argv)
-        self.assertIn("--json", argv)
-        self.assertIn(str(self.root), argv)
-
-    def test_completion_hook_unknown_required_quality_blocks(self):
-        event = {"hook_event_name": "Stop", "cwd": str(self.root), "last_assistant_message": "【任务完成】完整交付", "stop_hook_active": False}
-        with patch.object(quality_hook.resolve_tool, "candidates_for", return_value=[("fixture", PACKAGE / "shared" / "scripts" / "gate_check.py")]), \
-             patch.object(quality_hook._archlib, "run_subprocess_json", return_value=(2, {"code": 2, "verdict": "unknown", "原因": ["缺少质量事实与规则"]}, "")) as run:
-            result = quality_hook.decide(event)
-        self.assertEqual(result["decision"], "block")
-        self.assertIn("--quality-required", run.call_args.args[0])
-        self.assertIn("缺少质量事实与规则", result["reason"])
-
-    def test_completion_hook_local_messages_keep_scope_degradation(self):
-        event = {"hook_event_name": "Stop", "cwd": str(self.root), "stop_hook_active": False}
-        for message in ["查看完成：这是运行说明", "局部测试已执行", "【未通过验证】尚缺工程导出", "这是架构概念说明"]:
-            with self.subTest(message=message):
-                with patch.object(quality_hook._archlib, "run_subprocess_json", side_effect=AssertionError("local result must not run project completion gate")):
-                    self.assertEqual(quality_hook.decide({**event, "last_assistant_message": message}), {})
 
     def assert_quality_cli_and_gate_unknown(self):
         code, result, _ = _archlib.run_subprocess_json([

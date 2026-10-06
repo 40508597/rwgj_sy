@@ -111,12 +111,12 @@ python "<detect_small_command_path>" --request "<用户需求文本>" --project-
   ↓
 2. skills/architecture-json/SCHEMA.md    ← 落得稳：写入 architecture/ 切片、模块详情、实现清单
   ↓
-3. skills/agent-protocol/PROTOCOL.md     ← 仅按需：跨平台适配、硬门禁、标准输出、能力降级
+3. skills/agent-protocol/PROTOCOL.md     ← 仅按需：跨宿主协议、硬门禁、标准输出、能力降级
 ```
 
 - **project-depth-core**：完整流程先进入；最小闭环只做功能簇最小定位，不全量展开。
 - **architecture-json**：需要创建/修改/校验 `architecture/` 架构文件夹或切片时进入。
-- **agent-protocol**：仅跨平台适配、标准化输出、硬门禁、能力降级、虚拟模块审议时进入。
+- **agent-protocol**：仅跨宿主协议、标准化输出、硬门禁、能力降级、虚拟模块审议时进入。
 
 不得从本入口直接写代码、直接展开业务细节、直接判断完成。
 
@@ -166,7 +166,7 @@ python "<manage_state_path>" update <阶段名> completed --note "完成说明" 
 - 通过后宣告：首行必须是 **`【任务完成】`** ＋一句话说明；
 - 未通过时汇报：首行必须是 **`【未通过验证】`** ＋失败项与下一步，此时只能表述「已完成设计/实现，未通过验证」，并写入恢复点与变更记录。
 
-该首行是宿主适配器的输入契约；只有实际配置并启用适配器才会自动拦截。无 hook 时仍须主动运行门禁。启动、查看等局部任务只汇报本次执行结果，不用项目整体完成声明；未通过门禁不妨碍继续解决问题或如实汇报阻塞。
+该首行是机器可判的固定契约，供宿主侧自动化门禁确定性触发；没有自动化门禁时仍须主动运行门禁。启动、查看等局部任务只汇报本次执行结果，不用项目整体完成声明；未通过门禁不妨碍继续解决问题或如实汇报阻塞。
 
 ## 详细参考路由（按需加载，不全量读取）
 
@@ -175,7 +175,7 @@ python "<manage_state_path>" update <阶段名> completed --note "完成说明" 
 - 小命令降级（规则/词表/工具）：`../../shared/references/small-command-degradation.md`｜`small-command-rules.json`｜`detect_small_command.py`
 - 功能簇/反薄Demo/交互完整性/递进拆分/拆分粒度/关联优先级/capability 索引/原则卡：`function-clusters.md` `interaction-completeness.md` `progressive-decomposition.md` `splitting-guide.md` `association-and-priority.md` `capability-index.md` `principles-card.md`
 - JSON 规范/五命令工作流/21 项校验/切片分片/上下文恢复/执行模板：`schemas.md` `commands-workflows.md` `validation-checklist.md` `json-sharding.md` `context-recovery.md` `execution-templates.md`
-- agent-protocol 层（仅按需）：跨平台 `universal-agent-protocol.md`；任务姿态 `task-posture.md`；虚拟模块 `module-agent-protocol.md`；硬约束门禁 `validation-checklist.md`；提案契约 `agent-output-contract.md`；质量红线（自动）`check_quality_redlines.py`；独立审计 `audit_architecture.py generate/report`
+- agent-protocol 层（仅按需）：跨宿主协议 `universal-agent-protocol.md`；任务姿态 `task-posture.md`；虚拟模块 `module-agent-protocol.md`；硬约束门禁 `validation-checklist.md`；提案契约 `agent-output-contract.md`；质量红线（自动）`check_quality_redlines.py`；独立审计 `audit_architecture.py generate/report`
 - 专业能力按姿态/阶段加载与使用核验：`capability-index.md`；已确认的代码审查、协作恢复、转换回写分别路由到 `semantic-code-review.md`、`handoff-integrity.md`、`artifact-integrity.md`，不全量读取。
 （均在 `../../shared/references/` 与 `../../shared/scripts/` 下，可用 resolve_tool 定位。）
 

@@ -22,7 +22,7 @@
 
 - **角色**：薄入口技能包，承载任务架构规则与共享工具
 - **使用方**：支持 `SKILL.md` 技能规范的智能体宿主（含自研 CLI Agent），不绑定具体产品
-- **核心特性**：真相源分离（能力在仓库，项目状态在调用方 `architecture/`）、规则单源（所有宿主读同一份 `shared/`，差异只写在 `shared/adapters/`）
+- **核心特性**：真相源分离（能力在仓库，项目状态在调用方 `architecture/`）、规则单源（所有宿主读同一份 `shared/`，不维护宿主专用规则文件）
 
 ---
 
@@ -52,6 +52,7 @@
 | rwgj v1.0.0 | 2026-06-04 | 首个发布：技能包雏形与跨环境兼容 | tag `v1.0.0` |
 | rwgj v1.1.0 | 2026-08-04 | 薄入口化 + F+B+C 强制执行机制 + 质量工程（质量红线、独立审计、CI / 单测 / 数字对账）| tag `v1.1.0` |
 | rwgj v1.2.0 | 2026-10-06 | 专业子技能 15 项、通用质量协议、能力规划与核验、架构可视化；文档整理与发布包 | tag `v1.2.0` + Release |
+| rwgj v1.2.1 | 2026-10-06 | 去宿主化清理：移除全部宿主专用规则与集成脚本，协议统一到 `universal-agent-protocol.md` | tag `v1.2.1` + Release |
 
 完整变更明细见 [CHANGELOG.md](CHANGELOG.md)；发布包（zip）与源码归档见 GitHub Releases。
 
@@ -106,7 +107,6 @@
 │   ├── check_doc_counts.py       # 文档数字/引用对账
 │   └── demo_project.py           # 端到端演示（临时受管项目全验证链）
 ├── shared/                     # 共享资源（Agent 加载）
-│   ├── adapters/               # 平台适配
 │   ├── assets/                 # 资产模板 + Schema + folder-template 样张
 │   ├── legacy/                 # 历史 SKILL 归档
 │   ├── references/             # 参考文档（数量见 §4.5）
@@ -142,7 +142,6 @@
 | 参考文档 | 见 §4.5 | `shared/references/` |
 | 脚本工具 | 见 §4.5 | `shared/scripts/` + `scripts/`（含内部辅助：`_archlib`、`run_with_progress`、`check_doc_counts`，不计入用户工具表）|
 | 资产模板 | 见 §4.5 | `shared/assets/`（顶层 .json）|
-| 平台适配 | 见 §4.5 | `shared/adapters/` |
 | 历史档案 | 见 §4.5 | `shared/legacy/` |
 | Schema | 见 §4.5 | `shared/assets/schema/` |
 
@@ -304,7 +303,7 @@
 - ✗ **不**复制子能力层细则到总入口
 - ✗ **不**让 `agent-protocol` 抢占 `project-depth-core` 入口
 - ✗ **不**做功能簇展开的"中央判断"（这是认知层职责）
-- ✗ **不**维护分叉规则（所有 Agent 读同一份）
+- ✗ **不**维护分叉规则（所有宿主读同一份）
 
 **工具降级策略**：工具不可用时按文本规则降级执行，并在验证证据中记录"未运行原因"。
 
@@ -318,17 +317,16 @@
 |------|------|
 | 子能力层数 | 4 |
 | 参考文档数 | 25 |
-| 工具脚本数 | 31（shared/scripts 28 + scripts 3，含内部辅助；optional/ 宿主适配器单独分发）|
+| 工具脚本数 | 31（shared/scripts 28 + scripts 3，含内部辅助）|
 | 必需阶段数 | 9（manage_state.STANDARD_STAGES required=True）|
-| 平台适配数 | 4 |
 | Schema 数 | 5 |
 | 资产模板数 | 11（shared/assets 顶层 .json）|
 | 历史归档 | 4（shared/legacy/ 下含 README.md 索引 + 3 份历史 SKILL）|
 | 设计文档数 | 6（docs/ 下 1 篇回归断言 + docs/adr/ 5 篇决策记录含索引）|
 | 顶层入口文件 | 2（SKILL.md / AGENT-USAGE.md）|
-| 单元测试 | 31 个测试文件（tests/test_*.py，stdlib unittest；用例数由 check_doc_counts.py 动态统计）|
+| 单元测试 | 30 个测试文件（tests/test_*.py，stdlib unittest；用例数由 check_doc_counts.py 动态统计）|
 | CI 工作流 | 1（.github/workflows/verify.yml）|
-| 总文件数 | ~219（不含 .git/、缓存和生成的验证报告，含测试与 CI）|
+| 总文件数 | ~212（不含 .git/、缓存和生成的验证报告，含测试与 CI）|
 
 #### 4.5.1 分发最小运行集
 
@@ -338,11 +336,11 @@
 SKILL.md
 LICENSE                    THIRD-PARTY-NOTICES.md
 skills/task-architecture   skills/project-depth-core   skills/architecture-json   skills/agent-protocol
-shared/scripts             shared/references           shared/adapters            shared/assets
+shared/scripts             shared/references           shared/assets
 shared/subskills
 ```
 
-使用默认专业目录时，`shared/subskills/` 中的 GUIDE、固定来源和许可文件，以及根目录的许可与第三方声明一起分发。若选择宿主 Stop hook，需额外分发 `optional/claude_stop_hook.py`；一键项目验证可额外分发 `verify-all.sh`，其 --project 模式不依赖 tests/、README 或开发自检脚本。完整 --self-test 则需要开发分发资产。安装、提供源码或配置示例都不等于宿主集成已经启用。
+使用默认专业目录时，`shared/subskills/` 中的 GUIDE、固定来源和许可文件，以及根目录的许可与第三方声明一起分发。一键项目验证可额外分发 `verify-all.sh`，其 --project 模式不依赖 tests/、README 或开发自检脚本；完整 --self-test 则需要开发分发资产。安装、提供源码或配置示例都不等于宿主集成已经启用。
 
 来源锁按原始字节校验。仓库的 `.gitattributes` 为 `shared/subskills/` 保留原始字节，避免 Git 自动换行转换破坏记录的哈希；重新分发时也保留这些来源与适配文件的编码和换行。
 
@@ -373,7 +371,7 @@ shared/subskills
 |------|----------|------------------|
 | 需求理解 | 文档/PR/口头 | 功能簇展开 + 强制停止规则 |
 | 架构设计 | 自由发挥 | 强制切片目录 + 模块详情底线 |
-| 多宿主一致 | 每个工具各维护一套规则 | 同一份能力包；适配层只记差异 |
+| 多宿主一致 | 每个工具各维护一套规则 | 同一份能力包与同一份规则，不维护宿主专用文件 |
 | 一致性 | 人工 review | 工具验证结构与部分一致性，21 项语义清单配合工程复核 |
 | 代码 drift | 滞后发现 | 实时扫描 |
 | 上下文恢复 | 重新看文档 | 切片目录 + 恢复点 |
@@ -393,7 +391,7 @@ shared/subskills
 git clone https://github.com/40508597/rwgj_sy.git ~/.codex/skills/rwgj
 
 # 2. 触发：支持 SKILL.md 的宿主按 name/description 自动识别技能；
-#    不支持自动识别的宿主按 agent-protocol 适配层协议加载。
+#    不支持自动识别的宿主按 agent-protocol 协议加载。
 #    项目内使用见下方「项目级复制模式」。
 ```
 
@@ -417,15 +415,12 @@ cp "$TASK_ARCH_SOURCE/verify-all.sh" "$TASK_ARCH_INSTALL/"
 
 只分发运行能力集到上述子目录，保留项目根现有 README、.gitignore、CLAUDE.md 和 .github。不要复制能力仓库的安装/自检标识到业务项目根。项目的 architecture.json 与 architecture/ 独立保存在项目根，并按项目协作要求版本化。Windows PowerShell 可用 Copy-Item -LiteralPath 复制同一组文件到同一子目录。
 
-选择宿主 Stop hook 时另复制 `optional/claude_stop_hook.py` 到安装目录的 `optional/`，按 `shared/adapters/` 中对应适配说明合并配置并实际验证宿主加载；核心最小集本身不包含已启用的 hook。
-
 #### 两种模式对比
 
 | 维度 | 全局安装 | 项目级复制 |
 |------|----------|------------|
 | 共享能力更新 | 一次更新，多项目生效 | 每个项目单独更新 |
 | 项目真相源（architecture/）| 每个项目独立 | 跟随项目 |
-| 适配层差异（adapters/）| 跟随全局 | 跟随项目（可定制）|
 | 适合 | 标准化工作流 | 项目特化需求 |
 
 ### 5.2 用户使用方式
@@ -663,7 +658,7 @@ python "<check_subskill_sources_path>" "<能力包根>" --json
 1. **薄入口优先**：所有需求先说"使用任务架构做 XXX"，让系统自己路由
 2. **强制切片**：旧单文件 `architecture.json` 第一步必须迁移为 `architecture/`
 3. **工具优先**：工具可用时优先跑工具，工具不可用时按文本规则降级
-4. **规则单源**：所有宿主读同一份 `shared/`，同类差异只写在 `shared/adapters/`
+4. **规则单源**：所有宿主读同一份 `shared/`，不维护宿主专用规则文件
 5. **受控主动性**：Agent 主动补全时，必须遵守"不破坏用户显式约束"
 6. **完成前自检**：实现完成后必须跑 `check_regression_assertions.py` 验证
 
@@ -675,7 +670,7 @@ python "<check_subskill_sources_path>" "<能力包根>" --json
 | 工具运行报错 | 先 `python <script> --help` 看参数；工具失败可按文本规则降级 |
 | 架构文件不一致 | 跑 `python shared/scripts/validate_architecture.py architecture/index.json` 看具体错误 |
 | 代码和架构 drift | 跑 `python shared/scripts/scan_code_drift.py` 看具体 drift 列表 |
-| 宿主行为差异 | 读 `shared/adapters/` 中对应适配说明 |
+| 宿主能力不足 | 按 `universal-agent-protocol.md` 的能力探测与降级规则记录未运行原因 |
 | 子能力层路径找不到 | 检查 `../../shared/` 解析：项目根目录 vs 全局目录 |
 
 ### 5.9 辅助参考链接
@@ -715,7 +710,6 @@ git push origin main
 | 参考文档 | `shared/references/<name>.md` |
 | 工具脚本 | `shared/scripts/<name>.py` |
 | Schema | `shared/assets/schema/<name>.schema.json` |
-| 平台适配 | `shared/adapters/<platform>.md` |
 | 资产模板 | `shared/assets/<name>.json` |
 
 扩展内部层与接入已有外部技能是两种操作；保持根 `SKILL.md` 为本包唯一入口。新增能力先明确触发、作用域、输入、产出、证据与回写，按 `capability-index.md` 核验；名称、描述与社区热度不能替代实际能力验证。
@@ -751,4 +745,4 @@ gh release create vx.y.z "rwgj-vx.y.z.zip" --title "任务架构 rwgj vx.y.z" --
 
 - **技能入口**：`SKILL.md`（薄入口）/ `AGENT-USAGE.md`（通用入口）
 - **架构真相源**：`architecture.json` → `architecture/index.json`
-- **共享资源**：`shared/references/`、`shared/scripts/` + `scripts/`、`shared/adapters/`、`shared/assets/`（数量口径见 §4.5）
+- **共享资源**：`shared/references/`、`shared/scripts/` + `scripts/`、`shared/assets/`（数量口径见 §4.5）

@@ -85,7 +85,7 @@ git commit -m "docs: clarify installation steps in README"
 
 - **薄入口优先**：避免把细节塞进 SKILL.md / AGENT-USAGE.md
 - **能力归位**：能力定义放 `shared/`，项目状态不写进仓库
-- **平台一致**：所有 Agent 读同一份 `shared/`，差异只写在 `adapters/`
+- **规则单源**：所有宿主读同一份 `shared/`，不维护宿主专用规则文件
 - **强制切片**：旧单文件 `architecture.json` 必须迁移到 `architecture/` 切片目录
 
 ### 4.2 文档
