@@ -120,6 +120,26 @@ class ProjectQualityForward(unittest.TestCase):
         self.assertEqual(report["coverage"]["rules_unknown"], 0)
         self.assertEqual(len(report["facts_sha256"]), 64)
 
+    def test_required_and_optional_counts_preserve_existing_status_contract(self):
+        self.only("boundary", "complexity", "crap")
+        self.rules["complexity"]["required"] = False
+        self.rules["complexity"]["max"] = 1
+        self.rules["crap"]["required"] = False
+        self.rules["crap"]["coverage_method"] = "unavailable"
+        report = self.expect("pass")
+        self.assertEqual(report["rule_counts"], {
+            "required": {"total": 1, "pass": 1, "fail": 0, "unknown": 0},
+            "optional": {"total": 2, "pass": 0, "fail": 1, "unknown": 1}})
+        self.assertEqual(report["counts"], {"pass": 1, "fail": 1, "unknown": 1})
+        self.assertEqual(report["coverage"]["rules_unknown"], 1)
+
+    def test_no_required_rules_still_unknown_with_optional_counts(self):
+        self.only("boundary")
+        self.rules["boundary"]["required"] = False
+        report = self.expect("unknown")
+        self.assertEqual(report["rule_counts"]["required"]["total"], 0)
+        self.assertEqual(report["rule_counts"]["optional"]["pass"], 1)
+
     def test_Q02_forbidden_dependency_fails(self):
         self.only("boundary")
         self.edge("领域", "界面")

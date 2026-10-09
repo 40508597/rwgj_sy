@@ -194,7 +194,14 @@ def context_scopes(raw: Any) -> tuple[list[str], list[str]]:
 
 
 def differences(before: Any, after: Any, path="") -> list[str]:
-    if type(before) is not type(after):
+    """Compare JSON data, ignoring an object's non-serialized dict sidecar.
+
+    ArchitectureView remains a JSON object, including when nested. Only object
+    implementations may differ; scalar and array types stay strict so Python's
+    bool/int/float equality and non-JSON sequences never hide a real change.
+    """
+    if (type(before) is not type(after)
+            and not (isinstance(before, dict) and isinstance(after, dict))):
         return [path]
     if isinstance(before, dict):
         changed = []
@@ -259,6 +266,135 @@ def actual_declarations(architecture: Any) -> bool:
     return isinstance(items, list) and any(isinstance(v, dict) and
         v.get("调用状态") in {"已调用", "已完成", "loaded", "used", "completed"} for v in items)
 
+
+def _check_loaded_sources(project: Path, cid: str, source_files: list, check) -> None:
+    """Independently verify source boundary, path aliases, byte length and hash."""
+    seen = set()
+    for entry in source_files:
+        if not isinstance(entry, dict) or not isinstance(entry.get("path"), str):
+            raise Invalid("invalid loaded source entry")
+        path = Path(entry["path"])
+        base = Path(entry.get("declared_root", ""))
+        if (not path.is_absolute() or not base.is_absolute() or
+            not path.resolve().is_relative_to(base.resolve()) or entry.get("origin") not in {"project", "catalog"}
+            or (entry.get("origin") == "project" and not path.resolve().is_relative_to(project))):
+            check(f"{cid}:source-boundary", "fail", "loaded source is outside its declared root")
+            continue
+        key = str(path.resolve()).casefold()
+        if key in seen:
+            raise Invalid(f"duplicate loaded source path: {path}")
+        seen.add(key)
+        if (not path.is_file() or not isinstance(entry.get("sha256"), str)
+                or not SHA.fullmatch(entry["sha256"]) or digest(path) != entry["sha256"].lower()
+                or type(entry.get("bytes")) is not int or path.stat().st_size != entry["bytes"]):
+            check(f"{cid}:source", "unknown", "loaded capability source is stale or unavailable", path=str(path))
+        else:
+            check(f"{cid}:source", "pass", "loaded source hash and length match", path=str(path))
+
+
+def _check_catalog_source(project: Path, cid: str, item: dict, entry: dict,
+                          catalog_path: Path, source_files: list, check) -> None:
+    """Bind selected files to the separately read catalog, including overrides."""
+    if not isinstance(entry.get("root"), str) or not isinstance(entry.get("entry"), str):
+        check(f"{cid}:catalog-source", "unknown", "catalog source root/entry is missing")
+    else:
+        declared_root = Path(entry["root"])
+        if not declared_root.is_absolute():
+            declared_root = catalog_path.parent / declared_root
+        declared_root = declared_root.resolve()
+        expected_files = set()
+        for relative in [entry["entry"], *strings(entry.get("refs", []), "catalog.refs")]:
+            relative_path = Path(relative.replace("\\", "/"))
+            if relative_path.is_absolute() or relative_path.drive or ".." in relative_path.parts:
+                check(f"{cid}:catalog-source", "fail", "catalog source entry escapes declared root")
+                continue
+            target = (declared_root / relative_path).resolve()
+            if not target.is_relative_to(declared_root):
+                check(f"{cid}:catalog-source", "fail", "catalog source entry follows an escaping link")
+                continue
+            if entry.get("project_override") is True:
+                override = project_file(project, relative)
+                if override.is_file():
+                    target = override
+            expected_files.add(str(target).casefold())
+        recorded_files = {str(Path(v["path"]).resolve()).casefold() for v in source_files
+                          if isinstance(v, dict) and isinstance(v.get("path"), str)}
+        if expected_files != recorded_files or item.get("source") != entry.get("source"):
+            check(f"{cid}:catalog-source", "unknown", "loaded source files/type differ from the independently parsed catalog")
+
+
+def _check_call_inputs(project: Path, call: dict, item: dict, catalog_item: dict | None,
+                       context_reads: list[str], context_writes: list[str], check) -> dict:
+    """Check the intersection of host, selected and independently bound scopes."""
+    call_id = call["id"]
+    for field, scopes in (("read_files", item["read_scope"]), ("modified_files", item["write_scope"])):
+        files = strings(call.get(field), f"{call_id}.{field}")
+        for rel in files:
+            try:
+                permitted = in_file_scope(rel, scopes, project)
+                context_scope = context_reads if field == "read_files" else context_writes
+                permitted = permitted and in_file_scope(rel, context_scope, project)
+                if catalog_item is not None:
+                    declared_scope = catalog_item.get("read_scope", ["**"]) if field == "read_files" else catalog_item.get("write_scope", [])
+                    permitted = permitted and in_file_scope(rel, strings(declared_scope, "catalog file scope"), project)
+            except Invalid:
+                permitted = False
+            if not permitted:
+                check(f"{call_id}:{field}", "fail", "declared file access exceeds selected scope", path=rel)
+    input_hashes = call.get("input_hashes")
+    if not isinstance(input_hashes, dict) or not input_hashes:
+        check(f"{call_id}:inputs", "unknown", "call has no selected input hashes")
+        input_hashes = {}
+    for rel, expected in input_hashes.items():
+        try:
+            path = project_file(project, rel)
+        except Invalid:
+            check(f"{call_id}:inputs-scope", "fail", "selected input path escapes project", path=rel)
+            continue
+        if (not in_file_scope(rel, item["read_scope"], project)
+                or not in_file_scope(rel, context_reads, project)
+                or (catalog_item is not None and not in_file_scope(rel, strings(catalog_item.get("read_scope", ["**"]), "catalog.read_scope"), project))):
+            check(f"{call_id}:inputs-scope", "fail", "selected input is outside allowed read scope", path=rel)
+        elif not isinstance(expected, str) or not SHA.fullmatch(expected) or not path.is_file() or digest(path) != expected.lower():
+            check(f"{call_id}:inputs", "unknown", "call inputs are stale or unavailable", path=rel)
+        else:
+            check(f"{call_id}:inputs", "pass", "call input hash matches", path=rel)
+    if set(call.get("read_files", [])) - set(input_hashes):
+        check(f"{call_id}:input-coverage", "unknown", "declared read files lack input hash coverage")
+    return input_hashes
+
+
+def _check_call_evidence(project: Path, call: dict, input_hashes: dict, check) -> None:
+    """Review consistency and actual execution receipts remain different evidence."""
+    call_id = call["id"]
+    kind = call.get("kind")
+    if kind == "review":
+        review = call.get("review")
+        if (not isinstance(review, dict) or not isinstance(review.get("summary"), str) or not review["summary"].strip()
+                or not isinstance(review.get("limitations"), list)
+                or any(not isinstance(v, str) or not v.strip() for v in review["limitations"])):
+            check(f"{call_id}:review", "unknown", "review summary and explicit limitations are missing")
+        else:
+            check(f"{call_id}:review", "pass", "review record present; this does not prove automated correctness", evidence_kind="review")
+    elif kind == "execution":
+        execution = call.get("execution")
+        if not isinstance(execution, dict):
+            check(f"{call_id}:execution", "unknown", "execution receipt reference is missing")
+            return
+        receipt_path = project_file(project, execution.get("receipt"))
+        if not receipt_path.is_file():
+            check(f"{call_id}:execution", "unknown", "execution receipt is missing")
+            return
+        receipt = read_json(receipt_path)
+        from run_verification import check_receipt
+        state, reason = check_receipt(receipt, project, required_inputs=list(input_hashes))
+        command = execution.get("command")
+        if (not isinstance(command, list) or not command or any(not isinstance(arg, str) for arg in command)
+                or not isinstance(receipt, dict) or receipt.get("command") != command):
+            state, reason = "unknown", "receipt command does not match declared expected argv"
+        check(f"{call_id}:execution", state, reason, evidence_kind="execution")
+    else:
+        check(f"{call_id}:kind", "unknown", "call must distinguish review from execution")
 
 def evaluate_usage(project: Path | str, architecture_path: Path | str = "architecture.json", *,
                    plan_path: str = DEFAULT_DIR + "/plan.json",
@@ -377,54 +513,11 @@ def evaluate_usage(project: Path | str, architecture_path: Path | str = "archite
                 check(f"{cid}:source", "unknown", "no source files were loaded")
                 continue
             if catalog_loaded and cid in catalog_entries:
-                entry = catalog_entries[cid]
-                if not isinstance(entry.get("root"), str) or not isinstance(entry.get("entry"), str):
-                    check(f"{cid}:catalog-source", "unknown", "catalog source root/entry is missing")
-                else:
-                    declared_root = Path(entry["root"])
-                    if not declared_root.is_absolute():
-                        declared_root = Path(catalog["path"]).parent / declared_root
-                    declared_root = declared_root.resolve()
-                    expected_files = set()
-                    for relative in [entry["entry"], *strings(entry.get("refs", []), "catalog.refs")]:
-                        relative_path = Path(relative.replace("\\", "/"))
-                        if relative_path.is_absolute() or relative_path.drive or ".." in relative_path.parts:
-                            check(f"{cid}:catalog-source", "fail", "catalog source entry escapes declared root")
-                            continue
-                        target = (declared_root / relative_path).resolve()
-                        if not target.is_relative_to(declared_root):
-                            check(f"{cid}:catalog-source", "fail", "catalog source entry follows an escaping link")
-                            continue
-                        if entry.get("project_override") is True:
-                            override = project_file(project, relative)
-                            if override.is_file():
-                                target = override
-                        expected_files.add(str(target).casefold())
-                    recorded_files = {str(Path(v["path"]).resolve()).casefold() for v in source_files
-                                      if isinstance(v, dict) and isinstance(v.get("path"), str)}
-                    if expected_files != recorded_files or item.get("source") != entry.get("source"):
-                        check(f"{cid}:catalog-source", "unknown", "loaded source files/type differ from the independently parsed catalog")
-            seen = set()
-            for entry in source_files:
-                if not isinstance(entry, dict) or not isinstance(entry.get("path"), str):
-                    raise Invalid("invalid loaded source entry")
-                path = Path(entry["path"])
-                base = Path(entry.get("declared_root", ""))
-                if (not path.is_absolute() or not base.is_absolute() or
-                    not path.resolve().is_relative_to(base.resolve()) or entry.get("origin") not in {"project", "catalog"}
-                    or (entry.get("origin") == "project" and not path.resolve().is_relative_to(project))):
-                    check(f"{cid}:source-boundary", "fail", "loaded source is outside its declared root")
-                    continue
-                key = str(path.resolve()).casefold()
-                if key in seen:
-                    raise Invalid(f"duplicate loaded source path: {path}")
-                seen.add(key)
-                if (not path.is_file() or not isinstance(entry.get("sha256"), str)
-                        or not SHA.fullmatch(entry["sha256"]) or digest(path) != entry["sha256"].lower()
-                        or type(entry.get("bytes")) is not int or path.stat().st_size != entry["bytes"]):
-                    check(f"{cid}:source", "unknown", "loaded capability source is stale or unavailable", path=str(path))
-                else:
-                    check(f"{cid}:source", "pass", "loaded source hash and length match", path=str(path))
+                _check_catalog_source(project, cid, item, catalog_entries[cid],
+                                      Path(catalog["path"]), source_files, check)
+
+            _check_loaded_sources(project, cid, source_files, check)
+
         current = snapshot_current(project, arch_path, plan)
         original = plan.get("architecture_snapshot")
         if hashlib.sha256(canonical(original)).hexdigest() != plan.get("architecture_sha256"):
@@ -475,40 +568,9 @@ def evaluate_usage(project: Path | str, architecture_path: Path | str = "archite
                 check(f"{call_id}:completion", "unknown", "partial, unavailable or unfinished capability call")
             else:
                 check(f"{call_id}:completion", "pass", "call is marked completed")
-            for field, scopes in (("read_files", item["read_scope"]), ("modified_files", item["write_scope"])):
-                files = strings(call.get(field), f"{call_id}.{field}")
-                for rel in files:
-                    try:
-                        permitted = in_file_scope(rel, scopes, project)
-                        context_scope = permitted_context_reads if field == "read_files" else permitted_context_writes
-                        permitted = permitted and in_file_scope(rel, context_scope, project)
-                        if catalog_item is not None:
-                            declared_scope = catalog_item.get("read_scope", ["**"]) if field == "read_files" else catalog_item.get("write_scope", [])
-                            permitted = permitted and in_file_scope(rel, strings(declared_scope, "catalog file scope"), project)
-                    except Invalid:
-                        permitted = False
-                    if not permitted:
-                        check(f"{call_id}:{field}", "fail", "declared file access exceeds selected scope", path=rel)
-            input_hashes = call.get("input_hashes")
-            if not isinstance(input_hashes, dict) or not input_hashes:
-                check(f"{call_id}:inputs", "unknown", "call has no selected input hashes")
-                input_hashes = {}
-            for rel, expected in input_hashes.items():
-                try:
-                    path = project_file(project, rel)
-                except Invalid:
-                    check(f"{call_id}:inputs-scope", "fail", "selected input path escapes project", path=rel)
-                    continue
-                if (not in_file_scope(rel, item["read_scope"], project)
-                        or not in_file_scope(rel, permitted_context_reads, project)
-                        or (catalog_item is not None and not in_file_scope(rel, strings(catalog_item.get("read_scope", ["**"]), "catalog.read_scope"), project))):
-                    check(f"{call_id}:inputs-scope", "fail", "selected input is outside allowed read scope", path=rel)
-                elif not isinstance(expected, str) or not SHA.fullmatch(expected) or not path.is_file() or digest(path) != expected.lower():
-                    check(f"{call_id}:inputs", "unknown", "call inputs are stale or unavailable", path=rel)
-                else:
-                    check(f"{call_id}:inputs", "pass", "call input hash matches", path=rel)
-            if set(call.get("read_files", [])) - set(input_hashes):
-                check(f"{call_id}:input-coverage", "unknown", "declared read files lack input hash coverage")
+            input_hashes = _check_call_inputs(project, call, item, catalog_item,
+                                             permitted_context_reads, permitted_context_writes, check)
+
             outputs = call.get("outputs")
             if not isinstance(outputs, list) or not outputs:
                 check(f"{call_id}:outputs", "unknown", "call has no output artifacts")
@@ -552,34 +614,8 @@ def evaluate_usage(project: Path | str, architecture_path: Path | str = "archite
                     check(f"{call_id}:writeback", "fail", "actual writeback lost or changed output semantics", pointer=wb)
                 else:
                     check(f"{call_id}:writeback", "pass", "artifact value equals actual architecture writeback", pointer=wb)
-            kind = call.get("kind")
-            if kind == "review":
-                review = call.get("review")
-                if (not isinstance(review, dict) or not isinstance(review.get("summary"), str) or not review["summary"].strip()
-                        or not isinstance(review.get("limitations"), list)
-                        or any(not isinstance(v, str) or not v.strip() for v in review["limitations"])):
-                    check(f"{call_id}:review", "unknown", "review summary and explicit limitations are missing")
-                else:
-                    check(f"{call_id}:review", "pass", "review record present; this does not prove automated correctness", evidence_kind="review")
-            elif kind == "execution":
-                execution = call.get("execution")
-                if not isinstance(execution, dict):
-                    check(f"{call_id}:execution", "unknown", "execution receipt reference is missing")
-                    continue
-                receipt_path = project_file(project, execution.get("receipt"))
-                if not receipt_path.is_file():
-                    check(f"{call_id}:execution", "unknown", "execution receipt is missing")
-                    continue
-                receipt = read_json(receipt_path)
-                from run_verification import check_receipt
-                state, reason = check_receipt(receipt, project, required_inputs=list(input_hashes))
-                command = execution.get("command")
-                if (not isinstance(command, list) or not command or any(not isinstance(arg, str) for arg in command)
-                        or not isinstance(receipt, dict) or receipt.get("command") != command):
-                    state, reason = "unknown", "receipt command does not match declared expected argv"
-                check(f"{call_id}:execution", state, reason, evidence_kind="execution")
-            else:
-                check(f"{call_id}:kind", "unknown", "call must distinguish review from execution")
+            _check_call_evidence(project, call, input_hashes, check)
+
         for cid in sorted(set(selected) - used):
             check(f"{cid}:use", "unknown", "selected capability has no use record")
         unaccounted = [p for p in changed if not any(p == wb or under(p, wb) for wb in written)]

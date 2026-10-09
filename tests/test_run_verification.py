@@ -156,12 +156,19 @@ class VerificationReceiptTests(unittest.TestCase):
         self.assertEqual(runner.check_receipt(receipt, self.root)[0], "pass")
 
     def test_cli_failure_and_unknown_exit_codes(self):
-        for code, expected in (("import sys; sys.exit(8)", 1), ("import time; time.sleep(3)", 2)):
+        cases = (("import sys; sys.exit(8)", 1, "5", "fail", False),
+                 ("import time; time.sleep(3)", 2, "0.2", "unknown", True))
+        for code, expected, timeout, status, timed_out in cases:
             with self.subTest(code=code):
                 result = self.cli("--output", "run.json", "--input", self.input.name,
-                                  "--timeout", "0.2", "--", *self.command(code))
-                self.assertEqual(result.returncode, expected, result.stderr)
+                                  "--timeout", timeout, "--", *self.command(code))
+                self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
                 self.assertTrue((self.root / "run.json").is_file())
+                receipt = json.loads((self.root / "run.json").read_text(encoding="utf-8"))
+                self.assertEqual(receipt["status"], status)
+                self.assertEqual(receipt["timed_out"], timed_out)
+                if not timed_out:
+                    self.assertEqual(receipt["returncode"], 8)
 
     def test_output_escape_directory_and_input_overwrite_do_not_run(self):
         before = self.input.read_bytes()

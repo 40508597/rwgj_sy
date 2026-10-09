@@ -18,11 +18,11 @@
         "shared/subskills/upstream/wshobson-agents/plugins/backend-development/skills/architecture-patterns/references/details.md": "a53411600b253b343247db9d86140f3136ee7bd26a67aa8411962bcc1f5ff981",
         "shared/subskills/upstream/wshobson-agents/plugins/backend-development/skills/architecture-patterns/SOURCE.md": "350caf22b856b7d2908a10a69a8cc13e743c757ba9838716051b4e29fc1d7595",
         "shared/subskills/upstream/wshobson-agents/LICENSE": "f89abb55d9f073f38f1703e4518f0613c788c6174be7f13b8dfe48a1c076c746",
-        "shared/subskills/architecture-patterns/GUIDE.md": "a40ccb20b8b4fc6142df4d3ab73050cf002490ab5666be6950108bb79a7f0c86"
+        "shared/subskills/architecture-patterns/GUIDE.md": "dfc2d7e8f32cf21f6711839ae1fa53bb279a040bade059896cdc717bf66d44f8"
       },
       "adaptation": {
         "changed": true,
-        "notice": "中文方法适配；保留出处及许可，取消上游全流程接管、固定技术栈和额外提交/批准要求。",
+        "notice": "中文方法适配；保留出处及许可，取消上游全流程接管、固定技术栈和额外提交/批准要求。 2026-10-09：补充递归模块权威架构回写，保留上游固定版本与原文。 2026-10-09：共用按需适配边界并明确公共契约权威落位；固定来源原文与许可未改。",
         "author": "wshobson",
         "upstream_author": "wshobson",
         "license": "MIT"
@@ -42,11 +42,11 @@
       "files": {
         "shared/subskills/upstream/wshobson-agents/plugins/documentation-generation/skills/architecture-decision-records/SOURCE.md": "f8928e30d37eb7654e18adc93c752b43e7272f88054fba5a7813b434779c50e6",
         "shared/subskills/upstream/wshobson-agents/LICENSE": "f89abb55d9f073f38f1703e4518f0613c788c6174be7f13b8dfe48a1c076c746",
-        "shared/subskills/architecture-decisions/GUIDE.md": "1d455ebb876f533def2d84da0390cd6fcd49849f53bd149dde670d07d9991470"
+        "shared/subskills/architecture-decisions/GUIDE.md": "ccf153e76a7e5b161c16a006579d4ae00dd0c7b81a13151bc7f3c6255683a95f"
       },
       "adaptation": {
         "changed": true,
-        "notice": "中文方法适配；保留出处及许可，取消上游全流程接管、固定技术栈和额外提交/批准要求。",
+        "notice": "中文方法适配；保留出处及许可，取消上游全流程接管、固定技术栈和额外提交/批准要求。 2026-10-09：补充递归模块权威架构回写，保留上游固定版本与原文。 2026-10-09：共用按需适配边界并明确公共契约权威落位；固定来源原文与许可未改。 根级保留键与模块局部记录落位说明已明确。",
         "author": "wshobson",
         "upstream_author": "wshobson",
         "license": "MIT"
@@ -70,11 +70,11 @@
         "shared/subskills/upstream/wshobson-agents/plugins/backend-development/skills/api-design-principles/references/rest-best-practices.md": "675fbafdd5a6d5ac2c17ab97e17c90aa0a10c2a5608860128a8be14764130fae",
         "shared/subskills/upstream/wshobson-agents/plugins/backend-development/skills/api-design-principles/SOURCE.md": "1f6166c23c0a0f32d703c19d84b3c30c2873daefb9e8732339a009934fa17013",
         "shared/subskills/upstream/wshobson-agents/LICENSE": "f89abb55d9f073f38f1703e4518f0613c788c6174be7f13b8dfe48a1c076c746",
-        "shared/subskills/api-contract-design/GUIDE.md": "082c0caa61ebf4d9ff56673bf3497818e81707a70683383e177ac7c95bd58649"
+        "shared/subskills/api-contract-design/GUIDE.md": "ddef12e0e1b49cf6ab591cb89264dc98098d17d94da70812bdce5c3aa4ec2341"
       },
       "adaptation": {
         "changed": true,
-        "notice": "中文方法适配；保留出处及许可，取消上游全流程接管、固定技术栈和额外提交/批准要求。",
+        "notice": "中文方法适配；保留出处及许可，取消上游全流程接管、固定技术栈和额外提交/批准要求。 2026-10-09：补充递归模块权威架构回写，保留上游固定版本与原文。 2026-10-09：共用按需适配边界并明确公共契约权威落位；固定来源原文与许可未改。",
         "author": "wshobson",
         "upstream_author": "wshobson",
         "license": "MIT"
@@ -94,11 +94,11 @@
       "files": {
         "shared/subskills/upstream/obra-superpowers/skills/writing-plans/SOURCE.md": "a6c67c1900064347c2a329990dd3c555657c51c3ec53b259a08aa01a2c26139a",
         "shared/subskills/upstream/obra-superpowers/LICENSE": "a37e0e9697144819e1d965176ac4ae5bc3fa02d11e7812036bbcadf6dafe2400",
-        "shared/subskills/implementation-planning/GUIDE.md": "c11023c293fb7c947903e24c9d1af94cc8a9faad553b55f9e9577c3890103a1d"
+        "shared/subskills/implementation-planning/GUIDE.md": "b57c4b136f5784cdc38ca8e85d658f2009a7a7c50c183f2a41d50f2889391cce"
       },
       "adaptation": {
         "changed": true,
-        "notice": "中文方法适配；保留出处及许可，取消上游全流程接管、固定技术栈和额外提交/批准要求。",
+        "notice": "中文方法适配；保留出处及许可，取消上游全流程接管、固定技术栈和额外提交/批准要求。 2026-10-09：共用按需适配边界并明确公共契约权威落位；固定来源原文与许可未改。",
         "author": "Jesse Vincent",
         "upstream_author": "Jesse Vincent",
         "license": "MIT"
@@ -121,11 +121,11 @@
         "shared/subskills/upstream/obra-superpowers/skills/systematic-debugging/root-cause-tracing.md": "75b933b6a8c40bdb2031b10f21654395b56ec6ab6bc7b018c18d3fe57aeb7fb8",
         "shared/subskills/upstream/obra-superpowers/skills/systematic-debugging/SOURCE.md": "808fc5717aa88ad65efff312b11c186294d3e6ee301afb584e2f86599b137787",
         "shared/subskills/upstream/obra-superpowers/LICENSE": "a37e0e9697144819e1d965176ac4ae5bc3fa02d11e7812036bbcadf6dafe2400",
-        "shared/subskills/systematic-debugging/GUIDE.md": "d072bea0e54370f30dc55b26e2958515e17cc8c0dd9548a672ad44bd10b84f8c"
+        "shared/subskills/systematic-debugging/GUIDE.md": "bd6d430d1db5d4fa0884d01bbfbfe9179f65ab5305c143d2da688c699f60d366"
       },
       "adaptation": {
         "changed": true,
-        "notice": "中文方法适配；保留出处及许可，取消上游全流程接管、固定技术栈和额外提交/批准要求。",
+        "notice": "中文方法适配；保留出处及许可，取消上游全流程接管、固定技术栈和额外提交/批准要求。 2026-10-09：共用按需适配边界并明确公共契约权威落位；固定来源原文与许可未改。",
         "author": "Jesse Vincent",
         "upstream_author": "Jesse Vincent",
         "license": "MIT"
@@ -146,11 +146,11 @@
         "shared/subskills/upstream/obra-superpowers/skills/test-driven-development/SOURCE.md": "64b03fce4aee5a97a93160cea8111f3ba13a17b7c001db4bd5836d67fd10705d",
         "shared/subskills/upstream/obra-superpowers/skills/test-driven-development/writing-good-tests.md": "51471c853306ff92ca8bb41dcaea05f31c0e46b03651f8f3c99754b7172f4ae1",
         "shared/subskills/upstream/obra-superpowers/LICENSE": "a37e0e9697144819e1d965176ac4ae5bc3fa02d11e7812036bbcadf6dafe2400",
-        "shared/subskills/behavior-test-design/GUIDE.md": "5866f7c1986daaaa7bf5c04a13824028aac4762907a013351788f40c8df01cd0"
+        "shared/subskills/behavior-test-design/GUIDE.md": "a78d02fe5d685a349f9ad71aa09bf832c0539e2653bb8ae687f97e54e068fbfd"
       },
       "adaptation": {
         "changed": true,
-        "notice": "中文方法适配；保留出处及许可，取消上游全流程接管、固定技术栈和额外提交/批准要求。",
+        "notice": "中文方法适配；保留出处及许可，取消上游全流程接管、固定技术栈和额外提交/批准要求。 2026-10-09：共用按需适配边界并明确公共契约权威落位；固定来源原文与许可未改。",
         "author": "Jesse Vincent",
         "upstream_author": "Jesse Vincent",
         "license": "MIT"
@@ -175,11 +175,11 @@
         "shared/subskills/upstream/trailofbits-skills/plugins/property-based-testing/skills/property-based-testing/references/reviewing.md": "110b08118a1e7b1a2566def6e9d2a0bf43fc2deefce857d2ce3b4382b07bc774",
         "shared/subskills/upstream/trailofbits-skills/plugins/property-based-testing/skills/property-based-testing/SOURCE.md": "9448cacb65c6237a7c22dc59602667177ecae405524079ae9ff92240590b995a",
         "shared/subskills/upstream/trailofbits-skills/LICENSE": "7abe19ec9bb73b36141b999b861d24ad855e808bafe0f81e84cce28556f6c297",
-        "shared/subskills/property-testing/GUIDE.md": "aac3524c9daa30b0a6ead0d0e95275171fc7b1c1d772fbd27a5d4287e17b0392"
+        "shared/subskills/property-testing/GUIDE.md": "2c2b9e637f13570eeb3146af225537353a37f2917801dcd69ce9f56480d6ab36"
       },
       "adaptation": {
         "changed": true,
-        "notice": "中文方法适配；保留出处及许可，取消上游全流程接管、固定技术栈和额外提交/批准要求。",
+        "notice": "中文方法适配；保留出处及许可，取消上游全流程接管、固定技术栈和额外提交/批准要求。 2026-10-09：共用按需适配边界并明确公共契约权威落位；固定来源原文与许可未改。",
         "author": "Trail of Bits",
         "upstream_author": "Trail of Bits",
         "license": "CC-BY-SA-4.0"
@@ -215,11 +215,11 @@
         "shared/subskills/upstream/trailofbits-skills/plugins/sharp-edges/skills/sharp-edges/references/language-specific.md": "4522b4a37cfd7d3aa689209dfd4569f3b39074bd1f5987a36a6e819f501141b6",
         "shared/subskills/upstream/trailofbits-skills/plugins/sharp-edges/skills/sharp-edges/SOURCE.md": "3b69a709c2f8f0cfcf57d40a3186e166f307865cc8ed924be4098e549a121e9c",
         "shared/subskills/upstream/trailofbits-skills/LICENSE": "7abe19ec9bb73b36141b999b861d24ad855e808bafe0f81e84cce28556f6c297",
-        "shared/subskills/api-misuse-review/GUIDE.md": "0472a83ac5bbdfb7a8d76a4aa14156fca9dddf3bc17f6acd880f28046e81c305"
+        "shared/subskills/api-misuse-review/GUIDE.md": "c182d6d4e79553d829cfef012ea9422bff1a71314a25a8d7d723efea32d42782"
       },
       "adaptation": {
         "changed": true,
-        "notice": "中文方法适配；保留出处及许可，取消上游全流程接管、固定技术栈和额外提交/批准要求。",
+        "notice": "中文方法适配；保留出处及许可，取消上游全流程接管、固定技术栈和额外提交/批准要求。 2026-10-09：共用按需适配边界并明确公共契约权威落位；固定来源原文与许可未改。",
         "author": "Trail of Bits",
         "upstream_author": "Trail of Bits",
         "license": "CC-BY-SA-4.0"
@@ -244,11 +244,11 @@
         "shared/subskills/upstream/trailofbits-skills/plugins/variant-analysis/skills/variant-analysis/resources/variant-report-template.md": "03333c762318a89dd819784a62695f7660713479a5009a15189314400836202f",
         "shared/subskills/upstream/trailofbits-skills/plugins/variant-analysis/skills/variant-analysis/SOURCE.md": "7b6b78e499bcb88d05c68254ffc91ebc28edabf4e9808adcc40e2628ebb9407e",
         "shared/subskills/upstream/trailofbits-skills/LICENSE": "7abe19ec9bb73b36141b999b861d24ad855e808bafe0f81e84cce28556f6c297",
-        "shared/subskills/defect-variant-review/GUIDE.md": "9123740c4b6daffa390623087b7b2adf9fb174afff9ad930101527377e897107"
+        "shared/subskills/defect-variant-review/GUIDE.md": "04b1fc2aab4938e5e8d95608964dc0d90cc84d4db0b631bffd64f5192b35bd68"
       },
       "adaptation": {
         "changed": true,
-        "notice": "中文方法适配；保留出处及许可，取消上游全流程接管、固定技术栈和额外提交/批准要求。",
+        "notice": "中文方法适配；保留出处及许可，取消上游全流程接管、固定技术栈和额外提交/批准要求。 2026-10-09：共用按需适配边界并明确公共契约权威落位；固定来源原文与许可未改。",
         "author": "Trail of Bits",
         "upstream_author": "Trail of Bits",
         "license": "CC-BY-SA-4.0"
@@ -268,11 +268,11 @@
       "files": {
         "shared/subskills/upstream/anthropics-skills/skills/frontend-design/SOURCE.md": "d91970639e9f5c37682ac7ab60094d35f1c7c1f38d731bd56396563aee10c1d3",
         "shared/subskills/upstream/anthropics-skills/skills/frontend-design/LICENSE.txt": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594",
-        "shared/subskills/frontend-visual-design/GUIDE.md": "21feb33802375801dce5ed10eb1587d8f56bf826b4a11f1dcf721652b2539944"
+        "shared/subskills/frontend-visual-design/GUIDE.md": "20eb14bd8e87f8a254726cbaf7c1b3920368fa52f4a82f8e70894a31204cf17b"
       },
       "adaptation": {
         "changed": true,
-        "notice": "中文方法适配；保留出处及许可，取消上游全流程接管、固定技术栈和额外提交/批准要求。",
+        "notice": "中文方法适配；保留出处及许可，取消上游全流程接管、固定技术栈和额外提交/批准要求。 2026-10-09：共用按需适配边界并明确公共契约权威落位；固定来源原文与许可未改。",
         "author": "Anthropic",
         "upstream_author": "Anthropic",
         "license": "Apache-2.0"
@@ -292,11 +292,11 @@
       "files": {
         "shared/subskills/upstream/vercel-web-interface-guidelines/command.md": "5a775e6411f790f518dbc9c1fa7c50a89e6873502d9a3530a6eb223a590bcfe8",
         "shared/subskills/upstream/vercel-web-interface-guidelines/LICENSE": "6cd1609c9c12233507cdd2ce0d32e9a721e3c27494951be06b90090deeeb7af2",
-        "shared/subskills/web-ui-review/GUIDE.md": "f885b359f55f574ece2956a2b2d5af09abaa3e55c75e9ba594338cec6875a971"
+        "shared/subskills/web-ui-review/GUIDE.md": "6cce44cc276757d520ed893496720a4ef2cfbd28266724995a2228d2cdafb1d6"
       },
       "adaptation": {
         "changed": true,
-        "notice": "中文方法适配；保留出处及许可，取消上游全流程接管、固定技术栈和额外提交/批准要求。",
+        "notice": "中文方法适配；保留出处及许可，取消上游全流程接管、固定技术栈和额外提交/批准要求。 2026-10-09：共用按需适配边界并明确公共契约权威落位；固定来源原文与许可未改。",
         "author": "Vercel",
         "upstream_author": "Vercel",
         "license": "MIT"
@@ -316,11 +316,11 @@
       "files": {
         "shared/subskills/upstream/anthropics-skills/skills/webapp-testing/SOURCE.md": "51b7349e77ec63b7744a6f63647e7566a0b4d2e301121cc10e8c2113af6556a2",
         "shared/subskills/upstream/anthropics-skills/skills/webapp-testing/LICENSE.txt": "bc6b3af2f331cbc7fb0da1344efb2cbe5877a31498b4d70dbc7000f3405a1362",
-        "shared/subskills/browser-acceptance/GUIDE.md": "feb3acdaef3698d2c8cc33cafe078f9ce783741290737741e8ac6efef1eca24a"
+        "shared/subskills/browser-acceptance/GUIDE.md": "741db4150f798a4d60b4387637caeaca855123d6cbf8723d8d6d038832e9d5d3"
       },
       "adaptation": {
         "changed": true,
-        "notice": "中文方法适配；保留出处及许可，取消上游全流程接管、固定技术栈和额外提交/批准要求。",
+        "notice": "中文方法适配；保留出处及许可，取消上游全流程接管、固定技术栈和额外提交/批准要求。 2026-10-09：共用按需适配边界并明确公共契约权威落位；固定来源原文与许可未改。",
         "author": "Anthropic",
         "upstream_author": "Anthropic",
         "license": "Apache-2.0"

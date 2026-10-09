@@ -29,8 +29,7 @@ def now_iso() -> str:
 
 
 def load_template(path: Path) -> dict[str, Any]:
-    with path.open("r", encoding="utf-8-sig") as handle:
-        data = json.load(handle)
+    data = _archlib.strict_json_loads(path.read_text(encoding="utf-8-sig"))
     if not isinstance(data, dict):
         raise ValueError("模板根节点必须是对象")
     return data
@@ -250,7 +249,7 @@ def write_architecture_folder(full_data: dict[str, Any], pointer_data: dict[str,
 
 def migrate_single_file(source: Path, output: Path, force: bool, timestamp: str) -> tuple[Path, Path, Path]:
     source_bytes = source.read_bytes()
-    data = json.loads(source_bytes.decode("utf-8-sig"))
+    data = _archlib.strict_json_loads(source_bytes.decode("utf-8-sig"))
     if not isinstance(data, dict):
         raise ValueError("输入文件根节点必须是对象")
     if isinstance(data.get("指向"), str):

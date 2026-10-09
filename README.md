@@ -7,15 +7,17 @@
 [![Project license: MIT](https://img.shields.io/badge/Project-MIT-yellow.svg)](LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/40508597/rwgj_sy?style=social)](https://github.com/40508597/rwgj_sy)
 [![GitHub forks](https://img.shields.io/github/forks/40508597/rwgj_sy?style=social)](https://github.com/40508597/rwgj_sy)
-[![GitHub release](https://img.shields.io/github/v/release/40508597/rwgj_sy)](https://github.com/40508597/rwgj_sy/releases)
+[![当前版本 v1.3.0](https://img.shields.io/badge/version-v1.3.0-blue)](https://github.com/40508597/rwgj_sy/tree/v1.3.0)
 [![verify](https://github.com/40508597/rwgj_sy/actions/workflows/verify.yml/badge.svg)](https://github.com/40508597/rwgj_sy/actions/workflows/verify.yml)
 [![中文文档](https://img.shields.io/badge/文档-中文-red.svg)](README.md)
+
+**当前版本：rwgj v1.3.0（2026-10-09）。** 包版本记录在 `SKILL.md` 的 `metadata.version`、本页发布表与 [CHANGELOG](CHANGELOG.md)；工具身份、收据协议和 schema 版本独立维护。源码标签为 `v1.3.0`。
 
 ## 一、它能帮你解决什么
 
 **给项目留下可接力的记忆。** 模块职责、接口承诺、用户约束和当前进度随项目保存，新会话可以沿记录继续。
 
-**让复杂项目有章可循。** 从功能全景到模块边界，再到实现与验证，AI 有明确的组织方式；局部任务按需读取相关切片。
+**让复杂项目有章可循。** 从功能全景到模块边界，再到实现与验证，AI 有明确的组织方式；局部任务沿根路由逐层读取相关模块架构和依赖契约。
 
 **让“做完了”有据可查。** 把验证结果、未完成项和下一步一起记录，让后续开发有依据。
 
@@ -24,7 +26,7 @@
 | 换会话后，需要重新解释项目做到哪里 | 把当前任务、约束、未验证项和下一步写入项目恢复点 |
 | 多轮修改后，模块职责和接口越来越难追踪 | 按模块记录职责、接口与依赖，修改时检查相关影响 |
 | AI 只说“完成了”，难以核对实际结果 | 记录实际验证命令、结果与未验证项，完整交付前运行门禁 |
-| 项目很大，每次都要读取大量资料 | 从总索引定位本次相关切片，按需读取局部架构与依赖契约 |
+| 项目很大，每次都要读取大量资料 | 从根架构逐层定位相关模块，按需读取局部架构与依赖契约 |
 
 适合长期维护、多模块、需要多轮开发或跨会话接力的项目。一次性脚本、小 demo 和临时实验可以直接交给智能体处理；受管项目中的局部修改按本次范围走轻量流程。
 
@@ -32,14 +34,24 @@
 
 ```text
 你的项目/
-├── architecture.json       # 指向总索引的轻量入口
-├── architecture/
-│   ├── index.json          # 总索引：项目身份与切片位置
-│   ├── features/           # 功能与验收要求
-│   ├── modules/            # 模块职责、接口与依赖
-│   └── tasks/state.json    # 当前任务、恢复点与下一步
-└── …                       # 代码、测试及项目文件
+├── architecture.json       # 总目标、全局约束与模块路由
+├── architecture/_state.json # 开发阶段辅助状态（与业务架构区分）
+├── 订单/                    # 实际模块目录；名称由项目决定
+│   ├── architecture.json   # 订单职责、契约、实现与子模块入口
+│   ├── …                   # 本层自己的源码与测试
+│   └── 定价/
+│       ├── architecture.json # 继续递归，无预设层数
+│       └── …               # 定价源码与测试
+└── 支付/
+    ├── architecture.json
+    └── …
 ```
+
+一个模块目录一份当前架构文件，父级路由和依赖关系分别表达；源码可以存在于任何模块层级。局部功能树、契约、源码和测试由所属模块保存，根保留全局目标及导航；完整图纸与校验视图由这些事实合成。已有集中切片项目继续按其入口读取，纳管不会只为形式移动源码。协议与工具见 [递归模块架构](shared/references/recursive-modules.md)。
+
+**全景不等于本轮全部实施。** 待确认、延期或排除的候选保留在功能树中，记录取舍依据；当前纳入和已有实施事实仍需设计、质量及验证。范围合同见 [功能簇](shared/references/function-clusters.md#候选状态与本轮实施范围)。工程责任按项目需要由合适模块承担，不为模板强拆目录。
+
+**图纸保留问题，不把问题画成空白。** 依赖关系可追到声明文件和具体字段；出现非法或矛盾引用时，报告保留诊断并标明提取不完整。图中声明、结构检查和实际代码观察仍分别表达，图纸不是代码正确性的证明。
 
 AI 负责按流程维护这些记录。技能包与每个项目的状态独立；在另一台电脑继续时，也要带上相应代码、架构记录和必要配置。
 
@@ -47,13 +59,15 @@ AI 负责按流程维护这些记录。技能包与每个项目的状态独立�
 
 ### 1. 安装技能包
 
-将仓库克隆到你使用的智能体技能目录。以下是 Codex 的全局安装路径示例，其他宿主请替换目标目录：
+先保留一份源码，再构建到你使用的智能体技能目录。运行包保留完整工具和按需子技能，自动排除缓存、历史验证报告及开发资料：
 
 ```bash
-git clone https://github.com/40508597/rwgj_sy.git ~/.codex/skills/task-architecture
+git clone https://github.com/40508597/rwgj_sy.git task-architecture-source
+python task-architecture-source/scripts/package_skill.py --output "<宿主技能目录>/task-architecture"
+python task-architecture-source/scripts/package_skill.py --verify "<宿主技能目录>/task-architecture"
 ```
 
-已有安装时先核对版本；也可以下载 [Release 压缩包](https://github.com/40508597/rwgj_sy/releases)，解压到宿主的技能目录。随包检查工具需要 Python 3.9+；Bash 一键验证另需 Git Bash、WSL 或 POSIX shell。
+把占位目录替换为实际路径；目标父目录需已存在。已有安装时，先构建到新的目录并核验，再备份和替换旧目录，构建器不会覆盖现有文件。也可以从 [Release](https://github.com/40508597/rwgj_sy/releases) 获取对应分发。随包检查工具需要 Python 3.9+；Bash 一键验证另需 Git Bash、WSL 或 POSIX shell。
 
 ### 2. 在你的业务项目中提出任务
 
@@ -120,7 +134,7 @@ git clone https://github.com/40508597/rwgj_sy.git ~/.codex/skills/task-architect
 |---|---|
 | 了解日常开发方式 | [快速上手](shared/references/quickstart.md) |
 | 查创建、修改和校验入口 | [命令速查](shared/references/commands-cheatsheet.md) |
-| 了解模块与架构文件如何拆分 | [架构切片协议](shared/references/json-sharding.md) |
+| 了解模块与架构文件如何拆分 | [递归模块架构](shared/references/recursive-modules.md)、[集中切片协议](shared/references/json-sharding.md) |
 | 换会话或换执行者继续项目 | [上下文恢复](shared/references/context-recovery.md)、[协作交接](shared/references/handoff-integrity.md) |
 | 查看完整能力、脚本和部署方式 | 展开下方“完整参考” |
 | 查看更新和来源 | [CHANGELOG](CHANGELOG.md)、下方“版本演进”、[第三方声明](THIRD-PARTY-NOTICES.md) |
@@ -138,11 +152,15 @@ git clone https://github.com/40508597/rwgj_sy.git ~/.codex/skills/task-architect
 
 项目自有文件采用 [MIT](LICENSE)；第三方原文及中文适配分别保留 MIT、Apache-2.0 或 CC-BY-SA-4.0，具体归属与条款见 [第三方声明](THIRD-PARTY-NOTICES.md)。
 
+2026-10-09 测评修复：质量红线与总门禁统一裁决；有证据的语义复核处理启发式误报，临时豁免不再认证完成。新增语言无关的真实接口契约核对，支持模块依赖对象可视化，专业指南回写跟随所属模块。用法见 [通用质量协议](shared/references/universal-quality.md) 和 [日常修改路径](shared/references/quickstart.md)。
+
+实用性验收补充：已有渲染入口可用 `--check-view` 只读核对图纸是否过期；通用质量协议提供可选的 Node/CommonJS 原生运行依赖观察示例，明确区分真实 `runtime-load` 与静态依赖、接口及 CRAP；开发分发新增固定长程任务重放，记录真实失败拦截、交接、重新协调、恢复与上下文字节。三者分别证明输入一致性、选定运行观察和流程不变量，不替代架构判断或未知业务开发验收。说明见 [图纸更新](shared/references/architecture-visualization.md#更新与事实边界)、[原生质量事实](shared/references/universal-quality.md) 和 [工具链维护](docs/toolchain-maintenance.md#发布基准与实际收益)。
+
 当前版本包含 2026-10-04 通用质量升级：架构决策记录、按指定关系检查模块边界与循环、项目配置的质量指标与 CRAP、绑定选定输入的真实执行收据，以及在隔离副本中故意引入字节故障验收检查器。规则与事实协议不限制项目语言，`.e`、未知工程格式、二进制和无后缀实现单元均可接入；外部信息不足时显示未验证，不声称内置全语言解析器。完整交付使用 gate_check 的 --quality-required。说明与模板见 [通用质量协议](shared/references/universal-quality.md)。技能元数据名规范为 task-architecture，中文标题与使用说明保留。
 
 - **角色**：薄入口技能包，承载任务架构规则与共享工具
 - **使用方**：支持 `SKILL.md` 技能规范的智能体宿主（含自研 CLI Agent），不绑定具体产品
-- **核心特性**：真相源分离（能力在仓库，项目状态在调用方 `architecture/`）、规则单源（所有宿主读同一份 `shared/`，不维护宿主专用规则文件）
+- **核心特性**：真相源分离（能力在仓库，架构与状态在调用方项目）、规则单源（所有宿主读同一份 `shared/`，不维护宿主专用规则文件）
 - **职责边界**：本技能提供通用工程规则与检查工具；具体宿主负责技能加载、命令调用和自动化集成。本包不提供宿主专用钩子或配置。
 
 ---
@@ -156,7 +174,6 @@ git clone https://github.com/40508597/rwgj_sy.git ~/.codex/skills/task-architect
 │   └── workflows/verify.yml    # 一键验证 + 单元测试（push/PR 自动运行）
 ├── .gitignore                  # 忽略 __pycache__/报告/项目状态
 ├── .gitattributes              # 保留导入子技能文件的原始字节
-├── .source.json                # 技能来源元数据
 ├── README.md                   # 本文件（仓库门面 + 完整能力 + 详细使用）
 ├── SKILL.md                    # Agent 薄入口
 ├── AGENT-USAGE.md              # Agent 通用入口
@@ -169,11 +186,13 @@ git clone https://github.com/40508597/rwgj_sy.git ~/.codex/skills/task-architect
 ├── tests/                      # 单元测试（stdlib unittest）
 ├── docs/                       # 设计文档
 │   ├── regression-assertions.md  # 回归断言场景清单
-│   └── adr/                      # 架构决策记录（4 篇）
+│   └── adr/                      # 架构决策记录（5 篇）
 ├── scripts/                    # 顶层脚本
 │   ├── validate_task_architecture_system.py
 │   ├── check_doc_counts.py       # 文档数字/引用对账
-│   └── demo_project.py           # 端到端演示（临时受管项目全验证链）
+│   ├── demo_project.py           # 端到端演示（临时受管项目全验证链）
+│   ├── package_skill.py          # 运行/开发分发及摘要核验
+│   └── benchmark_long_task.py    # 开发专用长程真实任务重放
 ├── shared/                     # 共享资源（Agent 加载）
 │   ├── assets/                 # 资产模板 + Schema + folder-template 样张
 │   ├── legacy/                 # 历史 SKILL 归档
@@ -237,17 +256,20 @@ git clone https://github.com/40508597/rwgj_sy.git ~/.codex/skills/task-architect
 | `scan_code_drift.py` | 扫描 | 代码与架构 drift 检测 |
 | `diff_architecture.py` | 对比 | 两个 architecture.json 差异 |
 | `gate_check.py` | 门禁 | 硬门禁规则检查 |
-| `init_architecture.py` | 初始化 | 单文件迁移 / 新建切片（默认使用占位符模板）|
+| `module_architecture.py` | 模块目录 | 创建根与子模块、纳管既有目录、逐层读取、路由、搜索、影响检查和带 SHA 的单个或批量补丁更新 |
+| `init_architecture.py` | 集中布局 | 单文件迁移 / 新建集中切片（默认使用占位符模板）|
 | `detect_task_posture.py` | 姿态 | 任务姿态分类（dynamic/linear/reactive） |
 | `detect_small_command.py` | 降级 | 小命令降级检测（三档 + 运行/修改分型 + 高风险词升档） |
 | `check_regression_assertions.py` | 回归 | 21 项回归断言 |
 | `taskarch_cli.py` | 聚合 | 顶层 CLI（lineage/slice/gate-file 等） |
+| `taskarch.py` | 项目工具链 | 统一事实查询和上下文、结构化暂存、差异预览、版本与范围检查、变更应用/验证/接受、协作租约、交接、操作暂停点、检查点和时间线 |
+| `check_toolchain_inventory.py` | 工具维护 | 从实际源码动态盘点用途、接口、依赖、版本和测试定位；显式运行已审阅 CLI 帮助 smoke |
 | `check_quality_redlines.py` | 质量 | 质量红线检查（交互完整性/可验收/导出类安全信号/空壳模块） |
 | `audit_architecture.py` | 审计 | 独立审计问卷（generate 生成 10 问 / report 核验完整性） |
-| `render_architecture.py` | 可视化 | 单向渲染真相源（md=Mermaid 报告 / html=单文件交互 / json=结构化） |
+| `render_architecture.py` | 可视化 | 单向渲染真相源（md=图表报告 / html=完整项目展开画布，另可选专题报告 / json=结构化） |
 | `demo_project.py` | 演示 | 临时受管项目端到端验证链（接入 verify-all） |
 | `resolve_tool.py` | 定位 | 解析工具脚本绝对路径（项目锚点优先 → 安装目录兜底；--json / --list） |
-| `check_project_quality.py` | 通用质量 | 根据选定范围的观察事实检查依赖边界、循环、质量指标、CRAP、决策记录和执行收据；缺证据为未验证 |
+| `check_project_quality.py` | 通用质量 | 根据选定范围的观察事实检查依赖边界、循环、质量指标、CRAP、接口契约、决策记录和执行收据；缺证据为未验证 |
 | `run_verification.py` | 执行证据 | 运行明确 argv，记录命令结果、选定输入前后哈希与原始输出，供质量门禁复核 |
 | `run_quality_probes.py` | 检查器验收 | 在两份隔离副本中运行正常与故意改坏样例，核对目标检查是否检出，固定分母保留失败与未知 |
 | `plan_capabilities.py` | 专业能力规划 | 按已确认任务/姿态与当前可用catalog选择最小读取计划，输出文件指纹与变化；不自动加载或执行技能 |
@@ -262,6 +284,8 @@ git clone https://github.com/40508597/rwgj_sy.git ~/.codex/skills/task-architect
 完整使用指南：[ENFORCEMENT-GUIDE.md](ENFORCEMENT-GUIDE.md)
 
 ### 4.2 子能力层详细说明
+
+长程项目的统一操作说明见 [项目工具链](shared/references/project-toolchain.md)，现有工具的维护与退出约定见 [工具维护说明](docs/toolchain-maintenance.md)。技能负责充分设计，工具负责精确操作，根与模块架构文件继续保存权威事实。查询可跨模块，修改有明确范围；操作成功、门禁通过和变更接受分别表达。SQLite 只协调遵守协议的元数据写者，项目文件修改具有持久日志与受保护恢复，不承诺跨文件强事务或宿主隔离。业务语言和文件后缀均不限。
 
 #### 4.2.1 `task-architecture` — 总入口
 
@@ -285,18 +309,17 @@ git clone https://github.com/40508597/rwgj_sy.git ~/.codex/skills/task-architect
 
 #### 4.2.3 `architecture-json` — 物化层
 
-- **职责**：把理解结果落到 `architecture/` 切片目录
-- **强制结构**：
+- **职责**：把理解结果写入根与所属模块的架构文件，按父子路由递归读取
+- **新项目默认结构**（模块名与层数按职责设计）：
   ```text
-  architecture.json              # 轻量指针
-  architecture/
-    index.json                   # 真相源总索引
-    features/
-    modules/
-    data/
-    pages/
+  architecture.json              # 全局边界、根功能与第一层模块路由
+  modules/
     tasks/
+      architecture.json          # 本模块功能、契约、源码与测试归属
+      storage/
+        architecture.json        # 子模块局部事实，父模块保留路由
   ```
+- 已有项目沿用实际架构入口和目录；集中切片项目仍可完整读取与校验，无需为纳管移动源码。
 - **落位顺序**：需求理解 → 功能树 → 模块树 → 模块详情 → 入口/接口/数据/页面/任务/交付物 → 实现清单 → 测试责任矩阵 → 验证证据 → 变更记录
 - **模块详情底线**（每个实现模块必须有）：职责/非职责、功能树节点、上下游、内部结构、状态机、数据读写、错误边界、配置/安全/日志/性能/测试责任
 
@@ -352,7 +375,8 @@ git clone https://github.com/40508597/rwgj_sy.git ~/.codex/skills/task-architect
 | 架构物化 | `schemas.md` | JSON 字段、中文化规范、四层读取 |
 | 架构物化 | `commands-workflows.md` | 5 个命令、创建/分析/修改/追加/校验 |
 | 架构物化 | `validation-checklist.md` | 21 项一致性校验 + 硬约束门禁 |
-| 架构物化 | `json-sharding.md` | 强制切片目录 |
+| 架构物化 | `recursive-modules.md` | 模块目录、逐层定位、确定性操作与事实归属 |
+| 架构物化 | `json-sharding.md` | 已有集中切片布局 |
 | 协议适配 | `universal-agent-protocol.md` | 跨 Agent 通用协议 |
 | 协议适配 | `module-agent-protocol.md` | 虚拟模块审议 |
 | 协议适配 | `agent-output-contract.md` | 标准化输出契约 |
@@ -384,21 +408,21 @@ git clone https://github.com/40508597/rwgj_sy.git ~/.codex/skills/task-architect
 | 指标 | 数值 |
 |------|------|
 | 子能力层数 | 4 |
-| 参考文档数 | 25 |
-| 工具脚本数 | 31（shared/scripts 28 + scripts 3，含内部辅助）|
+| 参考文档数 | 28 |
+| 工具脚本数 | 43（shared/scripts 38 + scripts 5，含内部辅助；长程基准仅开发分发）|
 | 必需阶段数 | 9（manage_state.STANDARD_STAGES required=True）|
 | Schema 数 | 5 |
 | 资产模板数 | 11（shared/assets 顶层 .json）|
 | 历史归档 | 4（shared/legacy/ 下含 README.md 索引 + 3 份历史 SKILL）|
-| 设计文档数 | 6（docs/ 下 1 篇回归断言 + docs/adr/ 5 篇决策记录含索引）|
+| 设计文档数 | 8（含回归断言、工具维护说明和 docs/adr/ 决策记录含索引）|
 | 顶层入口文件 | 2（SKILL.md / AGENT-USAGE.md）|
-| 单元测试 | 30 个测试文件（tests/test_*.py，stdlib unittest；用例数由 check_doc_counts.py 动态统计）|
+| 单元测试 | 49 个测试文件（tests/test_*.py，stdlib unittest；用例数由 check_doc_counts.py 动态统计；画布客户端和原生观察示例需要 Node，CI 先检查其实际可用）|
 | CI 工作流 | 1（.github/workflows/verify.yml）|
-| 总文件数 | ~212（不含 .git/、缓存和生成的验证报告，含测试与 CI）|
+| 总文件数 | ~255（不含 .git/、缓存和生成的验证报告，含测试与 CI）|
 
-#### 4.5.1 分发最小运行集
+#### 4.5.1 运行与开发分发
 
-技能运行只需要以下内容；`tests/`、`.pytest_cache/`、`.github/`、`verify-all.sh` 与 `scripts/check_doc_counts.py` 均属开发自检资产，第三方嵌入或内嵌分发可按此裁剪：
+使用 [分发构建器](scripts/package_skill.py) 生成可核验运行包，避免整仓复制缓存与历史报告。默认运行集如下，实际清单以生成的 `skill-distribution.json` 为准：
 
 ```text
 SKILL.md
@@ -406,9 +430,22 @@ LICENSE                    THIRD-PARTY-NOTICES.md
 skills/task-architecture   skills/project-depth-core   skills/architecture-json   skills/agent-protocol
 shared/scripts             shared/references           shared/assets
 shared/subskills
+verify-all.sh              # 项目验证；包自身自检需开发分发
+docs/                      # 只补入当前运行文档真实链接到的文件
+skill-distribution.json    # 文件清单、字节哈希与分发类型
 ```
 
-使用默认专业目录时，`shared/subskills/` 中的 GUIDE、固定来源和许可文件，以及根目录的许可与第三方声明一起分发。一键项目验证可额外分发 `verify-all.sh`，其 --project 模式不依赖 tests/、README 或开发自检脚本；完整 --self-test 则需要开发分发资产。安装、提供源码或配置示例都不等于宿主集成已经启用。
+构建器沿现行 Markdown 文件链接补入依赖文档，因此工具维护说明不会因裁剪 `docs/` 而失联。默认专业目录中的 GUIDE、固定来源原文、来源锁和许可全部保留。字节哈希证明当前分发一致，不认证作者身份或工程行为。
+
+`tests/`、`.github/`、根维护文档和历史快照留在源码或 `--profile development` 分发；两种分发都排除 `.git/`、Python/测试缓存、旧导入标记和生成的历史验证报告。默认运行包保留所有共享工具，包括长程查询、租约、变更和恢复；智能体按任务需要调用，不为小任务创建持久工具链状态。
+
+```bash
+python scripts/package_skill.py --output "<新的运行包目录>"
+python scripts/package_skill.py --verify "<运行包目录>"
+python scripts/package_skill.py --profile development --output "<新的开发包目录>"
+```
+
+一键项目验证使用 `verify-all.sh --project`，完整 `--self-test` 在源码或开发分发运行。安装、提供源码或配置示例都不等于宿主集成已经启用。
 
 来源锁按原始字节校验。仓库的 `.gitattributes` 为 `shared/subskills/` 保留原始字节，避免 Git 自动换行转换破坏记录的哈希；重新分发时也保留这些来源与适配文件的编码和换行。
 
@@ -418,14 +455,14 @@ shared/subskills
 - 新建项目：从 0 到 1 完整功能设计
 - 复杂功能开发：需要多层递进 + 模块详情 + 验证责任
 - 跨会话协作：多会话 / 多工具接力，共用同一套架构真相源
-- 架构演进：从单文件迁移到切片目录
+- 架构演进：按职责逐层划分模块、建立路由和局部事实归属
 - 代码与架构一致性治理：drift 检测、回归断言
 - 模糊需求澄清：通过功能簇展开把"想要什么"变成"应该是什么"
 
 **一般适用场景 ○**：
 - 简单功能修改：单文件 1-2 处变更
 - Bug 修复：定位后定向修改
-- 文档生成：基于 `architecture/` 生成
+- 文档生成：基于项目根与登记模块架构组合生成
 
 **不适用场景 ✗**：
 - 纯概念问答：不进入完整流程
@@ -438,11 +475,11 @@ shared/subskills
 | 维度 | 传统开发 | 任务架构（rwgj） |
 |------|----------|------------------|
 | 需求理解 | 文档/PR/口头 | 功能簇展开 + 强制停止规则 |
-| 架构设计 | 自由发挥 | 强制切片目录 + 模块详情底线 |
+| 架构设计 | 自由发挥 | 职责模块目录 + 局部架构 + 模块详情底线 |
 | 多宿主一致 | 每个工具各维护一套规则 | 同一份能力包与同一份规则，不维护宿主专用文件 |
 | 一致性 | 人工 review | 工具验证结构与部分一致性，21 项语义清单配合工程复核 |
 | 代码 drift | 滞后发现 | 实时扫描 |
-| 上下文恢复 | 重新看文档 | 切片目录 + 恢复点 |
+| 上下文恢复 | 重新看文档 | 逐层模块路由 + 恢复点 |
 
 ---
 
@@ -455,8 +492,10 @@ shared/subskills
 适用场景：多个项目共用同一套能力包，避免每个项目重复维护。
 
 ```bash
-# 1. 克隆或复制到宿主技能目录（示例路径，按你的宿主替换 skills 目录）
-git clone https://github.com/40508597/rwgj_sy.git ~/.codex/skills/rwgj
+# 1. 保留源码，从源码构建独立运行包
+git clone https://github.com/40508597/rwgj_sy.git task-architecture-source
+python task-architecture-source/scripts/package_skill.py --output "<宿主技能目录>/task-architecture"
+python task-architecture-source/scripts/package_skill.py --verify "<宿主技能目录>/task-architecture"
 
 # 2. 触发：支持 SKILL.md 的宿主按 name/description 自动识别技能；
 #    不支持自动识别的宿主按 agent-protocol 协议加载。
@@ -468,27 +507,21 @@ git clone https://github.com/40508597/rwgj_sy.git ~/.codex/skills/rwgj
 适用场景：项目需要隔离的能力定义，或离线/无网络环境。
 
 ```bash
-# Git Bash / POSIX shell：分别设置实际源目录和项目根目录
-TASK_ARCH_SOURCE="/absolute/path/to/task-architecture"
-TASK_ARCH_PROJECT="/absolute/path/to/project"
-TASK_ARCH_INSTALL="$TASK_ARCH_PROJECT/.agents/skills/task-architecture"
-mkdir -p "$TASK_ARCH_INSTALL"
-cp "$TASK_ARCH_SOURCE/SKILL.md" "$TASK_ARCH_SOURCE/LICENSE" "$TASK_ARCH_SOURCE/THIRD-PARTY-NOTICES.md" "$TASK_ARCH_INSTALL/"
-cp -R "$TASK_ARCH_SOURCE/skills" "$TASK_ARCH_SOURCE/shared" "$TASK_ARCH_INSTALL/"
-# 可选一键项目验证入口：
-cp "$TASK_ARCH_SOURCE/verify-all.sh" "$TASK_ARCH_INSTALL/"
+# 先准备项目的 .agents/skills 父目录，再指定一个尚不存在的安装目录
+python "<源码目录>/scripts/package_skill.py" --output "<项目根>/.agents/skills/task-architecture"
+python "<源码目录>/scripts/package_skill.py" --verify "<项目根>/.agents/skills/task-architecture"
 
 # 告诉 Agent：读取 .agents/skills/task-architecture/SKILL.md，处理本项目。
 ```
 
-只分发运行能力集到上述子目录，保留项目根现有 README、.gitignore、CLAUDE.md 和 .github。不要复制能力仓库的安装/自检标识到业务项目根。项目的 architecture.json 与 architecture/ 独立保存在项目根，并按项目协作要求版本化。Windows PowerShell 可用 Copy-Item -LiteralPath 复制同一组文件到同一子目录。
+运行包只写到上述技能子目录；项目的根与模块架构独立保存在调用方项目，并按项目协作要求版本化。构建器同样支持 Windows PowerShell；已有安装先构建到新目录，验证后再备份和替换，避免混入旧文件。
 
 #### 两种模式对比
 
 | 维度 | 全局安装 | 项目级复制 |
 |------|----------|------------|
 | 共享能力更新 | 一次更新，多项目生效 | 每个项目单独更新 |
-| 项目真相源（architecture/）| 每个项目独立 | 跟随项目 |
+| 项目真相源（根与登记模块架构）| 每个项目独立 | 跟随项目 |
 | 适合 | 标准化工作流 | 项目特化需求 |
 
 ### 5.2 用户使用方式
@@ -530,7 +563,7 @@ cp "$TASK_ARCH_SOURCE/verify-all.sh" "$TASK_ARCH_INSTALL/"
                   ↓
    ┌────────[2] architecture-json─────────┐
    │ "落得稳"                              │
-   │ • architecture/ 切片目录                │
+   │ • 根架构 + 递归模块架构                  │
    │ • 功能树 → 模块树 → 模块详情              │
    │ • 实现清单 / 验证责任                    │
    └──────────────┬───────────────────────┘
@@ -549,7 +582,7 @@ cp "$TASK_ARCH_SOURCE/verify-all.sh" "$TASK_ARCH_INSTALL/"
 | 信号 | 进入哪层 |
 |------|----------|
 | 模糊需求、新功能、功能深度、交互闭环 | `project-depth-core` |
-| 创建/修改 `architecture/` 切片 | `architecture-json` |
+| 创建/修改根与模块架构 | `architecture-json` |
 | 跨 Agent 使用、门禁、标准化输出 | `agent-protocol` |
 | 小命令、概念问答 | **小命令降级**：最小闭环 / 完全跳过 |
 
@@ -557,7 +590,7 @@ cp "$TASK_ARCH_SOURCE/verify-all.sh" "$TASK_ARCH_INSTALL/"
 
 技能自带 Python 脚本（数量口径见 §4.5），**工具不可用时按文本规则降级执行**。
 
-**运行环境**：随包脚本使用 Python 3.9+；这是检查工具运行时，被检查项目的语言不受限制。`verify-all.sh` 一键验证需 Git Bash / WSL 环境，也可直接运行 Python 测试。本轮在 Windows 与 Python 3.12.14 的本地运行时验证；仓库 CI 配置中的版本矩阵不等于本轮已经运行的结果。
+**运行环境**：随包脚本使用 Python 3.9+；这是检查工具运行时，被检查项目的语言不受限制。`verify-all.sh` 一键验证需 Git Bash / WSL 环境，也可直接运行 Python 测试。本次优化在 Windows Python 3.12.10 上验证；历史轮次曾运行 Python 3.9.13，仓库 CI 配置中的版本矩阵不等于本次已经运行的结果。
 
 下列相对脚本路径展示参数用法；实际执行先按 LAYER 的 resolve_tool 规则取完整脚本绝对路径，保持工作目录为调用方项目。包自身回归运行 `bash verify-all.sh --self-test`；项目完整验证运行 `bash "<安装目录>/verify-all.sh" --project "<项目根>"`。默认有受管架构锚点时选择项目模式；仅能力包自身无项目锚点时自动自检。一键项目模式与 gate 使用同一文件盘点语义：实际运行 --all-files --json，声明文件缺失阻断，未登记文件保留原始列表作为提示；不按格式猜业务代码，不将导出的报告、审计文件或可视化自动当作业务实现。输入/返回码与输出矛盾记为 unknown。独立 scan_code_drift CLI 仍把任一种清单偏差返回 1，其清单需要按当前用途解释；以上提示不等于未登记文件内容已通过语义检查。
 
@@ -623,9 +656,11 @@ python scripts/demo_project.py --keep demo/  # 保留项目目录便于查看
 ```bash
 # 自动：质量红线（操作类缺异常路径 / 导出类缺安全信号 / 空壳模块 / 状态机冲突）
 python shared/scripts/check_quality_redlines.py architecture/index.json
-# 真实项目存在合理例外时，声明豁免并记录理由（无理由豁免会提示）
+# 查看机器可读红线及当前架构摘要；误报需记录有证据的语义复核
 python shared/scripts/check_quality_redlines.py architecture/index.json \
-  --exempt "功能树.导出数据" --exempt-reason "内部工具，权限由上层统一管控"
+  --json
+# 启发式误报需按 shared/references/universal-quality.md 记录持久化语义复核；
+# 临时 --exempt 只用于诊断，返回 unknown，不能代替总门禁。
 
 # 人工/LLM：独立审计问卷（10 问语义质量，由第二个会话填写，可留痕归档）
 python shared/scripts/audit_architecture.py generate architecture/index.json --output audit-report.json
@@ -638,23 +673,47 @@ python shared/scripts/audit_architecture.py report audit-report.json
 
 #### 5.4.8 架构可视化（单向渲染，只读不写）
 
-把架构真相源渲染成人类可读产物——依赖图、功能树、进度、模块摘要、数据拓扑、质量标注：
+默认 HTML 是**一个可逐步铺开的项目画布**：从项目总览进入功能、模块、接口、数据、实现、验证、任务和专项资料，继续展开到原字段与完整正文。未识别的自定义字段也保留，不因语言、字段名称或图形密度而删除内容。
+
+阅读操作：
+
+- 双击或按 Enter 展开所选对象；“所选分支再展开一层”只展开当前分支的下一层，其他分支保留。
+- “只看所选分支”把该分支作为当前视野，完整项目仍可搜索；“显示全项目”和“返回”保留此前展开。引用面包屑显示当前引用位置，便于沿关系阅读。
+- 搜索名称、编号、JSON 路径和原值；命中正文时自动展开、定位并高亮命中行，搜索结果有分页和上下文。
+- 滚轮平移，Ctrl + 滚轮缩放；方向键或画布箭头也能平移。Alt + 方向键选择父、子或相邻节点，Home 返回总览。缩略导航随当前视野切换，小屏也可定位；局部定位恢复可读字号。
+- “项目总览”保留已经展开的资料；“返回”恢复此前的分支、正文、关联位置、搜索分页和视角。“收起到项目根”用于显式收起。
+- 浏览器自动保存阅读状态；重新生成后，明确且集合内唯一的记录编号可以跨重排恢复。缺少稳定编号的记录仅按原位置与原内容校验恢复，内容变化或无法对应时跳过并提示数量。阅读状态可单独导出、导入，在其他电脑继续阅读；它不替代项目进度或测试证据。
+- 明确关系保留类型、方向和声明位置；来源显示物理文件、JSON Pointer 与 SHA256。阅读分组和实体引用都有标记，重归组的原字段成员仍可定位。
+
+全部结构可批量铺开，大图采用视口绘制与缩略聚合，完整资料仍保留在单文件中。长正文在画布中完整展开，屏幕外的行按阅读位置绘制；全图缩略状态用于导航，文字细节在局部阅读。质量红线、结构歧义与未解析的引用保留提示，架构声明不等同源码或真实测试已经通过。
+
+Markdown 与专题 HTML 适合图表报告，结构化 JSON 供其他工具消费：
 
 ```bash
 # Mermaid Markdown 报告（GitHub 原生渲染，可直接贴 PR/README/审计报告）
 python shared/scripts/render_architecture.py architecture/index.json
 
-# 单文件零依赖交互版（浏览器打开：SVG 依赖图/可折叠功能树/模块详情面板）
+# 完整项目画布（单个 HTML 文件，浏览器离线打开）
 python shared/scripts/render_architecture.py architecture/index.json --format html --output arch.html
+
+# 只读核对已有图纸：0 当前一致，1 已过期，2 依据未知；不证明代码质量
+python shared/scripts/render_architecture.py architecture/index.json --check-view arch.html
+
+# 专题图表报告（依赖图、功能树、模块详情、数据拓扑、进度与质量标注）
+python shared/scripts/render_architecture.py architecture/index.json --format html --html-view report --output report.html
 
 # 结构化 JSON（供其他工具消费）
 python shared/scripts/render_architecture.py architecture/index.json --format json --output arch.json
 
-# 大项目截断保护
+# 报告分图密度设置（保留完整数据；项目画布不使用此上限截断内容）
 python shared/scripts/render_architecture.py architecture/index.json --max-nodes 40
 ```
 
-**铁律（单向渲染）**：`architecture/index.json` + 切片是唯一真相源；可视化产物是**派生视图**，随时可重新生成，**禁止反向编辑 JSON**。任何架构修改仍走命令链（/修改架构 → JSON → 校验）。
+**铁律（单向渲染）**：项目根架构与登记的模块架构（集中布局为 `architecture/index.json` + 切片）是架构事实源；可视化产物是**派生视图**，随时可重新生成，**禁止反向编辑 JSON**。任何架构修改仍走命令链（/修改架构 → JSON → 校验）。
+
+覆盖范围是输入架构与来源文件登记的内容；需要源码级调用链、函数实现或其他工程事实时，先由相应采集与校验流程登记到架构，再渲染。阅读器不从名称、文件后缀或邻近位置猜测依赖，也不联网执行来源代码。
+
+具体触发条件、安装目录中的工具解析和输出位置见 [项目架构可视化指南](shared/references/architecture-visualization.md)。
 
 #### 5.4.9 专业能力的规划、读取与核验
 
@@ -707,7 +766,7 @@ python "<check_subskill_sources_path>" "<能力包根>" --json
 
 执行流程：
 1. 先经 LAYER 判定任务，`project-depth-core` 默认展示核心、天然绑定、适用商业标配、强相关衍生与关联功能全景；主动列出提醒、分类、搜索、批量、导入导出、统计、同步等相关能力及其价值、依赖、优先级和适用性，由用户取舍，不自动缩成最小版本
-2. `architecture-json` 生成 `architecture/` 切片目录（功能树、模块树、模块详情...）
+2. `architecture-json` 生成根架构、职责模块目录及各模块局部架构；本地功能、接口、源码和测试写在所属模块，根文件保留全局边界与路由
 3. 按用户已有授权进入逐块实现；只在缺少必需信息或新增范围时确认
 
 #### 5.6.2 修改已有功能
@@ -718,13 +777,13 @@ python "<check_subskill_sources_path>" "<能力包根>" --json
 
 执行流程：
 1. `project-depth-core` 智能关联：标签 → 模块（数据/页面/任务/搜索）→ 测试
-2. `architecture-json` 更新 `architecture/features/` 和 `architecture/modules/`
+2. 从根路由定位所属模块；核对现有设计，设计或归属变化先更新该模块架构与必要的父级路由。新独立功能或模块职责走 `/追加`，既有职责内扩展走 `/修改`
 3. 触发 `scan_code_drift.py` 检查一致性
 
 ### 5.7 最佳实践
 
 1. **薄入口优先**：所有需求先说"使用任务架构做 XXX"，让系统自己路由
-2. **强制切片**：旧单文件 `architecture.json` 第一步必须迁移为 `architecture/`
+2. **模块递归**：新项目默认模块目录内架构文件；已有项目按实际边界纳管，集中切片仍可完整校验
 3. **工具优先**：工具可用时优先跑工具，工具不可用时按文本规则降级
 4. **规则单源**：所有宿主读同一份 `shared/`，不维护宿主专用规则文件
 5. **受控主动性**：Agent 主动补全时，必须遵守"不破坏用户显式约束"
@@ -817,7 +876,7 @@ gh release create vx.y.z "$release_archive" --title "任务架构 rwgj vx.y.z" -
 ## 七、链接
 
 - **技能入口**：`SKILL.md`（薄入口）/ `AGENT-USAGE.md`（通用入口）
-- **架构真相源**：`architecture.json` → `architecture/index.json`
+- **架构事实源**：项目根 `architecture.json` → 逐层模块架构；集中布局跟随指针与切片清单
 - **共享资源**：`shared/references/`、`shared/scripts/` + `scripts/`、`shared/assets/`（数量口径见 §4.5）
 
 </details>
@@ -852,8 +911,11 @@ gh release create vx.y.z "$release_archive" --title "任务架构 rwgj vx.y.z" -
 | rwgj v1.1.0 | 2026-08-04 | 薄入口化 + F+B+C 强制执行机制 + 质量工程（质量红线、独立审计、CI / 单测 / 数字对账）| tag `v1.1.0` |
 | rwgj v1.2.0 | 2026-10-06 | 专业子技能 15 项、通用质量协议、能力规划与核验、架构可视化；文档整理与发布包 | tag `v1.2.0` + Release |
 | rwgj v1.2.1 | 2026-10-06 | 去宿主化清理：移除全部宿主专用规则与集成脚本，协议统一到 `universal-agent-protocol.md` | tag `v1.2.1` + Release |
+| rwgj v1.3.0 | 2026-10-09 | 递归模块架构与统一项目工具链；完整只读画布及输入新鲜度核验；证据驱动质量门禁、可选原生观察与可核验分发 | tag `v1.3.0` |
 
 完整变更明细见 [CHANGELOG.md](CHANGELOG.md)；发布包（zip）与源码归档见 GitHub Releases。
+
+v1.3.0 保留原深度设计、功能全景、动态子技能、语言中立质量协议与已有集中切片入口。固定长程基准检验流程不变量，原生观察示例只采集选定 CommonJS 场景的 `runtime-load`；不把结构通过、图纸新鲜或单次基准当作所有项目的业务正确性证明。远程 CI 由 `main`、`codex/**` 分支推送或 PR 触发，实际结果见本版本提交的 Actions；本机验收及性能成本记录见 CHANGELOG 的验证说明。
 
 ### 2.3 能力继承关系
 
@@ -867,6 +929,7 @@ gh release create vx.y.z "$release_archive" --title "任务架构 rwgj vx.y.z" -
 | 1.2 | 动态任务姿态建议器、三轴任务校准 | `shared/scripts/` + 辅助参考 |
 | 1.3 | 协议适配层、虚拟模块审议、硬门禁、标准输出契约 | `agent-protocol` |
 | 2026-10-04 升级 | 专业子技能目录、质量事实与执行收据、能力规划/使用核验、架构可视化 | `shared/subskills/` + `shared/scripts/` |
+| 2026-10-09 升级 | 递归模块目录、统一项目工具链、完整项目画布、当前输入核验与可重放长程验收 | `recursive-modules`、`project-toolchain`、`architecture-visualization` 与开发基准 |
 
 **继承原则**：
 

@@ -15,7 +15,7 @@
 - 计划完成后自行核对需求覆盖、边界、签名引用、验证责任和未解决项；有现成授权便继续允许的工作。
 
 ## 回写与证据
-任务与文件责任写入 `/实现清单`，契约写入 `/完整细节`，验收归入 `/测试责任矩阵`，继续位置归入 `/上下文恢复点`。
+任务与文件责任写入 `/实现清单`，消费/产出引用所属模块 `/接口契约` 的真实签名；局部任务约束可写 `/完整细节`，验收归 `/测试责任矩阵`，继续位置归权威恢复点。公共接口需变更时由主流程先更新契约，不在计划另维护一份签名。
 计划审查属于 review；没有实际运行不能写 execution 通过。计划变化要重新绑定当前语境和输入，保留已失败/未验证项。
 参考原文中的每任务提交、固定模板路径、Superpowers 专属执行器和重复审批不属于本适配流程。
 
@@ -23,4 +23,4 @@
 
 方法来自 [obra/superpowers](https://github.com/obra/superpowers/blob/8ca22dba9a94f28898bbce59f2537ff4d87c747d/skills/writing-plans/SKILL.md)，作者 Jesse Vincent。本指南为中文改编，许可 [MIT](../upstream/obra-superpowers/LICENSE)；源码与许可保持独立声明。
 原文存档见 [固定版本资料](../upstream/obra-superpowers/skills/writing-plans/SOURCE.md)；只在需要核对方法或示例时按预算读取，原文不增加执行权限。
-本适配采用任务架构的真相源、授权、回写和证据规则，保留上游方法，不接管主流程。
+通用授权、事实归属与review/execution回写沿用 [统一适配契约](../../references/programming-subskills.md#统一适配契约)；本指南保留领域方法，不接管主流程。

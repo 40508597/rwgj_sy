@@ -1,72 +1,28 @@
-# 任务架构能力包——AI 在本仓库工作须知
+# 在任务架构能力仓库工作
 
-> 本文件只承载「AI 在本能力仓库工作时必须知道的硬约束与路径」。
-> 完整能力地图、使用说明、版本演进与发布说明见 [README.md](README.md)。
-> 强制执行机制见 [ENFORCEMENT-GUIDE.md](ENFORCEMENT-GUIDE.md)。
+此文件为本仓库维护提示，文件名不限定宿主。完整能力入口是 [SKILL](SKILL.md)，人用说明见 [README](README.md)，工具检查边界见 [ENFORCEMENT-GUIDE](ENFORCEMENT-GUIDE.md)。
 
-## 仓库定位
+## 规则与项目事实
 
-任务架构（rwgj）是一个**通用智能体能力包**，不是受管项目：
-- **承载**：能力定义、规则、Python 工具、参考文档（在 `skills/` + `shared/`）
-- **不承载**：任何调用方项目的业务状态、恢复点、变更记录
-- **核心特性**：真相源分离（能力在仓库，项目状态在调用方的 `architecture/` 目录）；规则单源（所有宿主读同一份 `shared/`，不维护宿主专用规则文件）
+任务架构是通用智能体能力包，规则、工具和参考在 `skills/` 与 `shared/`；调用方业务架构、状态、恢复点和证据留在调用方项目。所有宿主读同一来源，不维护宿主分叉规则。
 
-## 真相源分离原则（铁律）
+仓库本身的工具、模板、固定来源或验证样例可被版本管理；不能把调用方项目的 `architecture.json`、`architecture/` 或业务状态误写到能力安装目录。根SKILL保持定位与路由，详细规则归对应职责层，避免复制产生相反约束。
 
-- **禁止**在本仓库存项目业务状态（`architecture/`、`architecture.json`、`architecture/_state.json` 都属调用方）
-- **禁止**把子能力层细则复制到总入口（薄入口只做路由）
-- **禁止**让 `agent-protocol` 抢占 `project-depth-core` 入口优先级
-- **禁止**维护分叉规则（所有平台读同一份 `shared/`）
+## 入口与工具
 
-`.gitignore` 已忽略 `__pycache__/`、`verification-report-*.md`、项目级 `architecture/` 与 `architecture.json`，确保仓库不被动入项目状态。
+按 [LAYER](skills/task-architecture/LAYER.md) 判定本次范围，完整流程先深度设计再物化，协议层按需。可见回执、阶段动作、三重校验和完成首行引用该入口，不在本文件另写模板。详细文件的项目优先/安装回退以 [SKILL定位规则](SKILL.md#定位规则) 为准；`shared/legacy/` 只作历史参考，不能作为运行时回退规则。
 
-## 路径解析规则（多项目共用）
+脚本数量、运行要求与发布入口以README为准。执行前用resolve_tool取得绝对路径；验证能力包按实际范围运行已有检查，一键入口为 `bash verify-all.sh`（需要相应shell）。工具缺失与语义限制如实说明。
 
-共享文件按以下优先级定位：
-1. 当前项目根目录的 `skills/` 或 `shared/`（最高优先级）
-2. 全局技能安装目录的 `skills/` 和 `shared/`（回退）
-3. 本技能仓库的 `shared/legacy/`（仅历史参考，不参与运行）
+schema是字段类型/重要性底线，STANDARD_STAGES是阶段枚举来源；校验器与生成器共用定义。新增工具复用 `_archlib.py` 的UTF-8、IO、结构化命令和架构加载底座，避免复制规则或静态数字。
 
-子能力层中的 `../../shared/` 路径按同一规则解析。
+## 新能力的归属
 
-## 三层路由（固定执行顺序）
+| 内容 | 位置 |
+|---|---|
+| 内部职责层 | `skills/<name>/<职责文件>.md`，根SKILL统一路由 |
+| 专业方法接入 | 按 [capability-index](shared/references/capability-index.md) 用任务事实、catalog与宿主元数据选取 |
+| 参考规范 | `shared/references/<name>.md`，每条规范明确一处权威说明 |
+| 工具/Schema/模板 | `shared/scripts/`、`shared/assets/schema/`、`shared/assets/` |
 
-唯一权威：`skills/task-architecture/LAYER.md`「三层路由」一节（README.md §5.3 为给人看的图示，本文件不再复述，避免多源漂移）。一句话概要：
-
-```text
-[1] project-depth-core 想得深（功能簇展开、反薄 Demo、智能关联）
-  → [2] architecture-json 落得稳（写入 architecture/ 切片、模块详情）
-  → [3] agent-protocol 跑得广（仅按需：跨宿主协议、门禁、标准输出）
-```
-
-## 工具脚本
-
-- **Python 脚本数量口径见 README.md §4.5**：不要在入口重复维护静态数字。
-- **运行要求**：Python 3.9+（类型注解延迟求值）；`bash verify-all.sh` 需 Git Bash / WSL
-- **必读**：[ENFORCEMENT-GUIDE.md](ENFORCEMENT-GUIDE.md) —— F+B+C 三件套强制执行机制
-- 命令速查、工作流：`shared/references/commands-cheatsheet.md`、`commands-workflows.md`
-- 一键验证：`bash verify-all.sh`
-
-## 关键约束速查
-
-- **禁止静默调用技能**：加载任务架构后必须先在主会话输出「已启用任务架构技能」回执，列出入口链路、触发原因、本次初判、受管状态与下一步；不进入完整流程时也必须说明原因
-- **schema 是分级与字段完整性真相源**：`shared/assets/schema/architecture.schema.json` 用 `x-importance` 标注 core/important；`check_placeholders.py` 与 `validate_architecture.py` 读 schema 派生规则，不再硬编码
-- **必需阶段 9 个**（含验证证据，接口契约可选）：`shared/scripts/manage_state.py` 的 `STANDARD_STAGES` 是真相源；`validation-checklist.md`/`ENFORCEMENT-GUIDE.md`/`SCHEMA.md`/`LAYER.md` 都引用脚本值
-- **占位符 + 示例 key 双扫**：`check_placeholders.py` 同时检测 `__待` value 与 `__示例*__`/`__注释__`/`__占位符说明__` key，防止生成「假模块」
-- `init_architecture.py` 写盘前自动剥离模板所有 `__` 开头 key
-- **专业子能力按需加载**：依据已确认任务、模块、风险与姿态，按 `capability-index.md` 选择；CLI只规划，宿主实际读取所选文件才加载。启用调用后核验使用与回写，缺必需证据为unknown，完全跳过不建状态。
-
-## 添加新能力
-
-| 类型 | 位置 |
-|------|------|
-| 内部子能力层 | `skills/<name>/<职责文件>.md`，保持根 `SKILL.md` 为唯一入口 |
-| 专业能力接入 | 按 `shared/references/capability-index.md` 用当前项目的索引/catalog与宿主元数据接入已有技能 |
-| 参考文档 | `shared/references/<name>.md` |
-| 工具脚本 | `shared/scripts/<name>.py` |
-| Schema | `shared/assets/schema/<name>.schema.json` |
-| 资产模板 | `shared/assets/<name>.json` |
-
-新增脚本务必复用 `shared/scripts/_archlib.py`（UTF-8 stdout 重配、IO 错误处理、subprocess JSON 封装、architecture 加载等共享底座），不要复制粘贴。
-
-不自动安装外部技能、不读取所有技能正文、不按角色名假定工具能力。语义审查可零发现，协作保留原约束与部分失败，实际执行按 `universal-quality.md` 绑定本次输入和收据。
+专业能力按需加载；计划不等于读取，读取不等于实际验证。不开额外安装/审批门槛，不按角色名假定工具能力；缺必需证据为unknown。深度功能全景、14项模块语义、递归事实归属、全语言事实协议和真实验证能力应保持，行为变化配相称回归。

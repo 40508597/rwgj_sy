@@ -46,7 +46,7 @@ class TestGateCheck(unittest.TestCase):
     def test_all_pass(self):
         passed, _, stages = self.run_gate()
         self.assertIs(passed, True)
-        self.assertEqual([s["status"] for s in stages], ["pass"] * 5)
+        self.assertEqual([s["status"] for s in stages], ["pass"] * 6)
 
     def test_validator_errors_fail(self):
         self.assertIs(self.run_gate(validation=(1, {"错误": ["缺字段"]}, ""))[0], False)
@@ -122,7 +122,7 @@ class TestGateCheck(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertEqual(envelope["verdict"], "unknown")
         self.assertEqual(envelope["结论"], "无法判定")
-        self.assertEqual(envelope["evidence"]["counts"], {"pass": 4, "fail": 0, "unknown": 1})
+        self.assertEqual(envelope["evidence"]["counts"], {"pass": 5, "fail": 0, "unknown": 1})
         self.assertTrue(envelope["原因"])
 
 

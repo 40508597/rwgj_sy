@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import base64
 import contextlib
+import hashlib
 import io
 import json
 import os
@@ -251,6 +252,164 @@ class TestRealProbes(unittest.TestCase):
         for value in ('{"status":"pass", "status":"fail"}', '{"n":NaN}'):
             with self.assertRaises(probes.ProbeInputError):
                 probes._json(value)
+
+    def test_default_full_copy_preserves_empty_dirs_and_independence(self):
+        (self.project / "empty-dir").mkdir()
+        result = self.run_mode()
+        scope, work = result["copy_scope"], result["work"]
+        self.assertEqual(scope["mode"], "full")
+        self.assertTrue(scope["complete_project_file_scope"])
+        self.assertEqual(scope["omitted_files"], [])
+        self.assertEqual(work["copies_completed"], 2)
+        self.assertEqual(work["files_copied"], 2 * scope["files_selected"])
+        self.assertEqual(work["bytes_copied"], 2 * scope["bytes_per_copy"])
+        baseline, mutant = self.workspace / "case-0001/baseline", self.workspace / "case-0001/mutant"
+        self.assertTrue((baseline / "empty-dir").is_dir())
+        self.assertTrue((mutant / "empty-dir").is_dir())
+        for other in (self.project, baseline):
+            self.assertFalse((mutant / self.case["input"]).samefile(other / self.case["input"]))
+            self.assertNotIn(b"BAD", (other / self.case["input"]).read_bytes())
+
+    def test_explicit_scope_reduces_copy_work_and_records_every_omission(self):
+        (self.project / "large-cache").mkdir()
+        (self.project / "large-cache/blob").write_bytes(b"x" * 65536)
+        self.write_suite(copy_scope={"include": ["**"], "exclude": ["large-cache"], "max_files": 4, "max_bytes": 16384})
+        result = probes.run_suite(self.project, self.suite, self.workspace)
+        self.assertEqual(result["status"], "pass")
+        scope, work = result["copy_scope"], result["work"]
+        self.assertFalse(scope["complete_project_file_scope"])
+        self.assertEqual(scope["mode"], "explicit-subset")
+        self.assertEqual(scope["omitted_files"], ["large-cache/blob"])
+        self.assertEqual(scope["files_selected"], 4)
+        self.assertEqual(len(scope["selected_input_hashes"]), 4)
+        self.assertEqual(work["files_copied"], 8)
+        self.assertEqual(work["bytes_copied"], 2 * scope["bytes_per_copy"])
+        self.assertIn("complete project", result["original_guard_scope"])
+        self.assertTrue(any("omitted" in item for item in result["limitations"]))
+        self.assertFalse((self.workspace / "case-0001/mutant/large-cache").exists())
+
+    def test_suite_must_match_the_original_snapshot_before_copying(self):
+        self.write_suite()
+        original_snapshot = probes._snapshot
+        def changed_suite(root, counters=None):
+            self.suite.write_text("{}", encoding="utf-8")
+            return original_snapshot(root, counters)
+        with patch.object(probes, "_snapshot", side_effect=changed_suite):
+            with self.assertRaisesRegex(probes.ProbeInputError, "suite changed"):
+                probes.run_suite(self.project, self.suite, self.workspace)
+        self.assertFalse(self.workspace.exists())
+
+    def test_selected_empty_directory_keeps_its_ancestors(self):
+        (self.project / "empty/deep").mkdir(parents=True)
+        self.write_suite(copy_scope={"include": [self.case["input"], "checker.py", "mode.txt", "suite.json", "empty/deep"]})
+        result = probes.run_suite(self.project, self.suite, self.workspace)
+        self.assertEqual(result["status"], "pass")
+        self.assertTrue((self.workspace / "case-0001/baseline/empty/deep").is_dir())
+        self.assertTrue((self.workspace / "case-0001/mutant/empty/deep").is_dir())
+
+    def test_snapshot_hashes_large_files_without_read_bytes(self):
+        payload = b"large-artifact" * 100000
+        artifact = self.project / "large.bin"
+        artifact.write_bytes(payload)
+        with patch.object(Path, "read_bytes", side_effect=AssertionError("whole-file read forbidden")):
+            snapshot = probes._snapshot(self.project)
+        self.assertEqual(snapshot["large.bin"], hashlib.sha256(payload).hexdigest())
+
+    def test_scope_include_is_component_bounded_and_recursive_only_when_explicit(self):
+        self.assertTrue(probes._matches("src/a", "src/*"))
+        self.assertFalse(probes._matches("src/deep/a", "src/*"))
+        self.assertTrue(probes._matches("src/deep/a", "src/**"))
+        self.assertTrue(probes._matches("a", "**/a"))
+        self.assertTrue(probes._matches("src/deep/a", "src"))
+        self.assertFalse(probes._matches("src-other/a", "src"))
+        self.assertTrue(probes._excluded("src/deep/a", ["src/*"]))
+
+    def test_scope_rejects_omitted_suite_and_mutation_input_before_copy(self):
+        for index, exclude in enumerate(([self.case["input"]], ["suite.json"])):
+            with self.subTest(exclude=exclude):
+                self.workspace = self.base / f"omitted-{index}"
+                self.write_suite(copy_scope={"exclude": exclude})
+                with self.assertRaisesRegex(probes.ProbeInputError, "omits"):
+                    probes.run_suite(self.project, self.suite, self.workspace)
+                self.assertFalse(self.workspace.exists())
+
+    def test_copy_budgets_reject_before_creating_workspace(self):
+        for index, budget in enumerate(({"max_files": 1}, {"max_bytes": 1})):
+            with self.subTest(budget=budget):
+                self.workspace = self.base / f"budget-{index}"
+                self.write_suite(copy_scope=budget)
+                with self.assertRaisesRegex(probes.ProbeInputError, "budget exceeded"):
+                    probes.run_suite(self.project, self.suite, self.workspace)
+                self.assertFalse(self.workspace.exists())
+
+    def test_cli_budget_rejection_preserves_preflight_scope_and_limits(self):
+        self.write_suite(copy_scope={"max_files": 1})
+        stream = io.StringIO()
+        with contextlib.redirect_stdout(stream):
+            code = probes.main([str(self.project), "--suite", "suite.json",
+                                "--workspace", str(self.workspace), "--json"])
+        result = json.loads(stream.getvalue())
+        self.assertEqual((code, result["status"]), (2, "unknown"))
+        self.assertEqual(result["copy_scope"]["budget_status"], "exceeded")
+        self.assertEqual(result["copy_scope"]["max_files"], 1)
+        self.assertEqual(result["copy_scope"]["files_selected"], 4)
+        self.assertEqual(len(result["copy_scope"]["selected_input_hashes"]), 4)
+        self.assertFalse(self.workspace.exists())
+
+    def test_invalid_scope_fields_paths_patterns_and_budget_types_are_rejected(self):
+        for index, scope in enumerate(([], {"includes": ["**"]}, {"include": []},
+                {"include": ["../outside"]}, {"exclude": ["C:/outside"]},
+                {"include": ["**", "**"]}, {"exclude": ["bad\x00path"]},
+                {"max_files": True}, {"max_bytes": 0}, {"max_bytes": 1.5})):
+            with self.subTest(scope=scope):
+                self.workspace = self.base / f"invalid-scope-{index}"
+                self.write_suite(copy_scope=scope)
+                with self.assertRaises(probes.ProbeInputError):
+                    probes.run_suite(self.project, self.suite, self.workspace)
+                self.assertFalse(self.workspace.exists())
+
+    def test_omitted_checker_cannot_produce_a_false_pass(self):
+        self.write_suite(copy_scope={"exclude": ["checker.py"]})
+        result = probes.run_suite(self.project, self.suite, self.workspace)
+        self.assertEqual(result["status"], "unknown")
+        self.assertEqual(result["cases"][0]["outcome"], "invalid")
+        self.assertEqual(result["counts"]["detected"], 0)
+
+    def test_original_guard_covers_files_omitted_from_copies(self):
+        omitted = self.project / "omitted.bin"
+        omitted.write_bytes(b"original")
+        checker = self.project / "checker.py"
+        checker.write_text("import sys\nfrom pathlib import Path\nPath(sys.argv[1]).write_bytes(b'changed')\n" + FIXTURE, encoding="utf-8")
+        self.case["command"].append(str(omitted))
+        self.write_suite(copy_scope={"exclude": ["omitted.bin"]})
+        result = probes.run_suite(self.project, self.suite, self.workspace)
+        self.assertFalse(result["original_unchanged"])
+        self.assertEqual(result["status"], "unknown")
+        self.assertEqual(result["counts"]["detected"], 1)
+
+    def test_invalid_patch_has_no_project_copies_but_stays_in_denominator(self):
+        self.case["old_base64"] = b64(b"absent")
+        result = self.run_mode()
+        self.assertEqual(result["cases_total"], 1)
+        self.assertEqual(result["counts"]["invalid"], 1)
+        self.assertEqual(result["work"]["copies_completed"], 0)
+        self.assertEqual(result["work"]["bytes_copied"], 0)
+        self.assertFalse((self.workspace / "case-0001/baseline").exists())
+        self.assertFalse((self.workspace / "case-0001/mutant").exists())
+
+    def test_case_to_case_original_change_is_unknown(self):
+        self.write_suite([self.case, {**self.case, "id": "case-2"}])
+        original_run = probes._run
+        def mutate_original(case, copied, logs, label):
+            result = original_run(case, copied, logs, label)
+            if label == "mutant":
+                (self.project / "mode.txt").write_text("changed", encoding="utf-8")
+            return result
+        with patch.object(probes, "_run", side_effect=mutate_original):
+            result = probes.run_suite(self.project, self.suite, self.workspace)
+        self.assertEqual(result["cases"][1]["outcome"], "unknown")
+        self.assertEqual(result["work"]["copies_completed"], 2)
+        self.assertEqual(result["status"], "unknown")
 
     def test_cli_json_returns_real_status(self):
         self.write_suite()

@@ -97,6 +97,79 @@ class CapabilityUseTests(unittest.TestCase):
         self.assertEqual(result["status"], state, result)
         return result
 
+    def prepare_real_architecture_view(self, layout):
+        """Keep the signed before JSON separate from the real loader sidecar."""
+        original, current = copy.deepcopy(self.before), copy.deepcopy(self.arch)
+        entry = self.root / "architecture.json"
+        if layout == "centralized-slice":
+            routing = {"启用": True, "切片清单": [
+                {"路径": "architecture/evidence.json", "包含": ["验证证据"]}]}
+            original["架构切片"] = copy.deepcopy(routing)
+            current["架构切片"] = copy.deepcopy(routing)
+            physical = copy.deepcopy(current)
+            self.write(self.root / "architecture/evidence.json",
+                       {"验证证据": physical.pop("验证证据")})
+            self.write(entry, physical)
+        elif layout == "pointer":
+            self.write(self.root / "architecture/index.json", current)
+            self.write(entry, {"指向": "architecture/index.json"})
+        else:
+            self.write(entry, current)
+        self.plan["architecture_snapshot"] = original
+        self.plan["architecture_sha256"] = hashlib.sha256(encode(original)).hexdigest()
+        self.sign()
+        self.usage["plan_fingerprint"] = self.plan["fingerprint"]
+        self.write(self.base / "plan.json", self.plan)
+        self.write(self.base / "usage.json", self.usage)
+        plan = checker.read_json(self.base / "plan.json")
+        before = plan["architecture_snapshot"]
+        after = checker.snapshot_current(self.root, entry, plan)
+        self.assertIs(type(before), dict)
+        self.assertIsInstance(after, checker._archlib.ArchitectureView)
+        self.assertIsNotNone(after.dependency_sources)
+        self.assertEqual(checker.canonical(after), checker.canonical(current))
+        return before, after
+
+    def test_real_architecture_view_allowed_writeback_keeps_leaf_coverage(self):
+        for layout in ("plain", "pointer", "centralized-slice"):
+            with self.subTest(layout=layout):
+                before, after = self.prepare_real_architecture_view(layout)
+                self.assertEqual(checker.differences(before, after), ["/验证证据/手动检查/0"])
+                self.assertEqual(checker.differences(after, before), ["/验证证据/手动检查/0"])
+                result = self.run_cli()
+                self.assertEqual(result["status"], "pass", result)
+                snapshot = next(row for row in result["checks"] if row["id"] == "architecture-snapshot")
+                self.assertEqual(snapshot["status"], "pass")
+                self.assertFalse(any(row["id"] == "writeback-coverage" for row in result["checks"]), result)
+
+    def test_real_architecture_view_outside_writeback_is_still_unknown(self):
+        self.arch["项目"]["名称"] = "unreported identity edit"
+        for layout in ("plain", "pointer", "centralized-slice"):
+            with self.subTest(layout=layout):
+                before, after = self.prepare_real_architecture_view(layout)
+                self.assertEqual(checker.differences(before, after),
+                                 ["/项目/名称", "/验证证据/手动检查/0"])
+                result = self.run_cli()
+                self.assertEqual(result["status"], "unknown", result)
+                guarded = {row["id"]: row for row in result["checks"]
+                           if row["id"] in {"architecture-snapshot", "writeback-coverage"}}
+                self.assertEqual(set(guarded), {"architecture-snapshot", "writeback-coverage"})
+                for row in guarded.values():
+                    self.assertEqual(row["status"], "unknown")
+                    self.assertEqual(row["paths"], ["/项目/名称"])
+
+    def test_real_architecture_view_does_not_hide_stale_source_evidence(self):
+        self.source.write_text("changed source after the plan was signed", encoding="utf-8")
+        for layout in ("plain", "pointer", "centralized-slice"):
+            with self.subTest(layout=layout):
+                self.prepare_real_architecture_view(layout)
+                result = self.run_cli()
+                self.assertEqual(result["status"], "unknown", result)
+                source = next(row for row in result["checks"] if row["id"] == "semantic-code-review:source")
+                self.assertEqual(source["status"], "unknown")
+                snapshot = next(row for row in result["checks"] if row["id"] == "architecture-snapshot")
+                self.assertEqual(snapshot["status"], "pass")
+
     def test_review_zero_findings_and_nonstandard_language_input_pass(self):
         result = self.require("pass")
         row = next(v for v in result["checks"] if v["id"].endswith(":review"))
@@ -321,6 +394,37 @@ class CapabilityUseTests(unittest.TestCase):
     def test_fake_review_cannot_claim_execution_evidence(self):
         self.call["kind"] = "execution"
         self.require("unknown")
+
+
+class JsonDifferenceTypesTests(unittest.TestCase):
+    def test_dictionary_subclasses_are_json_objects_even_when_nested(self):
+        class OtherObject(dict):
+            pass
+        raw = {"nested": {"array": [{"value": 1}]}}
+        view = checker._archlib.ArchitectureView({"nested": checker._archlib.ArchitectureView(
+            {"array": [OtherObject({"value": 1})]})})
+        view._dependency_sources = {"private": "not a JSON member"}
+        self.assertEqual(checker.differences(raw, view), [])
+        self.assertEqual(checker.differences(view, raw), [])
+        view["nested"]["array"][0]["value"] = 2
+        self.assertEqual(checker.differences({"nested": {"array": [{"value": 1}]}}, view),
+                         ["/nested/array/0/value"])
+
+    def test_nonobject_types_keep_strict_type_comparison(self):
+        class OtherArray(list):
+            pass
+        for before, after in ((True, 1), (False, 0), (True, 1.0), (1, 1.0),
+                              ([], ()), ([1], OtherArray([1])), (None, {}),
+                              ({}, []), ("1", 1)):
+            with self.subTest(before=type(before).__name__, after=type(after).__name__):
+                self.assertEqual(checker.differences({"value": before}, {"value": after}), ["/value"])
+                self.assertEqual(checker.differences({"value": after}, {"value": before}), ["/value"])
+
+    def test_object_fields_array_lengths_and_escaped_paths_remain_exact(self):
+        before = {"a/b~c": [{"accepted": True}], "removed": {}}
+        after = checker._archlib.ArchitectureView({"a/b~c": [{"accepted": 1}, {}], "added": {}})
+        self.assertEqual(checker.differences(before, after),
+                         ["/a~1b~0c/0/accepted", "/a~1b~0c/1", "/added", "/removed"])
 
 
 if __name__ == "__main__":

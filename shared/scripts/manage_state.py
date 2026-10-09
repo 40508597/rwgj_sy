@@ -79,8 +79,7 @@ def load_state(state_path: Path) -> dict[str, Any] | None:
     """加载状态文件"""
     if not state_path.exists():
         return None
-    with open(state_path, "r", encoding="utf-8-sig") as f:
-        state = json.load(f)
+    state = _archlib.strict_json_loads(state_path.read_text(encoding="utf-8-sig"))
     validate_state(state)
     update_completion(state)  # 派生计数不作为真相源，避免旧缓存误报完成。
     return state

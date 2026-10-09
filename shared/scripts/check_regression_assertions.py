@@ -31,10 +31,19 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
 
-    text = args.file.read_text(encoding="utf-8-sig")
+    try:
+        text = args.file.read_text(encoding="utf-8-sig")
+    except (OSError, UnicodeError, ValueError) as exc:
+        if args.json:
+            print(json.dumps({"status": "unknown", "场景": args.scenario,
+                              "通过": False, "errors": [str(exc)]}, ensure_ascii=False, indent=2))
+        else:
+            print(f"ERROR: 无法读取回归文本: {exc}", file=sys.stderr)
+        return 2
     required = SCENARIOS[args.scenario]
     missing = [item for item in required if item not in text]
     result = {
+        "status": "pass" if not missing else "fail",
         "场景": args.scenario,
         "通过": not missing,
         "必需项": required,

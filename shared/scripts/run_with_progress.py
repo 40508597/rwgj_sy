@@ -2,6 +2,7 @@
 """工具脚本执行包装器 - 提供友好的错误提示和进度反馈"""
 
 import sys
+import argparse
 import subprocess
 import time
 from pathlib import Path
@@ -46,11 +47,21 @@ def run_script_with_feedback(
     Returns:
         (success: bool, output: str)
     """
-    script_dir = Path(__file__).parent
+    script_dir = Path(__file__).resolve().parent
+    # This helper wraps bundled tools; an untrusted relative/absolute path must
+    # never change it into a general external Python execution entrypoint.
+    if (not isinstance(script_name, str) or not script_name
+            or Path(script_name).name != script_name
+            or "/" in script_name or "\\" in script_name
+            or Path(script_name).suffix != ".py"
+            or script_name.startswith("_") or script_name == Path(__file__).name):
+        return False, "错误：只能指定同目录的公开 Python 工具文件名"
     script_path = script_dir / script_name
 
     if not script_path.exists():
         return False, f"错误：脚本不存在 - {script_path}"
+    if script_path.is_symlink() or script_path.resolve().parent != script_dir:
+        return False, "错误：工具路径不得通过符号链接跳出工具目录"
 
     cmd = [sys.executable, str(script_path)] + args
 
@@ -144,21 +155,18 @@ def _get_suggestions(script_name: str, error_msg: str) -> str:
     return "\n".join(suggestions)
 
 
-def main():
+def main(argv=None):
     """命令行入口"""
-    if len(sys.argv) < 3:
-        print("用法: python run_with_progress.py <script_name> <description> [args...]")
-        print("\n示例:")
-        print("  python run_with_progress.py validate_architecture.py '验证架构文件' architecture.json")
-        sys.exit(1)
-
-    script_name = sys.argv[1]
-    description = sys.argv[2]
-    args = sys.argv[3:]
-
-    success, output = run_script_with_feedback(script_name, args, description)
-    sys.exit(0 if success else 1)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("script_name", help="同目录公开工具文件名，例如 validate_architecture.py")
+    parser.add_argument("description", help="显示给人的任务说明")
+    parser.add_argument("args", nargs=argparse.REMAINDER, help="原样传给工具的参数")
+    arguments = parser.parse_args(argv)
+    success, output = run_script_with_feedback(arguments.script_name, arguments.args, arguments.description)
+    if not success:
+        print(output, file=sys.stderr)
+    return 0 if success else 1
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

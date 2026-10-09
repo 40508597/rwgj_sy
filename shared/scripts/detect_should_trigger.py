@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import os
+import argparse
 import sys
 from pathlib import Path
 from typing import Any
@@ -97,8 +98,12 @@ def should_trigger_task_architecture(project_root: Path) -> tuple[bool, list[str
     return should_trigger, reasons
 
 
-def main() -> int:
+def main(argv=None) -> int:
     """CLI 入口"""
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--project", type=Path, default=Path.cwd(),
+                        help="待盘点的项目目录（默认当前目录）")
+    args = parser.parse_args(argv)
     # 自动触发开关：TASK_ARCH_AUTO_TRIGGER=off|0|false|no 时跳过检测（返回 2），
     # 供常驻型工具（如 ZCode）按用户偏好关闭「每次新任务主动提醒」的摩擦。
     auto_trigger = os.environ.get("TASK_ARCH_AUTO_TRIGGER", "1").strip().lower()
@@ -108,7 +113,10 @@ def main() -> int:
         print("需要时仍可显式触发：「使用任务架构做 XXX」或 /创建架构 | /分析架构 | /校验架构")
         return 2
 
-    project_root = Path.cwd()
+    project_root = args.project
+    if not project_root.is_dir():
+        print(f"ERROR: 项目目录不存在或不是目录: {project_root}", file=sys.stderr)
+        return 2
 
     print("=" * 60)
     print("🔍 任务架构技能触发检测")

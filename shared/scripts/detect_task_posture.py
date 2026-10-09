@@ -82,12 +82,14 @@ def detect_task_posture(request: str, project_root: Path, rules: dict[str, Any])
     evidence: list[str] = []
 
     if managed:
-        # 受管项目真相源指向按实际形态：有根指针 architecture.json 时读指针，
-        # 仅 architecture/ 切片目录时直接读 architecture/index.json（与 LAYER.md 口径一致）
+        # 有根架构时从根读取；已有集中索引仍按实际入口读取。
+        # architecture/ 也可能只放状态或证据，目录存在不等于索引存在。
         if (project_root / "architecture.json").exists():
             required_refs.append("architecture.json")
-        else:
+        elif (project_root / "architecture/index.json").is_file():
             required_refs.append("architecture/index.json")
+        else:
+            required_refs.append("architecture.json")
     else:
         required_refs.extend(default.get("必须加载", ["SKILL.md"]))
 
@@ -181,7 +183,7 @@ def detect_task_posture(request: str, project_root: Path, rules: dict[str, Any])
         "按需加载": unique(optional_refs),
         "必须校验": unique(checks),
         "禁止事项": unique(forbidden),
-        "裁决边界": "本结果只做任务前提醒，不替代用户明确需求、安全风险裁决、功能族展开、architecture/ 架构文件夹真相源和模型工程判断。",
+        "裁决边界": "本结果只做任务前提醒，不替代用户明确需求、安全风险裁决、功能族展开、项目根与登记模块的架构真相源和模型工程判断。入口尚未建立时先按技能创建，不根据 architecture/ 辅助目录假定已有集中索引。",
         "说明": "本结果为轻量建议；必须服从用户明确不要、安全风险、JSON 先行和真实工程上下文。",
     }
 

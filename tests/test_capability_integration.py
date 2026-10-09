@@ -10,6 +10,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 PACKAGE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PACKAGE / 'shared' / 'scripts'))
@@ -20,7 +21,10 @@ import check_capability_usage
 
 class CapabilityBoundaryIntegration(unittest.TestCase):
     def setUp(self):
-        self.temp = tempfile.TemporaryDirectory(prefix='taskarch-cap-boundary-')
+        # A full package contains deeply nested upstream references. Anchor the
+        # disposable fixture beside the package, independent of a host's long
+        # TEMP path, and keep fixture components short for legacy Win32 APIs.
+        self.temp = tempfile.TemporaryDirectory(prefix='ta-', dir=PACKAGE.parent)
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
 
@@ -111,8 +115,26 @@ class CapabilityBoundaryIntegration(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertIn('--input', proc.stdout)
 
+    def test_complete_package_regression_is_independent_of_long_host_temp(self):
+        long_temp = self.root / ("host-temp-" + "x" * 70)
+        long_temp.mkdir()
+        # The host temp is valid but would push the full upstream paths beyond
+        # 260 characters with the old fixture prefix and package directory.
+        longest_relative = max(len(str(path.relative_to(PACKAGE)))
+                               for path in (PACKAGE / "shared/subskills").rglob("*") if path.is_file())
+        old_fixture_overhead = len("taskarch-cap-boundary-") + 8 + len("/package/")
+        self.assertGreater(len(str(long_temp)) + old_fixture_overhead + longest_relative, 260)
+        with patch.object(tempfile, "tempdir", str(long_temp)):
+            nested = type(self)("test_capability_integrity_check_detects_missing_and_broken_refs")
+            try:
+                nested.setUp()
+                self.assertEqual(nested.root.parent, PACKAGE.parent)
+                nested.test_capability_integrity_check_detects_missing_and_broken_refs()
+            finally:
+                nested.doCleanups()
+
     def test_capability_integrity_check_detects_missing_and_broken_refs(self):
-        copied = self.root / 'package'
+        copied = self.root / 'p'
         shutil.copytree(PACKAGE, copied, ignore=shutil.ignore_patterns('__pycache__', '.pytest_cache'))
         command = [sys.executable, '-B', '-X', 'utf8', str(PACKAGE / 'scripts/validate_task_architecture_system.py'), str(copied)]
         baseline = subprocess.run(command, capture_output=True, text=True, encoding='utf-8', timeout=20)

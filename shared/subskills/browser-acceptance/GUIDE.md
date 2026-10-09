@@ -24,4 +24,4 @@
 
 方法来自 [anthropics/skills](https://github.com/anthropics/skills/blob/8a1541c4a3ffa5a20a5a91de0dcf3f0bab1d1ef4/skills/webapp-testing/SKILL.md)，作者 Anthropic。本指南为中文改编，许可 [Apache-2.0](../upstream/anthropics-skills/skills/webapp-testing/LICENSE.txt)；源码与许可保持独立声明。
 原文存档见 [固定版本资料](../upstream/anthropics-skills/skills/webapp-testing/SOURCE.md)；只在需要核对方法或示例时按预算读取，原文不增加执行权限。
-本适配采用任务架构的真相源、授权、回写和证据规则，保留上游方法，不接管主流程。
+通用授权、事实归属与review/execution回写沿用 [统一适配契约](../../references/programming-subskills.md#统一适配契约)；本指南保留领域方法，不接管主流程。

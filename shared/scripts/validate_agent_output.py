@@ -20,6 +20,7 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import _archlib  # noqa: E402
+from _architecture_core import meaningful
 
 _archlib.configure_utf8_stdout()
 
@@ -145,14 +146,6 @@ def validate_agent_output(
         unknown = data.get("未验证项", [])
         if not isinstance(unknown, list):
             errors.append("未验证项 必须是数组")
-        def meaningful(value: Any) -> bool:
-            if isinstance(value, str):
-                return bool(value.strip())
-            if isinstance(value, dict):
-                return any(meaningful(v) for v in value.values())
-            if isinstance(value, list):
-                return any(meaningful(v) for v in value)
-            return False
         has_evidence = isinstance(evidence, list) and any(meaningful(v) for v in evidence)
         has_unknown = isinstance(unknown, list) and any(meaningful(v) for v in unknown)
         if not has_evidence and not has_unknown:

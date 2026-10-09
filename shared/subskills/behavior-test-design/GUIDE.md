@@ -24,4 +24,4 @@
 
 方法来自 [obra/superpowers](https://github.com/obra/superpowers/blob/8ca22dba9a94f28898bbce59f2537ff4d87c747d/skills/test-driven-development/SKILL.md)，作者 Jesse Vincent。本指南为中文改编，许可 [MIT](../upstream/obra-superpowers/LICENSE)；源码与许可保持独立声明。
 原文存档见 [固定版本资料](../upstream/obra-superpowers/skills/test-driven-development/SOURCE.md)；只在需要核对方法或示例时按预算读取，原文不增加执行权限。
-本适配采用任务架构的真相源、授权、回写和证据规则，保留上游方法，不接管主流程。
+通用授权、事实归属与review/execution回写沿用 [统一适配契约](../../references/programming-subskills.md#统一适配契约)；本指南保留领域方法，不接管主流程。

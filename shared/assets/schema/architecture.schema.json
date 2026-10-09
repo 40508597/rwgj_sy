@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://local.task-architecture/architecture.schema.json",
   "标题": "任务架构 architecture.json 结构底线",
-  "说明": "本 schema 约束 architecture.json 的顶层中文字段和关键容器类型，并通过 x-importance 自定义 keyword 标注字段重要性分级（core/important/optional），供 check_placeholders.py / validate_architecture.py 等工具作为分级与完整性的唯一真相源。完整工程语义仍以 SKILL.md、references/ 和 21 项一致性校验为准。",
+  "说明": "本 schema 约束 architecture.json 的顶层中文字段和关键容器类型，并通过 x-importance 自定义 keyword 标注字段重要性分级（core/important/optional），供 check_placeholders.py / validate_architecture.py 等工具作为分级与完整性的唯一真相源。完整工程语义仍以 SKILL.md、references/ 和 21 项一致性校验为准。 顶层21类容器约束递归合成后的完整视图，不要求子模块复制全局字段。",
   "type": "object",
   "required": [
     "项目",
@@ -99,26 +99,69 @@
     "功能树": {
       "type": "array",
       "x-importance": "core",
-      "x-full-min-items": 1
+      "x-full-min-items": 1,
+      "说明": "根维护全局功能及导航；局部完整功能子树由所属模块维护。合成按编号递归汇总，公共父节点可仅写编号与子节点；同字段矛盾拒绝，不回写合成视图。"
     },
     "专业能力索引": {
       "type": "array",
       "x-importance": "important",
       "items": {
         "type": "object",
-        "required": ["能力类型"],
+        "required": [
+          "能力类型"
+        ],
         "properties": {
-          "能力编号": {"type": "string"},
-          "能力类型": {"type": "string"},
-          "适用节点": {"type": "array", "items": {"type": "string"}},
-          "关联节点": {"type": "array", "items": {"type": "string"}},
-          "触发信号": {"type": "array", "items": {"type": "string"}},
-          "调用建议": {"type": "string"},
-          "质量要求": {"type": "array", "items": {"type": "string"}},
-          "候选技能": {"type": "array", "items": {"type": "object"}},
-          "回写位置": {"type": "array", "items": {"type": "string"}},
-          "边界": {"type": "string"},
-          "必需": {"type": "boolean"}
+          "能力编号": {
+            "type": "string"
+          },
+          "能力类型": {
+            "type": "string"
+          },
+          "适用节点": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "关联节点": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "触发信号": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "调用建议": {
+            "type": "string"
+          },
+          "质量要求": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "候选技能": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "回写位置": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "边界": {
+            "type": "string"
+          },
+          "必需": {
+            "type": "boolean"
+          }
         }
       }
     },
@@ -209,12 +252,13 @@
       "items": {
         "$ref": "#/$defs/moduleNode"
       },
-      "x-full-min-items": 1
+      "x-full-min-items": 1,
+      "说明": "显式非空值保留逻辑分组和扩展事实。递归模块布局缺失或空数组时由路由派生物理包含树；模块目录始终反映物理归属，包含不等于依赖。"
     },
     "模块详情": {
       "type": "object",
       "x-importance": "core",
-      "说明": "每个实现模块必须有完整详情，子字段底线见 模块详情子字段底线。空对象 {} 视为 critical 缺失。",
+      "说明": "每个实现模块必须有完整详情，子字段底线见 模块详情子字段底线。空对象 {} 视为 critical 缺失。 依赖以非空模块编号或带编号对象声明，说明性记录用带说明的对象。上游依赖为本模块依赖的提供方，下游消费者方向相反；可在实现清单或拓扑选择一处权威声明，其他位置留空数组，不要求复制。",
       "x-required-subfields": [
         "职责",
         "非职责",
@@ -332,7 +376,7 @@
     "验证证据": {
       "type": "object",
       "x-importance": "core",
-      "说明": "验证证据必须至少包含六类一项，每类记录命令/截图/手检/未验证项。全空视为 critical 缺失。",
+      "说明": "六类是适用分类，不要求六个键都出现。仅记录实际证据或明确未验证项；至少一类有有效文本，全空为critical。结构检查不证明证据实际执行或质量通过。",
       "properties": {
         "自动化测试": {
           "type": "array",
@@ -496,6 +540,63 @@
     "变更记录": {
       "type": "array",
       "x-importance": "important"
+    },
+    "模块路由": {
+      "type": "object",
+      "description": "模块目录递归协议；当前模块架构为事实源，父入口路径相对父架构目录，包含树与依赖图分开。",
+      "required": [
+        "版本",
+        "编号",
+        "名称",
+        "职责",
+        "子模块"
+      ],
+      "properties": {
+        "版本": {
+          "type": "integer",
+          "enum": [
+            1
+          ]
+        },
+        "编号": {
+          "type": "string"
+        },
+        "名称": {
+          "type": "string"
+        },
+        "职责": {
+          "type": "string"
+        },
+        "扫描忽略目录": {
+          "type": "array",
+          "description": "仅根模块设置；孤儿架构盘点的显式排除目录，不豁免已登记模块、实现文件及原质量验证。",
+          "items": {
+            "type": "string"
+          }
+        },
+        "子模块": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "编号",
+              "路径",
+              "职责"
+            ],
+            "properties": {
+              "编号": {
+                "type": "string"
+              },
+              "路径": {
+                "type": "string"
+              },
+              "职责": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

@@ -9,7 +9,7 @@ check_quality_redlines.py 只能拦截「明显坏」，无法判断「架构好
 - `--report`：核验已填写的审计报告（结论完整性/合法性），输出汇总
 
 原则：质量红线拦截明显坏，独立审计记录质量判断，最终权威永远是人的工程判断。
-审计结果应写入 architecture/index.json 的 验证证据 留痕。
+审计结果应在项目根架构的 验证证据 留痕，并指向实际审计产物。
 
 用法:
     python audit_architecture.py generate architecture.json --output audit-report.json
@@ -153,7 +153,7 @@ def cmd_generate(args: argparse.Namespace) -> int:
 
 def cmd_report(args: argparse.Namespace) -> int:
     try:
-        report = json.loads(args.report.read_text(encoding="utf-8"))
+        report = _archlib.strict_json_loads(args.report.read_text(encoding="utf-8-sig"))
     except (OSError, UnicodeError, ValueError) as exc:
         print(f"ERROR: 无法读取审计报告: {exc}", file=sys.stderr)
         return 2
@@ -208,9 +208,13 @@ def main(argv: list[str] | None = None) -> int:
     p_rep.add_argument("report", type=Path, help="审计报告 JSON 文件")
 
     args = parser.parse_args(argv)
-    if args.command == "generate":
-        return cmd_generate(args)
-    return cmd_report(args)
+    try:
+        if args.command == "generate":
+            return cmd_generate(args)
+        return cmd_report(args)
+    except (OSError, UnicodeError, ValueError) as exc:
+        print(f"ERROR: 审计操作未完成: {exc}", file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":

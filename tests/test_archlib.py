@@ -1,6 +1,7 @@
 """_archlib.py 单元测试（指针解析 / 项目根推断 / IO 错误翻译 / 实现清单收集）"""
 
 import json
+import hashlib
 import os
 import subprocess
 import sys
@@ -13,6 +14,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "shared" / "scripts"))
 
 import _archlib  # noqa: E402
+import _architecture_core as core
 
 
 def write_json(path: Path, data: dict) -> None:
@@ -35,6 +37,23 @@ class TestLoadArchitectureJson(unittest.TestCase):
             p = Path(td) / "arch.json"
             write_json(p, {"项目": {"名称": "x"}})
             self.assertEqual(_archlib.load_architecture_json(p)["项目"]["名称"], "x")
+
+    def test_pointer_single_file_dependency_diagnostics_have_original_sha(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            (root / "architecture").mkdir()
+            write_json(root / "architecture.json", {"指向": "architecture/index.json"})
+            path = root / "architecture/index.json"
+            value = {"模块详情": {"a": {"上游依赖": [{"模块编号": "b", "编号": "c"}]}}}
+            write_json(path, value)
+            view = _archlib.load_architecture_json(root / "architecture.json")
+            self.assertEqual(view, value)
+            self.assertEqual(json.dumps(view, sort_keys=True), json.dumps(value, sort_keys=True))
+            diagnostic = core.declared_dependencies(view)["diagnostics"][0]
+            self.assertEqual((diagnostic["file"], diagnostic["pointer"], diagnostic["sha256"]),
+                             ("architecture/index.json", "/模块详情/a/上游依赖/0",
+                              hashlib.sha256(path.read_bytes()).hexdigest()))
+            self.assertNotIn("value", diagnostic)
 
     def test_missing_file_raises(self):
         with tempfile.TemporaryDirectory() as td:

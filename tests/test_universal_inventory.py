@@ -262,6 +262,97 @@ class UniversalInventory(unittest.TestCase):
         self.assertEqual(json.loads(result.stdout)["扫描范围"]["模式"], "explicit-extensions")
         self.assertEqual(self.cli("--all-files", "--extensions", ".py").returncode, 2)
 
+    def test_forward_task_prose_is_not_a_file_declaration_even_in_nested_trees(self):
+        prose = "全部空列表原引导；筛选零匹配 No completed/pending tasks."
+        names = ["source with spaces.any-suffix", "入口"]
+        for name in names:
+            self.artifact(name, b"")
+        self.write_arch(data={"实现清单": {"m": {"文件列表": names}},
+            "功能树": [{"编号": "f", "说明": prose, "异常路径": [prose],
+                         "子节点": [{"编号": "nested", "验收标准": [prose],
+                                      "验证责任": ["普通测试/零匹配."]}]}],
+            "模块树": [{"编号": "m", "职责": prose, "子模块": [{"编号": "child", "说明": prose}]}]})
+        result = self.cli("--all-files")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        data = json.loads(result.stdout)
+        self.assertEqual(data["声明但不存在"], [])
+        self.assertEqual(data["存在但未登记"], [])
+        self.assertEqual(data["已登记代码文件"], sorted(names))
+        self.assertIn("不从说明", data["扫描范围"]["声明来源"])
+
+    def test_explicit_nested_tree_file_slots_support_any_suffix_space_empty_and_extensionless(self):
+        names = ["src/source with spaces.vendor", "无后缀", "tests/空测试.artifact", "typed.file-type"]
+        for name in names:
+            self.artifact(name, b"")
+        self.write_arch(data={"功能树": [{"编号": "f", "子节点": [
+            {"编号": "child", "架构落位": {"文件": [names[0]], "测试": [{"路径": names[2]}]}}]}],
+            "模块树": [{"编号": "m", "子模块": [
+                {"编号": "child", "文件路径": names[1], "子模块": [{"类型": "文件", "路径": names[3]}]}]}]})
+        result = self.cli("--all-files")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(json.loads(result.stdout)["已登记代码文件"], sorted(names))
+        (self.root / names[0]).unlink()
+        result = self.cli("--all-files")
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(json.loads(result.stdout)["声明但不存在"], [names[0]])
+
+    def test_missing_explicit_tree_files_and_manifest_remain_authoritative(self):
+        names = ["missing source.custom", "无后缀", "missingtest", "nested/typed.vendor"]
+        self.write_arch(data={"实现清单": {"m": {"文件列表": [names[0]]}},
+            "功能树": [{"文件": [names[1]], "架构落位": {"测试": {"路径": names[2]}},
+                        "子节点": [{"类型": "文件", "路径": names[3]}]}]})
+        result = self.cli("--all-files")
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertEqual(json.loads(result.stdout)["声明但不存在"], sorted(names))
+
+    def test_even_existing_paths_in_prose_or_untyped_id_strings_are_not_registration(self):
+        names = ["src/file.any-suffix", "source.py"]
+        for name in names:
+            self.artifact(name)
+        self.write_arch(data={"功能树": [names[0], {"编号": names[1], "说明": names[0],
+            "验收标准": [names[1]], "异常路径": [names[0]], "子节点": [names[1]]}]})
+        result = self.scan(all_files=True)
+        self.assertEqual(result["已登记代码文件"], [])
+        self.assertEqual(result["存在但未登记"], sorted(names))
+
+    def test_explicit_tree_paths_retain_boundary_validation(self):
+        cases = [{"文件": ["../outside"]}, {"架构落位": {"文件": ["../outside/"]}},
+                 {"落位": {"测试": ["C:outside"]}}, {"类型": "文件", "路径": "../outside"}]
+        for node in cases:
+            with self.subTest(node=node):
+                self.write_arch(data={"模块树": [node]})
+                result = self.cli("--all-files")
+                self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+                self.assertIn("ERROR:", result.stderr)
+                self.assertNotIn("Traceback", result.stderr)
+
+    def test_test_placements_distinguish_labels_from_explicit_paths(self):
+        self.artifact("existing test without suffix", b"")
+        self.write_arch(data={"功能树": [{"架构落位": {"测试": [
+            "CSV异常和原子写出验收", {"名称": "空数据与失败验收"},
+            "existing test without suffix", "tests/future without suffix", {"路径": "missing bare test"}]}}]})
+        result = self.scan(all_files=True)
+        self.assertEqual(result["已登记代码文件"], ["existing test without suffix", "missing bare test", "tests/future without suffix"])
+        self.assertEqual(result["声明但不存在"], ["missing bare test", "tests/future without suffix"])
+
+    def test_directory_placements_are_not_files_but_typed_files_stay_strict(self):
+        (self.root / "source directory").mkdir()
+        self.write_arch(data={"模块树": [{"落位": {"文件": ["source directory", "future/"],
+                                                         "测试": ["tests/"]}}]})
+        result = self.scan(all_files=True)
+        self.assertEqual(result["声明但不存在"], [])
+        self.assertEqual(result["已登记代码文件"], [])
+        self.write_arch(data={"模块树": [{"类型": "文件", "路径": "source directory"}]})
+        self.assertEqual(self.scan(all_files=True)["声明但不存在"], ["source directory"])
+
+    def test_explicit_tree_slot_malformed_record_is_explainable_input_failure(self):
+        for value in (False, 7, {}, {"路径": []}):
+            self.write_arch(data={"功能树": [{"架构落位": {"文件": [value]}}]})
+            result = self.cli("--all-files")
+            self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+            self.assertIn("ERROR:", result.stderr)
+            self.assertNotIn("Traceback", result.stderr)
+
     def test_repeat_scan_is_deterministic_and_never_reads_artifact_content(self):
         self.artifact("工程.e", b"\xff\x00\xfe" * 100)
         self.artifact("无后缀", b"\x80")

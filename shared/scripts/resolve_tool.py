@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -93,7 +94,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     name = normalize_name(args.tool or "")
-    if not name or "/" in name or "\\" in name or ".." in name:
+    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_-]*\.py", name):
         print("ERROR: 请提供合法的脚本名（不含路径分隔符），例如 gate_check.py", file=sys.stderr)
         return 2
 

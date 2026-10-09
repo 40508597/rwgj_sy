@@ -30,18 +30,10 @@ def digest(data: bytes) -> str:
 
 
 def read_json(path: Path) -> Any:
-    def pairs(items):
-        result = {}
-        for key, value in items:
-            if key in result:
-                raise CapabilityInputError(f"重复 JSON 键: {key}")
-            result[key] = value
-        return result
-
-    def constant(value):
-        raise CapabilityInputError(f"非法 JSON 常量: {value}")
-
-    return json.loads(path.read_bytes().decode("utf-8-sig"), object_pairs_hook=pairs, parse_constant=constant)
+    try:
+        return _archlib.strict_json_loads(path.read_bytes().decode("utf-8-sig"))
+    except ValueError as exc:
+        raise CapabilityInputError(str(exc)) from exc
 
 
 def strings(value: Any, label: str) -> list[str]:
@@ -386,6 +378,23 @@ def intersect_writeback(left: list[str], right: list[str]) -> list[str]:
                    for a in left for b in right if a == b or a.startswith(b.rstrip("/") + "/") or b.startswith(a.rstrip("/") + "/")})
 
 
+def _validate_previous_plan(previous: Any, project: Path) -> None:
+    """Retained requirements are trusted only after plan identity validation."""
+    if previous is not None:
+        if not isinstance(previous, dict) or not isinstance(previous.get("selected"), list) or not isinstance(previous.get("fingerprint"), str):
+            raise CapabilityInputError("previous不是能力计划")
+        old = {k: v for k, v in previous.items() if k != "fingerprint"}
+        if digest(canonical(old)) != previous["fingerprint"]:
+            raise CapabilityInputError("previous fingerprint不匹配")
+        if previous.get("project_root") != str(project):
+            raise CapabilityInputError("previous属于不同项目")
+        if any(not isinstance(item, dict) or not isinstance(item.get("id"), str) or not item["id"] for item in previous["selected"]):
+            raise CapabilityInputError("previous.selected须含有效能力ID")
+        prior_requirements = previous.get("active_requirements", {})
+        if not isinstance(prior_requirements, dict):
+            raise CapabilityInputError("previous.active_requirements须为对象")
+        strings(prior_requirements.get("required_risks", []), "previous.required_risks")
+
 def build_plan(project: Path, context_path: Path, catalog_path: Path, previous_path: Path | None = None) -> dict:
     project = project.resolve()
     if not project.is_dir():
@@ -410,20 +419,7 @@ def build_plan(project: Path, context_path: Path, catalog_path: Path, previous_p
         raise CapabilityInputError("; ".join(index_errors))
     index = architecture.get("专业能力索引", []) if isinstance(architecture, dict) else []
     previous = read_json(previous_path) if previous_path else None
-    if previous is not None:
-        if not isinstance(previous, dict) or not isinstance(previous.get("selected"), list) or not isinstance(previous.get("fingerprint"), str):
-            raise CapabilityInputError("previous不是能力计划")
-        old = {k: v for k, v in previous.items() if k != "fingerprint"}
-        if digest(canonical(old)) != previous["fingerprint"]:
-            raise CapabilityInputError("previous fingerprint不匹配")
-        if previous.get("project_root") != str(project):
-            raise CapabilityInputError("previous属于不同项目")
-        if any(not isinstance(item, dict) or not isinstance(item.get("id"), str) or not item["id"] for item in previous["selected"]):
-            raise CapabilityInputError("previous.selected须含有效能力ID")
-        prior_requirements = previous.get("active_requirements", {})
-        if not isinstance(prior_requirements, dict):
-            raise CapabilityInputError("previous.active_requirements须为对象")
-        strings(prior_requirements.get("required_risks", []), "previous.required_risks")
+    _validate_previous_plan(previous, project)
     required_risks = set(context["required_risks"])
     if previous:
         required_risks.update(previous.get("active_requirements", {}).get("required_risks", []))
@@ -474,6 +470,7 @@ def build_plan(project: Path, context_path: Path, catalog_path: Path, previous_p
         if not conditions_match(conditions, match_context):
             continue
         groups.setdefault(capability, []).append(entry)
+    architecture_nodes = node_ids(architecture) if architecture is not None else set()
     for capability in sorted(groups):
         alternatives = groups[capability]
         best = max(x.get("priority", 0) for x in alternatives)
@@ -515,8 +512,8 @@ def build_plan(project: Path, context_path: Path, catalog_path: Path, previous_p
                 index_writeback.add(target if target.startswith("/") else "/" + target.replace("~", "~0").replace("/", "~1"))
         if matching_index:
             writeback = intersect_writeback(writeback, sorted(index_writeback))
-        if architecture is not None and ids - node_ids(architecture):
-            plan["unknown"].append(f"{entry['id']}: catalog引用不存在节点: {sorted(ids - node_ids(architecture))}")
+        if architecture is not None and ids - architecture_nodes:
+            plan["unknown"].append(f"{entry['id']}: catalog引用不存在节点: {sorted(ids - architecture_nodes)}")
             continue
         declared_read = entry.get("read_scope", ["**"])
         declared_write = entry.get("write_scope", [])

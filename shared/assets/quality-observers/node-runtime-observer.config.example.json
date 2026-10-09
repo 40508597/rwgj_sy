@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "source_id": "order-checkout-runtime",
+  "modules": [
+    { "id": "orders", "file": "orders.cjs" },
+    { "id": "prices", "file": "prices.cjs" },
+    { "id": "tax", "file": "tax.cjs" }
+  ],
+  "runner": "checkout-scenario.cjs",
+  "inputs": ["orders.cjs", "prices.cjs", "tax.cjs", "checkout-scenario.cjs"],
+  "timeout_ms": 10000
+}

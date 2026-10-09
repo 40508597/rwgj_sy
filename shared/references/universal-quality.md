@@ -41,7 +41,7 @@ metrics 的每条记录为 unit、name、value、method、source；覆盖率额�
 
 运行 `../scripts/check_project_quality.py`，参数为 PROJECT、可选 --facts/--policy、--json。公开函数 evaluate_project(project, facts, policy) 方便调用；同一事实、规则及输入文件内容，得到稳定的规则结果。
 
-policy 根是 schema_version=1、rules（唯一 id）。每个规则显式提供 check、required 布尔值、severity。required 决定是否阻断，severity 是显示优先级；required=false 的失败或未知仍在报告中，不能从覆盖统计删除。
+policy 根是 schema_version=1、rules（唯一 id）。每个规则显式提供 check、required 布尔值、severity。required 决定是否阻断，severity 是显示优先级；required=false 的失败或未知仍在报告中，不能从覆盖统计删除。 `rule_counts.required/optional` 分别统计各自 total/pass/fail/unknown；原 status、counts、coverage 语义保持，不把可选未知改成通过。
 
 先用 resolve_tool 定位工具绝对路径，再在调用方项目运行，例如：
 
@@ -82,6 +82,10 @@ CRAP 使用连续公式 c² × (1 − coverage_percent/100)³ + c；c 来自 met
 
 suite 包含 schema_version=1、唯一 cases；每例提供 id、input、old_base64、new_base64、check_id、command（argv，支持 {project} 指向隔离副本）和可选 timeout。旧字节必须只出现一次，新旧不同；原项目不修改。仅使用已授权、能在隔离副本执行的命令，不运行有外部生产副作用的程序。
 
+suite 可选 `copy_scope` 控制复制成本：`include` 缺省 `["**"]`，提供时为非空且不重复的项目相对模式；`exclude` 缺省 `[]`；`max_files`、`max_bytes` 为可选正整数，预算针对每份独立工程副本。字面目录包含后代，`*`/`?` 限路径组件，`**` 可跨层；排除目录也排除其后代。suite 文件和每例变异输入必须入选，预算超限或输入被遗漏在创建副本前拒绝。未指定范围仍复制全工程，不自动过滤 `.git`、依赖或缓存。
+
+报告保留实际选择/排除、每副本字节、最大复制预算、选定输入哈希、遗漏文件与实际复制/哈希工作量；超预算的unknown拒绝回执也保留预检查范围、预算状态与限制。`original_guard_scope` 始终保护完整原工程文件树，包括未复制文件。缩小复制范围不证明依赖完整，缺失环境或遗漏依赖导致的结果保留invalid/unknown；不能用选范围后的通过宣称全工程都已检验。
+
 命中要求：正常基线成功且目标 check 通过；变异真实改变输入；变异后工具正常返回失败并准确指出目标 check。检查器崩溃、超时、无关检查失败、基线已失败都不算检出。报告固定 cases_total，并逐例保留 detected/missed/invalid/unknown；不删除不利样例。编译类坏样例只能证明编译检查，不证明业务测试有效性；业务样例应能正常构建而行为错误。
 
 ## 收尾门禁
@@ -91,3 +95,60 @@ suite 包含 schema_version=1、唯一 cases；每例提供 id、input、old_bas
 兼容旧项目时不带参数且没有质量配置的旧门禁只覆盖旧架构检查，输出明确提示，不能据此声明通用质量已通过。旧阶段/证据格式检查、依赖规则、实际运行证据是不同结论。
 
 通用质量启用后，漂移扫描采用 --all-files；所有声明文件一直核查存在性，不按后缀过滤。一键项目验证也实际运行 --all-files --json，保留原始扫描输出，并只按声明文件缺失阻断；输入、范围或返回码与清单矛盾返回 unknown。未登记文件仍是提示，因为生成物、日志、文档可能不属于业务实现；对必须登记的实现单元使用显式清单与项目规则，不把所有磁盘文件自动判为业务代码。报告分别说明已检规则结果、未知规则和范围，不把未检查范围算成高分。
+
+
+## 红线统一判定与语义复核
+
+总门禁始终运行与 `check_quality_redlines.py` 相同的评估函数。无未解决错误为 pass，未解决错误为 fail；损坏、过期的复核记录为 unknown。警告保留供审查，不自动阻断；0/1/2 不证明业务正确或方案最优。局部模块独立检查时传 `--project-root`，总门禁检查完整选定架构。
+
+动作词与安全信号是启发式，提示需要核对，不能等同真实代码缺陷。遇到误报，应先审查输入、异常、恢复和测试是否实际覆盖，不为凑关键词补文字，也不自动增加无关权限体系。修正真实缺口；确已覆盖或不适用时才记录语义复核。
+
+在调用方 `architecture/quality/redline-reviews.json` 保存 `schema_version: 1` 和 `reviews` 数组。每条包含：
+
+- `finding`：当前检查输出的一条完整错误/警告，精确匹配，不接受路径通配豁免。
+- `architecture_sha256`：检查 JSON 输出的摘要，覆盖当前合成架构；架构变更后必须重新核对。
+- `disposition`：`covered` 或 `not_applicable`；`rationale`：具体理由；`reviewer`：实际审查者或审查记录标识，不要求额外人工审批。
+- `input_hashes`：真实源码、验收测试或审查记录的项目相对路径及小写 SHA256。非空，文件须存在且当前内容匹配；不要把复核文件自身作为证据。
+
+完整记录先全部验证再应用，保留被复核条目。重复、未知条目、缺理由、过期证据或架构摘要都不能通过。临时 `--exempt` 返回 unknown，不能用来声明完成。哈希验证真实性有限，仍需实际语义审查，不能编造 reviewer 或证据。
+
+## 真实接口契约核对（不限制语言）
+
+结构校验只证明字段可读，不能证明操作标题就是实际接口。新增 `check: contract` 质量规则，复用现有观察来源与输入快照约定。按本次接口变更范围选择，普通无接口变更的小修复不强迫使用。设计时把真实导出标识符、签名、可能异常、消费者模块编号写入所属模块的 `接口契约`；语言的重载、CLI 命令、消息或二进制入口可使用稳定的完整限定标识符和项目选定的规范化签名。
+
+规则示例（模块与来源均应替换为项目真实编号）：
+
+```json
+{"id":"public-api","check":"contract","required":true,"source":"project-api",
+ "scope":["billing"],"architecture":"architecture.json"}
+```
+
+来源声明 `capabilities: ["contract"]`，`scope` 为所观察模块，`input_hashes` 绑定实际接口/消费者源码及适用测试。事实增加 `contracts` 数组；每条为：
+
+```json
+{"source":"project-api","module":"billing","name":"total",
+ "signature":"(items) -> integer","file":"billing/main.src",
+ "errors":["InvalidAmount"],"consumers":["checkout"]}
+```
+
+对应架构 `接口契约.billing.导出[]` 保存 `名称`、`签名`、`可能异常`、`消费者`；消费者为真实模块 ID，外部客户用已登记的边界模块表达。空异常/消费者数组仅表示实测或审查确认的空集合；未能采集时保持缺失，不填空伪装完整。签名为同口径字符串，异常与消费者按集合比较；重复导出名用稳定限定标识区分，重复记录为 unknown。
+
+项目原生解析器、编译器元数据、接口描述或项目自写采集函数负责提供事实。采集函数应：读取指定输入 → 提取真实导出/签名 → 在支持范围内核对失败类型与消费者 → 记录工具版本、范围、缺失和哈希 → 导出 JSON。没有相应能力时设 `complete:false` 或记录错误，规则返回 unknown，不以遍历文本出现名字冒充编译/语义验证。采集脚本的实际执行可另外由 execution 规则绑定收据。
+
+检查会发现缺签名、声明与观察名称/签名/异常/消费者不一致、漏登记导出；过期、缺采集或不完整范围为 unknown。它核对选定事实一致性，不能证明所有动态调用已发现或签名语义正确，仍需真实行为与故障测试。CRAP 同样要求项目实际复杂度与覆盖率采集；支持通用协议不代表内置每一种语言的采集器。
+
+## 按需接入项目原生观察
+
+已有项目工具优先。需要 CommonJS 场景运行时依赖证据时，可选用无第三方依赖的 `../assets/quality-observers/node-runtime-observer.cjs` 与同目录 `node-runtime-observer.config.example.json`；它是一个可复用示例，不是通用解析器，不限制核心接受的项目语言。先将配置复制到调用方项目，填入真实模块 ID/文件、一个明确 runner 及全部选定 inputs。配置本身自动加入哈希，模块文件与 runner 必须列入 inputs；模块 ID/文件、输入和 JSON 键不得重复，路径必须在项目内。runner 导出一个同步或异步场景函数，采集器只实际执行这个已选场景，不接受或执行配置里的 command 声明。
+
+输入/输出路径拒绝冒号（含 Windows ADS）、尾点/尾空格及控制字符别名。facts/raw 输出不得覆盖输入或彼此重合，已有输出的硬链接数大于 1 时拒绝；场景结束后再次核对两项输出，验证失败时保留输入与旧报告字节。并发文件替换不属于本示例的隔离保证。
+
+```text
+node "<node-runtime-observer.cjs绝对路径>" "<项目根>" observer.json architecture/quality/facts.json architecture/quality/node-raw.json
+```
+
+采集器在独立 Node 子进程中完成 runner，再读取真实 `require.cache` 与 `module.children`，将选定模块间边写为 `kind: runtime-load`、来源能力 `dependencies:runtime-load`。dependency/acyclic 规则必须使用相同 kind。facts 保存 observed、工具/Node 版本、实际加载 scope、complete/errors/excluded 和选定输入 SHA256；原始报告保存精确 argv、空 stdin、stdout/stderr、返回码、真实 cache/children 快照、输入前后哈希与方法。未加载的声明模块、观察到的未列 cache 模块、场景失败/退出/超时、输入变化均为 unknown；配置无效时返回 2，不产生新的成功事实，调用链须检查返回码，不能沿用旧报告。
+
+`complete:true` 仅表示该配置模块在该场景成功加载且该次 cache 快照采集完成，不表示完整静态 import/call 图；未执行分支、ESM import、内建模块关系不在此方法内。runner 是图外测试入口，inputs 只绑定明确选定输入，不证明遗漏的数据文件或环境已覆盖；这是隔离进程示例，不是操作系统沙箱。timeout 只约束顶层子进程，不保证停止其全部后代。接口、复杂度、覆盖率和 CRAP 不由此示例推算：仍由具备相应能力的项目原生工具给出真实数据。业务/导出回归另以 `run_verification.py` 执行真实场景并用 execution 规则核对，不把采集失败当检出。
+
+可复现实跑入口为 `tests/test_native_quality_observer.py`：正常价格/订单三模块、禁用运行时依赖、循环、真实业务/导出回归，以及陈旧、遗漏、失败、重复、越界配置和副本回滚。测试由 Python unittest 调用本机 Node；Node 缺失明确 skip，skip 不代表原生验证已执行。

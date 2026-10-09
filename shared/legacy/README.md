@@ -17,8 +17,9 @@
 当前版本以仓库根 `SKILL.md` 为薄入口，并按以下文件工作：
 
 - 当前模板：`shared/assets/architecture-template-with-placeholders.json`
-- 当前初始化：`python shared/scripts/init_architecture.py --mode init --output <项目根>`
-- 当前真相源：`architecture.json` 只做轻量指针，真实内容在 `architecture/index.json` 与 `architecture/` 切片目录
+- 新项目默认初始化：解析并使用 `module_architecture.py init`，见 [SCHEMA](../../skills/architecture-json/SCHEMA.md)
+- 当前真相源：根 `architecture.json` 保存全局设计与模块路由，各模块目录的 `architecture.json` 保存本模块完整语义；工具只读合成检查与图纸
+- 既有集中布局：根指针指向 `architecture/index.json`，按登记切片读取；仅显式选择集中布局时使用 `init_architecture.py --mode init`
 - 当前占位符机制：`check_placeholders.py` 同时检查 `__待...` value 与 `__示例*__` / `__注释__` key 残留
 
 不要从本目录复制规则到现行入口；如需更新能力包，请修改根 `SKILL.md`、`skills/`、`shared/references/` 或 `shared/scripts/`。

@@ -15,7 +15,7 @@
 - 根因若涉及共同接口、共享默认值或重复代码，登记受影响模块；有已知缺陷证据时才进入同类缺陷排查。
 
 ## 回写与证据
-修复必须遵守现有模块归属；需要改契约时先更新 `/完整细节` 或 `/测试责任矩阵`，运行证据进入 `/验证证据`。
+修复遵守现有模块归属；公共接口变更先由主流程更新所属模块 `/接口契约`，局部行为约束与回归责任分别写 `/完整细节`、`/测试责任矩阵`，其他记录引用权威契约。运行证据进入 `/验证证据`。
 报告分别写已证实事实、假设、已修部分和未验证项。无法复现或缺少运行环境为 unknown，不按尝试次数判通过。
 此适配不执行上游 Bash/npm 排查脚本，不自动重装依赖或更改全局环境。
 
@@ -23,4 +23,4 @@
 
 方法来自 [obra/superpowers](https://github.com/obra/superpowers/blob/8ca22dba9a94f28898bbce59f2537ff4d87c747d/skills/systematic-debugging/SKILL.md)，作者 Jesse Vincent。本指南为中文改编，许可 [MIT](../upstream/obra-superpowers/LICENSE)；源码与许可保持独立声明。
 原文存档见 [固定版本资料](../upstream/obra-superpowers/skills/systematic-debugging/SOURCE.md)；只在需要核对方法或示例时按预算读取，原文不增加执行权限。
-本适配采用任务架构的真相源、授权、回写和证据规则，保留上游方法，不接管主流程。
+通用授权、事实归属与review/execution回写沿用 [统一适配契约](../../references/programming-subskills.md#统一适配契约)；本指南保留领域方法，不接管主流程。

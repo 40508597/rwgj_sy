@@ -64,7 +64,7 @@ def cmd_gate_file(args: argparse.Namespace) -> int:
         "通过": False,
         "文件": target,
         "原因": "文件未登记到 实现清单",
-        "修复": "先更新 architecture/index.json 的切片清单和相关架构切片中的功能树、模块详情、实现清单，再修改文件",
+        "修复": "先从项目根架构定位所属模块，更新相关模块架构中的功能、契约与实现清单，再修改文件；集中布局使用相关切片",
     })
     return 1
 
@@ -84,6 +84,12 @@ def cmd_lineage(args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # Keep existing three helpers; unified namespaces share the maintained core.
+    forwarded = list(sys.argv[1:] if argv is None else argv)
+    if forwarded and (forwarded[0] in {"query", "change", "lease", "handoff", "run", "checkpoint", "timeline", "project"}
+                      or forwarded[0] in {"--project", "--architecture"}):
+        from taskarch import main as toolchain_main
+        return toolchain_main(forwarded)
     parser = argparse.ArgumentParser(description="Task architecture deterministic CLI helpers.")
     sub = parser.add_subparsers(dest="command", required=True)
 

@@ -141,6 +141,87 @@ def _path_key(path: Path) -> str:
     return path.as_posix().casefold().rstrip("/")
 
 
+def _check_import_inventory(package: Path, all_files: dict, add) -> None:
+    """Every actual imported file must be locked, including archived upstream."""
+    try:
+        directory = _bound(package, SUBSKILLS)
+        pending = [directory]
+        actual_files = set()
+        while pending:
+            current = pending.pop()
+            _reject_link(current)
+            if current.is_dir():
+                pending.extend(current.iterdir())
+            elif current.is_file():
+                actual_files.add(current.relative_to(package).as_posix())
+            else:
+                raise Violation(f"unsupported imported filesystem object: {current}")
+        unexpected = sorted(actual_files - set(all_files))
+        if unexpected:
+            add("inventory", "fail", "Imported files are not covered by the lock", paths=unexpected)
+        else:
+            add("inventory", "pass", "All imported files are covered by the lock")
+    except Violation as error:
+        add("inventory", "fail", str(error))
+    except OSError as error:
+        add("inventory", "unknown", f"Cannot inspect the imported file inventory: {error}")
+
+
+def _check_catalog_bindings(package: Path, declared: dict, add) -> None:
+    """Each locked capability must have exactly one independently read binding."""
+    try:
+        catalog_path = _bound(package, CATALOG)
+        catalog = _json(catalog_path)
+        if not isinstance(catalog, dict) or not isinstance(catalog.get("entries"), list):
+            raise Violation("catalog must be an object with an entries array")
+        counts: dict[str, int] = {}
+        bound_guides: dict[str, str] = {}
+        for position, item in enumerate(catalog["entries"]):
+            if not isinstance(item, dict):
+                raise Violation(f"catalog entry {position} must be an object")
+            identifier = _text(item.get("id"), "catalog id")
+            counts[identifier] = counts.get(identifier, 0) + 1
+            raw = _text(item.get("entry"), "catalog entry")
+            raw_root = _text(item.get("root", "../.."), "catalog root")
+            if "\x00" in raw or "\x00" in raw_root:
+                raise Violation("catalog paths must not contain NUL")
+            candidate = catalog_path.parent / raw_root / raw
+            resolved = candidate.resolve()
+            prefix = _path_key(package / SUBSKILLS)
+            candidate_key, resolved_key = _path_key(candidate.absolute()), _path_key(resolved)
+            imported_binding = (candidate_key == prefix or candidate_key.startswith(prefix + "/")
+                                or resolved_key == prefix or resolved_key.startswith(prefix + "/"))
+            if identifier not in declared and not imported_binding:
+                continue
+            if identifier not in declared:
+                raise Violation(f"catalog imports an unlocked capability: {identifier}")
+            source = declared[identifier]
+            if (item.get("能力类型") != source.get("capability_type") or item.get("source") != "reference"
+                    or raw != source.get("entry")):
+                raise Violation(f"catalog binding differs from the locked declaration: {identifier}")
+            relative = _relative(raw, "catalog entry", imported=True)
+            base = _catalog_root(package, catalog_path, item.get("root", "../.."))
+            if base != package:
+                raise Violation(f"catalog root resolves to a different package base: {identifier}")
+            guide = _bound(base, relative)
+            if guide != _bound(package, source["entry"]):
+                raise Violation(f"catalog entry resolves to a different guide: {identifier}")
+            key = str(guide).casefold()
+            if key in bound_guides:
+                raise Violation(f"duplicate catalog guide binding: {identifier} and {bound_guides[key]}")
+            bound_guides[key] = identifier
+        duplicated = sorted(identifier for identifier, count in counts.items() if count != 1)
+        if duplicated:
+            raise Violation(f"duplicate catalog ids: {duplicated}")
+        missing = sorted(set(declared) - set(counts))
+        if missing:
+            raise Violation(f"locked capabilities are absent from catalog: {missing}")
+        add("catalog", "pass", "Every locked capability has exactly one matching bundled catalog binding")
+    except Violation as error:
+        add("catalog", "fail", str(error))
+    except (OSError, UnicodeError, ValueError, TypeError, RecursionError) as error:
+        add("catalog", "unknown", f"Cannot read an unambiguous catalog: {error}")
+
 def evaluate_sources(root: str | Path) -> dict[str, Any]:
     """Return enabled/status/code/checks. Known failures take precedence over unknowns."""
     checks: list[dict[str, Any]] = []
@@ -297,81 +378,8 @@ def evaluate_sources(root: str | Path) -> dict[str, Any]:
         except (OSError, UnicodeError, ValueError, TypeError, RecursionError) as error:
             add(label, "unknown", f"Cannot finish entry check: {error}")
 
-    try:
-        directory = _bound(package, SUBSKILLS)
-        pending = [directory]
-        actual_files = set()
-        while pending:
-            current = pending.pop()
-            _reject_link(current)
-            if current.is_dir():
-                pending.extend(current.iterdir())
-            elif current.is_file():
-                actual_files.add(current.relative_to(package).as_posix())
-            else:
-                raise Violation(f"unsupported imported filesystem object: {current}")
-        unexpected = sorted(actual_files - set(all_files))
-        if unexpected:
-            add("inventory", "fail", "Imported files are not covered by the lock", paths=unexpected)
-        else:
-            add("inventory", "pass", "All imported files are covered by the lock")
-    except Violation as error:
-        add("inventory", "fail", str(error))
-    except OSError as error:
-        add("inventory", "unknown", f"Cannot inspect the imported file inventory: {error}")
-
-    try:
-        catalog_path = _bound(package, CATALOG)
-        catalog = _json(catalog_path)
-        if not isinstance(catalog, dict) or not isinstance(catalog.get("entries"), list):
-            raise Violation("catalog must be an object with an entries array")
-        counts: dict[str, int] = {}
-        bound_guides: dict[str, str] = {}
-        for position, item in enumerate(catalog["entries"]):
-            if not isinstance(item, dict):
-                raise Violation(f"catalog entry {position} must be an object")
-            identifier = _text(item.get("id"), "catalog id")
-            counts[identifier] = counts.get(identifier, 0) + 1
-            raw = _text(item.get("entry"), "catalog entry")
-            raw_root = _text(item.get("root", "../.."), "catalog root")
-            if "\x00" in raw or "\x00" in raw_root:
-                raise Violation("catalog paths must not contain NUL")
-            candidate = catalog_path.parent / raw_root / raw
-            resolved = candidate.resolve()
-            prefix = _path_key(package / SUBSKILLS)
-            candidate_key, resolved_key = _path_key(candidate.absolute()), _path_key(resolved)
-            imported_binding = (candidate_key == prefix or candidate_key.startswith(prefix + "/")
-                                or resolved_key == prefix or resolved_key.startswith(prefix + "/"))
-            if identifier not in declared and not imported_binding:
-                continue
-            if identifier not in declared:
-                raise Violation(f"catalog imports an unlocked capability: {identifier}")
-            source = declared[identifier]
-            if (item.get("能力类型") != source.get("capability_type") or item.get("source") != "reference"
-                    or raw != source.get("entry")):
-                raise Violation(f"catalog binding differs from the locked declaration: {identifier}")
-            relative = _relative(raw, "catalog entry", imported=True)
-            base = _catalog_root(package, catalog_path, item.get("root", "../.."))
-            if base != package:
-                raise Violation(f"catalog root resolves to a different package base: {identifier}")
-            guide = _bound(base, relative)
-            if guide != _bound(package, source["entry"]):
-                raise Violation(f"catalog entry resolves to a different guide: {identifier}")
-            key = str(guide).casefold()
-            if key in bound_guides:
-                raise Violation(f"duplicate catalog guide binding: {identifier} and {bound_guides[key]}")
-            bound_guides[key] = identifier
-        duplicated = sorted(identifier for identifier, count in counts.items() if count != 1)
-        if duplicated:
-            raise Violation(f"duplicate catalog ids: {duplicated}")
-        missing = sorted(set(declared) - set(counts))
-        if missing:
-            raise Violation(f"locked capabilities are absent from catalog: {missing}")
-        add("catalog", "pass", "Every locked capability has exactly one matching bundled catalog binding")
-    except Violation as error:
-        add("catalog", "fail", str(error))
-    except (OSError, UnicodeError, ValueError, TypeError, RecursionError) as error:
-        add("catalog", "unknown", f"Cannot read an unambiguous catalog: {error}")
+    _check_import_inventory(package, all_files, add)
+    _check_catalog_bindings(package, declared, add)
     return finish()
 
 

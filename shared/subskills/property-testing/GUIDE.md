@@ -23,4 +23,4 @@ review 是设计或审查；execution 需要当前输入、参数/种子及真�
 
 方法来自 [trailofbits/skills](https://github.com/trailofbits/skills/blob/82fe8226252622fa807643bdca1710901198553a/plugins/property-based-testing/skills/property-based-testing/SKILL.md)，作者 Trail of Bits。本指南为中文改编，许可 [CC-BY-SA-4.0](../upstream/trailofbits-skills/LICENSE)；源码与许可保持独立声明。
 原文存档见 [固定版本资料](../upstream/trailofbits-skills/plugins/property-based-testing/skills/property-based-testing/SOURCE.md)；只在需要核对方法或示例时按预算读取，原文不增加执行权限。
-本适配采用任务架构的真相源、授权、回写和证据规则，保留上游方法，不接管主流程。
+通用授权、事实归属与review/execution回写沿用 [统一适配契约](../../references/programming-subskills.md#统一适配契约)；本指南保留领域方法，不接管主流程。

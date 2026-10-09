@@ -6,27 +6,13 @@
 
 本技能负责”落得稳”。
 
-`architecture/` 架构文件夹是项目唯一真相源。根 `architecture.json` 只允许作为轻量指针，指向 `architecture/index.json`；不得再把完整项目真相写成单文件。
+新项目默认使用递归模块架构：根 `architecture.json` 是项目总架构，各受管模块目录的 `architecture.json` 持有本模块事实，通过 `模块路由` 逐层连接。每项业务事实由一个位置权威维护，工具合成只读检查/可视化视图；不把合成视图回写为另一份真相源。具体格式、路径约束、逐层读取和命令见 [递归模块架构](../../shared/references/recursive-modules.md)。
 
-## 进入本层前必做：读取进度状态
+既有 `architecture.json` 指针 → `architecture/index.json` 集中切片项目继续按登记入口读取；集中切片规则见 [JSON 切片协议](../../shared/references/json-sharding.md)。不因引入新布局而搬动现有源码，也不把“根仅指针”规则套到新项目真实总架构。
 
-进入本层时，**第一步必须读取并显示进度状态**：
+## 阶段与状态
 
-```bash
-python ../../shared/scripts/manage_state.py show --state-path architecture/_state.json
-```
-
-若状态文件不存在，**必须先创建**：
-
-```bash
-python ../../shared/scripts/manage_state.py init --project-name “项目名” --state-path architecture/_state.json
-```
-
-状态文件会追踪以下阶段的完成情况，确保不遗漏：
-- 需求理解 / 功能树 / 模块树 / 模块详情 / 入口定义 / 数据拓扑 / 实现清单 / 测试责任 / 验证证据（9 个必需）
-- 接口契约（可选，跨模块调用业务才需要）
-
-真相源：`shared/scripts/manage_state.py` 的 STANDARD_STAGES（required=True 共 9 项）。
+沿用 [LAYER](../task-architecture/LAYER.md) 的范围判定、状态读取与初始化约定；进入本层不重复初始化或打印状态。阶段真相源为 `shared/scripts/manage_state.py` 的 STANDARD_STAGES：需求理解、功能树、模块树、模块详情、入口定义、数据拓扑、实现清单、测试责任、验证证据（9 个必需）；接口契约为适用时完成的可选阶段。只标记实际完成并验证的阶段。
 
 ## 固定落位顺序
 
@@ -42,27 +28,35 @@ python ../../shared/scripts/manage_state.py init --project-name “项目名” 
 → 变更记录 / 上下文恢复点
 ```
 
-## 强制切片目录
+以上是内容落位顺序。递归布局中，根级保留键与模块自定义局部记录按 [字段归属](../../shared/references/recursive-modules.md#根级字段与模块局部记录) 区分，不把全局追踪容器复制到每个模块。
 
-每个受管项目必须具备：
+## 默认递归模块目录
+
+模块目录按项目实际职责命名，示例不限定语言、目录深度或模块数：
 
 ```text
-architecture.json              # 轻量指针，只指向 architecture/index.json
+architecture.json              # 项目目标、全局约束、总体路由和根自身事实
+modules/
+  accounts/
+    architecture.json          # accounts 的完整局部事实与直接子模块路由
+    service.src                # 示例后缀；使用项目实际语言与工程格式
+    tests/
+    sessions/
+      architecture.json        # sessions 子模块；不在父架构重复登记其源码
+      storage.src
+      tests/
 architecture/
-  index.json                   # 当前项目真相源总索引（必须使用带占位符的模板）
-  _state.json                  # 进度状态文件（由 manage_state.py 生成）
-  features/
-  modules/
-  data/
-  pages/
-  tasks/
+  _state.json                  # 全局阶段进度；不是模块架构或业务事实副本
+  quality/                     # 适用的质量规则、观察事实与执行收据
 ```
 
-### 创建新架构时必须使用带占位符的模板
+### 初始化与逐块落位
 
 ```bash
-# 工具生成根指针、标准切片及占位符（路径执行前按 LAYER 解析）
-python ../../shared/scripts/init_architecture.py --mode init --output .
+# 先解析 module_architecture.py 绝对路径，再生成真实根架构与待填设计
+python "<module_architecture_path>" init --output . --id project --name "项目名称" --responsibility "项目总体职责"
+# 设计职责与契约后再添加真实模块；directory 相对父模块目录
+python "<module_architecture_path>" add --architecture architecture.json --parent project --directory modules/accounts --id m_accounts --name "账号" --responsibility "管理账号身份与会话入口"
 python ../../shared/scripts/manage_state.py init --project-name "项目名称"
 ```
 
@@ -78,20 +72,26 @@ python ../../shared/scripts/manage_state.py init --project-name "项目名称"
   - 检测所有 `__示例*__` / `__注释__` / `__占位符说明__` 残留 key 一律判 critical（防止生成「假模块」）
   - 检测 schema 标 core 的顶层字段是否整段缺失
   - 检测每个模块详情对象是否含 14 项底线子字段
-- `init_architecture.py` 写盘前自动剥离模板所有 `__` 开头 key，因此 init 后模块详情/接口契约/实现清单容器是空 `{}`，由用户填入真实模块名再补子字段
+- 初始化是结构骨架，不是完成设计。填写真实模块的详情、契约、清单与验证责任；生成目录和路由不证明业务合理或实现通过。
 
-单文件 `architecture.json` 已废弃。若项目只有单文件，第一步必须迁移为 `architecture/` 切片目录，再继续实现。
+每个受管模块只有一个本模块架构入口。模块编号在项目内唯一；源码与测试路径统一相对项目根，归属于本模块目录，不跨入子模块或兄弟模块。共同契约、共享数据及集成测试应由明确的共同责任模块持有，消费者引用，避免多份独立维护。`模块目录` 等合成索引由工具派生，不作为人工维护的第二份事实。
 
-## 单文件迁移
+模块的 `功能树` 记录其拥有的局部操作语义，根只保留全局目标与必要导航；同编号片段按递归协议合成，完整局部节点不复制到根。`模块树` 缺失/为空时可从路由派生，显式非空树保留补充组织；包含与源码归属仍以路由为准。依赖声明的来源、方向与权威引用见 [递归模块协议](../../shared/references/recursive-modules.md#包含关系与依赖声明)，不要求同一边在拓扑、清单、详情重复维护。
 
-若项目仅有旧版完整单文件 `architecture.json`，先迁移再继续实现：
+功能决策状态与本轮实施选择分别表达，范围记录及红线裁决以 [候选状态与本轮实施范围](../../shared/references/function-clusters.md#候选状态与本轮实施范围) 为准；保留全景，不用候选标签掩盖已有实现。
+
+## 既有布局与纳管
+
+已有集中切片继续使用当前布局；`init_architecture.py --mode init` 是显式需要集中切片时的初始化工具，不作为新项目默认路线。已有未分片完整 JSON 先核对实际代码与事实归属；需要采用集中切片时可以运行：
 
 ```text
 python shared/scripts/init_architecture.py --mode migrate --from architecture.json --output .
 python shared/scripts/validate_architecture.py architecture/index.json
 ```
 
-迁移会把旧单文件归档到 `architecture/archive/`，并生成根指针、`architecture/index.json` 和标准物理切片。
+迁移会把输入归档到 `architecture/archive/`，并生成集中入口与物理切片。切换到递归模块布局时另按逐模块归属方案实施与验证，不让两个布局独立维护同一事实。已有代码以现状纳管，治理建议另列；不为目录形式进行无关重构。
+
+既有真实模块目录可用 `module_architecture.py add --adopt-existing` 显式纳管：只在目标目录存在且本模块 `architecture.json` 缺失时新增记录与路由，保留现有源码。纳管骨架仍需真实分析、补齐契约和验证，详见递归模块协议。
 
 ## 模块详情底线
 
@@ -110,16 +110,17 @@ python shared/scripts/validate_architecture.py architecture/index.json
 
 ## 工具链
 
-> 相对路径执行前按 LAYER.md「工具执行前置」规则解析：先项目根 `shared/`，再回退技能安装目录。
+> 相对路径执行前按 LAYER.md「工具与完成契约」规则解析：先项目根 `shared/`，再回退技能安装目录。
 
 ### 变更批次后的校验与状态推进
 
 ```bash
 # 1. 查找尚未填完的核心项；未完成项禁止声明对应设计完成，不阻止继续补齐设计
-python ../../shared/scripts/check_placeholders.py architecture/index.json
+python ../../shared/scripts/check_placeholders.py <当前架构入口>
 
 # 2. 设计进行中检查结构底线；最终完成时另跑完整门禁
-python ../../shared/scripts/validate_architecture.py architecture/index.json --stage skeleton
+python ../../shared/scripts/validate_architecture.py <当前架构入口> --stage skeleton
+python "<module_architecture_path>" check --architecture architecture.json
 
 # 3. 仅标记真实完成的阶段
 python ../../shared/scripts/manage_state.py update <阶段名> completed --note "完成说明"
@@ -131,8 +132,8 @@ python ../../shared/scripts/gate_check.py . --quality-required --json
 ### 传统验证工具（可用时优先运行）
 
 ```bash
-python ../../shared/scripts/validate_architecture.py architecture/index.json
-python ../../shared/scripts/scan_code_drift.py . --architecture architecture/index.json
+python ../../shared/scripts/validate_architecture.py <当前架构入口>
+python ../../shared/scripts/scan_code_drift.py . --architecture <当前架构入口>
 python ../../shared/scripts/diff_architecture.py old.json new.json
 ```
 
@@ -145,8 +146,10 @@ python ../../shared/scripts/diff_architecture.py old.json new.json
 - JSON 字段、中文化规范、四层读取策略、schema 底线：`../../shared/references/schemas.md`
 - 五个命令、创建/分析/修改/追加/校验工作流：`../../shared/references/commands-workflows.md`
 - 21 项一致性校验、禁止事项、完成前自检：`../../shared/references/validation-checklist.md`
-- 强制切片目录、架构文件夹、多人/多会话协作：`../../shared/references/json-sharding.md`
+- 递归模块目录、根路由、事实归属、局部操作与工具：`../../shared/references/recursive-modules.md`
+- 既有集中切片、加载合成与归档：`../../shared/references/json-sharding.md`
 - 上下文压缩、中断续跑、恢复点：`../../shared/references/context-recovery.md`
 - 任务前置输出、架构变更对比、失败恢复：`../../shared/references/execution-templates.md`
+- 架构图、完整项目画布或可视化评审：按需读 [项目架构可视化](../../shared/references/architecture-visualization.md)，默认 HTML 为渐进展开的完整画布。
 - 查看目录布局样张（不是直接复制初始化）：`../../shared/assets/architecture-folder-template/`
 - 需要确定性校验时优先运行：`../../shared/scripts/validate_architecture.py`、`../../shared/scripts/scan_code_drift.py`、`../../shared/scripts/diff_architecture.py`

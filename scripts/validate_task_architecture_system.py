@@ -45,6 +45,17 @@ REQUIRED_PATHS = [
     "shared/scripts/validate_architecture.py",
     "shared/scripts/scan_code_drift.py",
     "shared/scripts/_archlib.py",
+    "shared/scripts/_module_tree.py",
+    "shared/scripts/taskarch.py",
+    "shared/scripts/_toolchain_query.py",
+    "shared/scripts/_toolchain_store.py",
+    "shared/scripts/_toolchain_changes.py",
+    "shared/scripts/_toolchain_runtime.py",
+    "shared/scripts/check_toolchain_inventory.py",
+    "shared/references/project-toolchain.md",
+    "docs/toolchain-maintenance.md",
+    "shared/scripts/module_architecture.py",
+    "shared/references/recursive-modules.md",
     "shared/assets/risk-words.json",
     "shared/assets/schema/architecture.schema.json",
     "shared/assets/architecture-folder-template/architecture/features/core.json",
@@ -112,6 +123,13 @@ def main(argv: list[str] | None = None) -> int:
         errors.append(f"无法核对专业子技能来源: {exc}")
 
     usage = root / "AGENT-USAGE.md"
+    try:
+        from check_toolchain_inventory import inventory
+        tool_inventory = inventory(root / "shared/scripts", root / "tests")
+        if tool_inventory.get("status") != "pass":
+            errors.append(f"工具维护清单未通过: {tool_inventory.get('status')}；请运行 check_toolchain_inventory.py 查看详情")
+    except (ImportError, OSError, UnicodeError, ValueError, TypeError) as exc:
+        errors.append(f"无法完整核对工具维护清单: {exc}")
     if usage.exists() and "总路由" not in read_text(usage):
         errors.append("AGENT-USAGE.md must include 总路由")
     if usage.exists():

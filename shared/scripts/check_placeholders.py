@@ -84,76 +84,16 @@ def find_placeholder_keys(data: Any, path: str = "root") -> list[str]:
     return keys
 
 
+from _architecture_core import (
+    FALLBACK_CORE_TOP_KEYS, FALLBACK_IMPORTANT_TOP_KEYS,
+    FALLBACK_MODULE_DETAIL_SUBFIELDS, FALLBACK_RECOVERY_CORE_SUBFIELDS,
+    resolve_importance_map, derive_module_detail_subfields as resolve_module_detail_subfields,
+    load_schema as _load_schema,
+)
+
+
 def load_schema() -> dict[str, Any] | None:
-    """加载 architecture.schema.json 作为分级真相源。
-
-    schema 与本脚本同源（shared/assets/schema/），按相对路径定位。
-    找不到则回退 None，调用方按"无 schema 可用"处理。
-    """
-    schema_path = Path(__file__).resolve().parents[1] / "assets" / "schema" / "architecture.schema.json"
-    if not schema_path.exists():
-        return None
-    try:
-        with open(schema_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except (OSError, json.JSONDecodeError):
-        return None
-
-
-# 模块详情 / 上下文恢复点 / 上下文恢复点 的子字段底线在 schema 里也带 x-importance，
-# 但作为向后兼容与"无 schema 时仍能落地 21 项校验"的兜底，这里同步维护一份。
-# schema 可用时优先用 schema 的 x-required-subfields / properties，本常量仅作回退。
-FALLBACK_CORE_TOP_KEYS = {
-    "项目", "功能树", "入口", "模块拓扑", "模块树", "模块详情",
-    "实现清单", "测试责任矩阵", "验证证据", "上下文恢复点",
-}
-FALLBACK_IMPORTANT_TOP_KEYS = {
-    "运行形态", "专业能力索引", "页面拓扑", "数据拓扑", "交付物",
-    "系统集成", "接口契约", "架构切片", "未决问题", "变更记录",
-}
-# 模块详情 14 项底线子字段（对应 SCHEMA.md 模块详情底线 + schema x-required-subfields）
-FALLBACK_MODULE_DETAIL_SUBFIELDS = [
-    "职责", "非职责", "所属功能树节点", "上游依赖", "下游消费者",
-    "内部结构", "状态机", "数据读写责任", "错误边界", "配置",
-    "安全", "日志审计", "性能", "测试责任",
-]
-# 上下文恢复点 7 项核心子字段
-FALLBACK_RECOVERY_CORE_SUBFIELDS = [
-    "当前任务", "当前阶段", "继续位置", "下一步",
-    "已触碰文件", "用户明确约束", "剩余风险",
-]
-
-
-def resolve_importance_map(schema: dict[str, Any] | None) -> tuple[set[str], set[str]]:
-    """从 schema 推出顶层字段的 core/important 集合。
-
-    schema 的 x-importance 是权威；schema 不可用时回退到 FALLBACK_*。
-    返回 (core_keys, important_keys)。
-    """
-    if not schema or "properties" not in schema:
-        return set(FALLBACK_CORE_TOP_KEYS), set(FALLBACK_IMPORTANT_TOP_KEYS)
-
-    core, important = set(), set()
-    for key, spec in schema["properties"].items():
-        imp = spec.get("x-importance")
-        if imp == "core":
-            core.add(key)
-        elif imp == "important":
-            important.add(key)
-    # 兜底：若 schema 漏标导致 core 为空，回退
-    if not core:
-        return set(FALLBACK_CORE_TOP_KEYS), set(FALLBACK_IMPORTANT_TOP_KEYS)
-    return core, important
-
-
-def resolve_module_detail_subfields(schema: dict[str, Any] | None) -> list[str]:
-    """模块详情必填子字段：优先 schema x-required-subfields，回退兜底常量。"""
-    if schema:
-        md_spec = schema.get("properties", {}).get("模块详情", {})
-        sub = md_spec.get("x-required-subfields")
-        if isinstance(sub, list) and sub:
-            return list(sub)
-    return list(FALLBACK_MODULE_DETAIL_SUBFIELDS)
+    return _load_schema()[0]
 
 
 def normalize_path_to_top_key(path: str) -> str | None:
@@ -391,10 +331,10 @@ def main(argv: list[str] | None = None) -> int:
             print("❌ 架构未完成：存在核心字段占位符/示例 key 残留/字段缺失")
             print()
             print("💡 如何修复：")
-            print("   1. 打开 architecture/index.json 或相关切片文件")
+            print("   1. 从根 architecture.json 定位问题所属模块架构；集中布局打开对应索引或切片")
             print("   2. 搜索 '__待填__' 并替换为实际内容")
             print("   3. 把所有 __示例模块名__ / __示例接口名__ / __注释__ 改为真实名称")
-            print("   4. 运行 python check_placeholders.py architecture/index.json 重新检查")
+            print("   4. 使用同一架构入口重新运行 check_placeholders.py，覆盖全部登记模块")
             print("   5. 所有占位符清空后才能声明架构完成")
         elif important_count > 0:
             print("⚠️  架构基本完成，但缺少重要字段")

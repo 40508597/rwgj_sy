@@ -86,7 +86,8 @@ git commit -m "docs: clarify installation steps in README"
 - **薄入口优先**：避免把细节塞进 SKILL.md / AGENT-USAGE.md
 - **能力归位**：能力定义放 `shared/`，项目状态不写进仓库
 - **规则单源**：所有宿主读同一份 `shared/`，不维护宿主专用规则文件
-- **强制切片**：旧单文件 `architecture.json` 必须迁移到 `architecture/` 切片目录
+- **事实归属**：根维护全局约束与导航；局部功能、契约和验证责任由所属模块维护。证据详情只保存一份，恢复与变更记录引用它
+- **递归模块**：新项目采用模块目录内的架构文件；已有项目按实际布局纳管，避免只为形式搬动源码。集中切片读取与校验仍受支持
 
 ### 4.2 文档
 
@@ -97,7 +98,7 @@ git commit -m "docs: clarify installation steps in README"
 
 ### 4.3 Python 工具脚本
 
-- 放 `shared/scripts/` 下
+- 运行工具放 `shared/scripts/`；仅供维护和分发的工具放 `scripts/`
 - 支持 `--help`（argparse）
 - 工具失败时按文本规则降级，不抛出未捕获异常
 - 重要操作前打印说明
@@ -116,11 +117,12 @@ git commit -m "docs: clarify installation steps in README"
 - [ ] 代码已自测（在本地运行验证）
 - [ ] 已跑相关工具脚本（`validate_architecture.py` 等）
 - [ ] 已跑单元测试（`python -m unittest discover -s tests`）
-- [ ] 已更新对应文档（README、USAGE、CAPABILITIES）
+- [ ] 已更新受影响的权威规范与 README；速记卡、模板引用同一规范，不重复维护相反规则
+- [ ] 涉及分发时已构建并验证运行包，来源锁、许可、文档链接和按需工具保持可用
 - [ ] 提交信息符合 Conventional Commits
 - [ ] 没有遗留的临时文件、调试代码、注释
 - [ ] 没有引入新的外部依赖（如必须，已说明理由）
-- [ ] 没有破坏现有能力（向后兼容）
+- [ ] 现有设计、递归、可视化、质量与恢复能力有相应回归证据；接口语义变化已明确记录
 
 ## 六、行为准则
 

@@ -46,6 +46,14 @@
 
 接入流程沿用 `capability-index.md`：计划→宿主实际读取→专业任务→产物/架构回写→使用核验。默认catalog见 `../assets/capability-catalog.json`。宿主已有frontend-design、ui-ux-pro-max、ui-styling或design-system时，优先核对职责与可用性，选择一项合适来源；别重复载入同一方法。特定框架技能可在确认实际技术栈后通过宿主元数据登记。
 
+## 统一适配契约
+
+GUIDE提供领域方法与回写责任，不另设阶段、宿主执行器、安装或审批流程。需求、授权、模块归属、阶段与完成裁决沿用LAYER及当前项目事实；已有授权可继续适用工作，未知能力不当作已具备。
+
+专业产出写拥有相应事实的根或模块 `architecture.json`，既有集中布局写登记切片；实际调用给出具体文件与JSON Pointer。公共接口的名称、签名、错误和消费者由所属模块 `接口契约` 权威维护，计划和测试引用；局部算法/任务验收约束可放细节或测试记录，不另建独立接口真相。
+
+证据协议统一见 [能力索引](capability-index.md) 与 [通用质量](universal-quality.md)：规划、实际加载、模型review与真实execution区分；只有实际运行才记录对应命令/操作、当前输入和结果，保留partial、failed、unknown。详细产物唯一维护，证据、变更与恢复记录引用，不重复复制全文。小任务使用相称记录，GUIDE特有工具与适用边界仍按各指南核对。
+
 ## 版本、许可与适配
 
 来源锁 `../assets/github-subskills.lock.json` 保存固定commit、原目录、文件哈希、许可与修改说明。包内原SKILL以SOURCE.md存档，不注册成独立入口。默认不读取全部上游正文，不复制其安装、自动提交、流程接管或额外批准要求。

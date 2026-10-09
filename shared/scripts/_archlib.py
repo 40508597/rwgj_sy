@@ -27,11 +27,14 @@ from __future__ import annotations
 
 import json
 import copy
+import hashlib
 import os
 import re
 import sys
 from pathlib import Path
 from typing import Any, Callable, Iterable, TypeVar
+
+from _architecture_core import ArchitectureView, dependency_origins
 
 T = TypeVar("T")
 
@@ -40,10 +43,32 @@ class ArchitectureInputError(ValueError):
     """Malformed architecture input, distinct from an internal programming error."""
 
 
+def strict_json_loads(text: str | bytes) -> Any:
+    """Decode unambiguous finite JSON; reject duplicate keys at every depth."""
+    import math
+    def pairs(items):
+        result = {}
+        for key, value in items:
+            if key in result:
+                raise ArchitectureInputError(f"JSON 键重复: {key}")
+            result[key] = value
+        return result
+    def constant(value):
+        raise ArchitectureInputError(f"JSON 不接受非有限数: {value}")
+    def number(value):
+        parsed = float(value)
+        if not math.isfinite(parsed):
+            raise ArchitectureInputError(f"JSON 不接受非有限数: {value}")
+        return parsed
+    if isinstance(text, bytes):
+        text = text.decode("utf-8-sig")
+    return json.loads(text, object_pairs_hook=pairs, parse_constant=constant, parse_float=number)
+
+
 def _read_architecture_file(path: Path) -> Any:
     if "\x00" in str(path):
         raise ArchitectureInputError("架构文件路径不得包含 NUL 字符")
-    return json.loads(path.read_text(encoding="utf-8-sig"))
+    return strict_json_loads(path.read_text(encoding="utf-8-sig"))
 
 
 def configure_utf8_stdout() -> None:
@@ -140,6 +165,7 @@ def hydrate_slices(data: Any, architecture_path: Path,
     project_root = project_root if project_root is not None else project_root_for_architecture(architecture_path)
     hydrated = dict(data)
     owned_fields: set[str] = set()
+    fragments = []
     for item in slice_items:
         if not isinstance(item, dict) or not isinstance(item.get("路径"), str):
             continue  # 模板占位项留给 F 检查，不改变其 incomplete/退出码 1 契约。
@@ -152,7 +178,8 @@ def hydrate_slices(data: Any, architecture_path: Path,
             raise ArchitectureInputError(f"权威架构切片文件不存在: {slice_path}")
         if source_paths is not None:
             source_paths.add(slice_path)
-        slice_data = _read_architecture_file(slice_path)
+        slice_raw = slice_path.read_bytes()
+        slice_data = strict_json_loads(slice_raw)
         if not isinstance(slice_data, dict):
             raise ArchitectureInputError(f"架构切片 {slice_path} 根节点必须是对象")
         payload = {key: value for key, value in slice_data.items() if key != "切片元信息"}
@@ -172,7 +199,13 @@ def hydrate_slices(data: Any, architecture_path: Path,
             hydrated[key] = (_merge_slice_value(hydrated[key], value, key)
                              if key in owned_fields else copy.deepcopy(value))
             owned_fields.add(key)
-    return hydrated
+        fragments.append((slice_path.resolve().relative_to(project_root.resolve()).as_posix(),
+                          hashlib.sha256(slice_raw).hexdigest(), payload))
+    retained = {key: value for key, value in data.items() if key not in owned_fields}
+    if architecture_path.is_file():
+        fragments.insert(0, (architecture_path.resolve().relative_to(project_root.resolve()).as_posix(),
+                             hashlib.sha256(architecture_path.read_bytes()).hexdigest(), retained))
+    return ArchitectureView(hydrated, dependency_origins(hydrated, fragments))
 
 
 def load_architecture_json(path: Path, source_paths: set[Path] | None = None, *,
@@ -180,11 +213,12 @@ def load_architecture_json(path: Path, source_paths: set[Path] | None = None, *,
     """Read an architecture JSON, following the ``指向`` pointer and hydrating slices.
 
     Equivalent to the inline ``load_json`` that used to live in five scripts.
-    Supports both pointer form (``{"指向": "architecture/index.json"}``) and
-    legacy inline single-file form.
+    Supports recursive module directories, centralized slices and pointer form
+    (``{"指向": "architecture/index.json"}``).
     """
     explicit_root = project_root is not None
     project_root = project_root if explicit_root else project_root_for_architecture(path)
+    tracked_sources = source_paths if source_paths is not None else set()
     seen: set[Path] = set()
     current = path
     while True:
@@ -196,15 +230,25 @@ def load_architecture_json(path: Path, source_paths: set[Path] | None = None, *,
         if identity in seen:
             raise ArchitectureInputError(f"架构指针循环: {current}")
         seen.add(identity)
-        if source_paths is not None:
-            source_paths.add(current)
+        tracked_sources.add(current)
         data = _read_architecture_file(current)
         if isinstance(data, dict) and isinstance(data.get("指向"), str):
             target = _contained_path(project_root, data["指向"], "架构指针", base=current.parent,
                                      allow_parent=True)
             current = target
             continue
-        return hydrate_slices(data, current, source_paths, project_root=project_root)
+        hydrated = hydrate_slices(data, current, tracked_sources, project_root=project_root)
+        if isinstance(hydrated, dict) and "模块路由" in hydrated:
+            # Module records share the same validation/quality/rendering consumers.
+            # Import lazily: the tree loader reuses our boundary and merge helpers.
+            from _module_tree import hydrate_module_tree
+            return hydrate_module_tree(hydrated, current, tracked_sources,
+                                       project_root=project_root)
+        if isinstance(hydrated, dict) and not isinstance(hydrated, ArchitectureView):
+            source = current.resolve().relative_to(project_root.resolve()).as_posix()
+            digest = hashlib.sha256(current.read_bytes()).hexdigest()
+            return ArchitectureView(hydrated, dependency_origins(hydrated, [(source, digest, hydrated)]))
+        return hydrated
 
 
 def collect_implementation_files(data: Any) -> set[str]:
@@ -235,6 +279,20 @@ def collect_implementation_files(data: Any) -> set[str]:
                     raise ArchitectureInputError(f"实现清单.{module}.{field}路径必须为字符串或路径对象")
                 if not path.strip() or any(char in path for char in ("\x00", "\n", "\r")):
                     raise ArchitectureInputError(f"实现清单.{module}.{field}必须是非空路径且不得含 NUL 或换行")
+                declared.add(path.replace("\\", "/").rstrip("/"))
+    # Recursive records include the module entry file as an owned implementation
+    # even when it was not repeated in 文件列表. All consumers share this set.
+    if "模块目录" in data:
+        catalog = data["模块目录"]
+        if not isinstance(catalog, list):
+            raise ArchitectureInputError("派生模块目录必须是数组")
+        for record in catalog:
+            if not isinstance(record, dict) or not isinstance(record.get("文件"), list):
+                raise ArchitectureInputError("派生模块目录必须包含有效文件数组")
+            for path in record["文件"]:
+                if (not isinstance(path, str) or not path.strip()
+                        or any(char in path for char in ("\x00", "\n", "\r"))):
+                    raise ArchitectureInputError("派生模块目录文件必须是非空路径字符串")
                 declared.add(path.replace("\\", "/").rstrip("/"))
     return declared
 
@@ -354,7 +412,7 @@ def load_json_utf8(path: Path) -> dict[str, Any]:
     so rule files with or without BOM load identically. Raises ``ValueError``
     when the root node is not an object.
     """
-    data = json.loads(path.read_text(encoding="utf-8-sig"))
+    data = strict_json_loads(path.read_text(encoding="utf-8-sig"))
     if not isinstance(data, dict):
         raise ValueError("规则文件根节点必须是对象")
     return data

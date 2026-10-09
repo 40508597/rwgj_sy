@@ -2,12 +2,16 @@ name: verify
 
 on:
   push:
-    branches: [main]
+    branches: [main, "codex/**"]
   pull_request:
 
 jobs:
   verify:
     runs-on: ${{ matrix.os }}
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUTF8: "1"
+      PYTHONIOENCODING: "utf-8"
     strategy:
       fail-fast: false
       matrix:
@@ -20,6 +24,8 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+      - name: Check native observer runtime
+        run: node --version
       - name: Run unit tests
         shell: bash
         run: |
@@ -38,3 +44,33 @@ jobs:
       - name: Run verify-all.sh
         shell: bash
         run: bash verify-all.sh
+      - name: Verify byte-preserving distributions
+        shell: bash
+        run: |
+          python -B -X utf8 - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          import subprocess
+          import sys
+          import tempfile
+
+          source = Path.cwd()
+          temporary = Path(tempfile.mkdtemp(prefix="ta-ci-"))
+          for profile in ("runtime", "development"):
+              target = temporary / profile[0]
+              command = [sys.executable, "-B", "-X", "utf8", "scripts/package_skill.py"]
+              subprocess.run(command + ["--profile", profile, "--output", str(target)], check=True)
+              subprocess.run(command + ["--verify", str(target)], check=True)
+              manifest = json.loads((target / "skill-distribution.json").read_text(encoding="utf-8"))
+              for relative, digest in manifest["files"].items():
+                  if hashlib.sha256((source / relative).read_bytes()).hexdigest() != digest:
+                      raise RuntimeError("Distribution differs from source: " + relative)
+              print(json.dumps({"profile": profile, "source_matches": True,
+                                "payload_sha256": manifest["payload_sha256"]}))
+          PY
+      - name: Run long-task acceptance benchmark
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
+        shell: bash
+        run: |
+          python -B -X utf8 scripts/benchmark_long_task.py --skill-root . --output "$RUNNER_TEMP/taskarch-long-task.json"

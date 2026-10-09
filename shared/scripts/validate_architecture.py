@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -57,107 +58,20 @@ TYPE_MAP = {
     "integer": int,
 }
 
-FORBIDDEN_ENTRY_KEYS = [
-    "页面路由",
-    "API路由",
-    "静态资源路由",
-    "CLI命令树",
-    "后台任务",
-    "桌面窗口",
-    "桌面菜单栏",
-    "托盘入口",
-    "本地协议",
-    "文件关联",
-    "系统通知",
-    "WebSocket事件",
-]
-
-TYPE_MAP = {
-    "object": dict,
-    "array": list,
-    "string": str,
-    "boolean": bool,
-    "number": (int, float),
-    "integer": int,
-}
-
-
-def load_schema() -> tuple[dict[str, Any] | None, str | None]:
-    skill_root = Path(__file__).resolve().parents[1]
-    schema_path = skill_root / "assets" / "schema" / "architecture.schema.json"
-    if not schema_path.exists():
-        return None, f"schema 文件不存在，已跳过轻量 schema 校验: {schema_path}"
-    try:
-        schema = _archlib.load_architecture_json(schema_path)
-    except (OSError, json.JSONDecodeError) as exc:
-        return None, f"schema 无法读取，已跳过轻量 schema 校验: {exc}"
-    if not isinstance(schema, dict):
-        return None, "schema 根节点不是对象，已跳过轻量 schema 校验"
-    return schema, None
-
-
-# 当 schema 不可用时的兜底常量（与 schema 保持同名同义，schema 改了这里也要同步）.
-# 与 check_placeholders 的 FALLBACK_* 思路一致：0 依赖环境仍能落地校验。
-FALLBACK_REQUIRED_TOP_KEYS = [
-    "项目", "运行形态", "功能树", "专业能力索引", "入口", "模块拓扑", "模块树",
-    "模块详情", "页面拓扑", "数据拓扑", "交付物", "系统集成", "接口契约", "实现清单",
-    "完整细节", "测试责任矩阵", "验证证据", "架构切片", "上下文恢复点", "未决问题", "变更记录",
-]
-FALLBACK_ENTRY_REQUIRED = ["用户入口", "接口入口", "事件入口", "系统入口"]
-FALLBACK_ENTRY_OPTIONAL = ["命令入口", "资源入口"]
-# 模块详情 14 项底线子字段 / 上下文恢复点 7 项 core 子字段（与 check_placeholders 同源兜底）
-FALLBACK_MODULE_DETAIL_SUBFIELDS = [
-    "职责", "非职责", "所属功能树节点", "上游依赖", "下游消费者", "内部结构",
-    "状态机", "数据读写责任", "错误边界", "配置", "安全", "日志审计", "性能", "测试责任",
-]
-FALLBACK_RECOVERY_CORE_SUBFIELDS = [
-    "当前任务", "当前阶段", "继续位置", "下一步", "已触碰文件", "用户明确约束", "剩余风险",
-]
-
-
-def derive_required_top_keys(schema: dict[str, Any] | None) -> list[str]:
-    """顶层 required 优先 schema.required，回退兜底常量。"""
-    if schema and isinstance(schema.get("required"), list):
-        return [str(k) for k in schema["required"]]
-    return list(FALLBACK_REQUIRED_TOP_KEYS)
-
-
-def derive_entry_keys(schema: dict[str, Any] | None) -> tuple[list[str], list[str]]:
-    """从 schema 入口子对象推出 (required_entry_keys, optional_entry_keys)。"""
-    if schema:
-        entry_spec = schema.get("properties", {}).get("入口", {})
-        if isinstance(entry_spec, dict):
-            required = [str(k) for k in entry_spec.get("required", [])]
-            props = entry_spec.get("properties", {})
-            optional = [k for k in props if k not in required] if isinstance(props, dict) else []
-            if required:
-                return required, optional
-    return list(FALLBACK_ENTRY_REQUIRED), list(FALLBACK_ENTRY_OPTIONAL)
-
-
-def derive_module_detail_subfields(schema: dict[str, Any] | None) -> list[str]:
-    """模块详情 14 项底线子字段：优先 schema x-required-subfields，回退兜底。"""
-    if schema:
-        md_spec = schema.get("properties", {}).get("模块详情", {})
-        if isinstance(md_spec, dict):
-            sub = md_spec.get("x-required-subfields")
-            if isinstance(sub, list) and sub:
-                return [str(s) for s in sub]
-    return list(FALLBACK_MODULE_DETAIL_SUBFIELDS)
-
-
-def derive_recovery_core_subfields(schema: dict[str, Any] | None) -> list[str]:
-    """上下文恢复点 core 子字段：优先 schema properties 标 x-importance=core，回退兜底。"""
-    if schema:
-        rec_spec = schema.get("properties", {}).get("上下文恢复点", {})
-        if isinstance(rec_spec, dict):
-            props = rec_spec.get("properties", {})
-            if isinstance(props, dict):
-                core = [k for k, v in props.items()
-                        if isinstance(v, dict) and v.get("x-importance") == "core"]
-                if core:
-                    return core
-    return list(FALLBACK_RECOVERY_CORE_SUBFIELDS)
+from _architecture_core import (
+    FALLBACK_REQUIRED_TOP_KEYS,
+    FALLBACK_ENTRY_REQUIRED,
+    FALLBACK_ENTRY_OPTIONAL,
+    FALLBACK_MODULE_DETAIL_SUBFIELDS,
+    FALLBACK_RECOVERY_CORE_SUBFIELDS,
+    load_schema,
+    derive_required_top_keys,
+    derive_entry_keys,
+    derive_module_detail_subfields,
+    derive_recovery_core_subfields,
+    meaningful,
+    declared_dependencies
+)
 
 
 def _type_matches(value: Any, expected: Any) -> bool:
@@ -250,14 +164,135 @@ def _module_ids_from_tree(nodes: Any) -> set[str]:
     found: set[str] = set()
     if not isinstance(nodes, list):
         return found
-    for node in nodes:
+    pending = list(nodes)
+    while pending:
+        node = pending.pop()
         if not isinstance(node, dict):
             continue
         module_id = node.get("编号")
         if isinstance(module_id, str):
             found.add(module_id)
-        found.update(_module_ids_from_tree(node.get("子模块", [])))
+        if isinstance(node.get("子模块"), list):
+            pending.extend(node["子模块"])
     return found
+
+
+def _check_module_directory(data: dict[str, Any], root: Path, stage: str,
+                            source_paths: set[Path] | None = None) -> list[str]:
+    """Check the hydrated ownership tree independently of the dependency graph.
+
+    The loader has already traversed every route and verified file ownership.
+    This check reconciles that derived catalog with the ordinary architecture
+    sections, without opening the module JSON files again.
+    """
+    if "模块路由" not in data:
+        return []
+    issues: list[str] = []
+    directory = data.get("模块目录")
+    if not isinstance(directory, list) or not directory:
+        return ["模块路由尚未生成有效模块目录，必须递归加载全部模块架构"]
+    records: dict[str, dict[str, Any]] = {}
+    paths: set[str] = set()
+    from scan_code_drift import _safe_path
+    for index, record in enumerate(directory):
+        if not isinstance(record, dict) or not isinstance(record.get("编号"), str) or not record["编号"].strip():
+            issues.append(f"模块目录[{index}] 必须提供非空模块编号")
+            continue
+        module_id = record["编号"]
+        if module_id in records:
+            issues.append(f"模块目录编号重复: {module_id}")
+        records[module_id] = record
+        try:
+            source = _safe_path(root.resolve(), record.get("路径"), f"模块目录.{module_id}.路径")
+            folder = _safe_path(root.resolve(), record.get("目录"), f"模块目录.{module_id}.目录")
+            expected_folder = root.resolve() if record.get("父模块") is None else source.parent.resolve()
+            if expected_folder != folder.resolve():
+                issues.append(f"模块目录路径与目录不匹配: {module_id}")
+            identity = os.path.normcase(str(source.resolve()))
+            if identity in paths:
+                issues.append(f"模块目录架构路径重复: {record['路径']}")
+            paths.add(identity)
+            if not source.is_file():
+                issues.append(f"模块目录架构文件不存在或不是文件: {record['路径']}")
+        except (OSError, ValueError) as exc:
+            issues.append(str(exc))
+    ids = set(records)
+    route = data.get("模块路由")
+    root_id = route.get("编号") if isinstance(route, dict) else None
+    roots = [module_id for module_id, record in records.items() if record.get("父模块") is None]
+    if roots != [root_id]:
+        issues.append("模块目录必须有且仅有与根模块路由编号一致的根模块")
+    for module_id, record in records.items():
+        parent = record.get("父模块")
+        if parent is not None and not isinstance(parent, str):
+            issues.append(f"模块目录.{module_id}.父模块 必须是模块编号或 null")
+            continue
+        children = record.get("子模块")
+        if not isinstance(children, list) or any(not isinstance(child, str) for child in children):
+            issues.append(f"模块目录.{module_id}.子模块 必须是模块编号数组")
+            continue
+        if len(set(children)) != len(children):
+            issues.append(f"模块目录子模块重复: {module_id}")
+        for child in children:
+            if child not in records or records[child].get("父模块") != module_id:
+                issues.append(f"模块目录父子归属不匹配: {module_id} -> {child}")
+        if parent is not None:
+            parent_children = records.get(parent, {}).get("子模块")
+            if not isinstance(parent_children, list) or module_id not in parent_children:
+                issues.append(f"模块目录父模块未正确登记: {module_id}")
+    topology = data.get("模块拓扑", {})
+    nodes = topology.get("节点", []) if isinstance(topology, dict) else []
+    topology_ids = [node.get("编号") for node in nodes if isinstance(node, dict)] if isinstance(nodes, list) else []
+    if len(topology_ids) != len(set(value for value in topology_ids if isinstance(value, str))):
+        issues.append("模块拓扑.节点 编号缺失或重复")
+    topology_set = {value for value in topology_ids if isinstance(value, str)}
+    for module_id in sorted(ids - topology_set):
+        issues.append(f"模块目录模块未登记到模块拓扑.节点: {module_id}")
+    for module_id in sorted(topology_set - ids):
+        issues.append(f"模块拓扑节点没有模块路由归属: {module_id}")
+    for module_id in sorted(_module_ids_from_tree(data.get("模块树")) - ids):
+        issues.append(f"模块树节点没有模块路由归属: {module_id}")
+    for field in ("模块详情", "实现清单"):
+        values = data.get(field)
+        if not isinstance(values, dict):
+            continue  # Existing schema/type checks report this.
+        for module_id in sorted(set(values) - ids):
+            issues.append(f"{field}模块没有模块路由归属: {module_id}")
+        if stage == "full":
+            for module_id in sorted(ids - set(values)):
+                issues.append(f"模块目录模块缺少{field}: {module_id}")
+        for module_id, detail in values.items():
+            for alias in ("模块编号", "模块号"):
+                if isinstance(detail, dict) and alias in detail and (
+                        not isinstance(detail[alias], str) or detail[alias] != module_id):
+                    issues.append(f"{field}.{module_id}.{alias} 与模块归属不一致")
+    from _module_tree import ModuleTree, check_hydrated_module_files, dependency_edges, unregistered_architectures
+    tree = ModuleTree(root, root / records[root_id]["路径"] if root_id in records else root / "architecture.json")
+    tree.merged = data
+    tree.paths = {module_id: root / record["路径"] for module_id, record in records.items()
+                  if isinstance(record.get("路径"), str)}
+    try:
+        dependencies = dependency_edges(tree)
+    except _archlib.ArchitectureInputError as exc:
+        issues.append(str(exc))
+    else:
+        unknown = sorted({module_id for edge in dependencies for module_id in edge} - ids)
+        if unknown:
+            issues.append("依赖图引用未登记模块: " + ", ".join(unknown))
+        cycle_edges = [{"从": source, "到": target} for source, target in dependencies]
+        if stage == "skeleton":
+            cycle_edges = [edge for edge in cycle_edges
+                           if not any(edge[key].startswith(("__待", "__示例", "__注释__")) for key in ("从", "到"))]
+        cycle = dependency_cycle(cycle_edges)
+        if cycle:
+            issues.append("模块依赖存在有向环: " + " -> ".join(cycle))
+    allowed_paths = set(source_paths or ())
+    allowed_paths.add(root / "architecture.json")
+    for relative in unregistered_architectures(tree, allowed_paths=allowed_paths):
+        issues.append(f"模块架构文件未登记到模块路由: {relative}")
+    if stage == "full":
+        issues.extend(check_hydrated_module_files(data, root))
+    return issues
 
 
 def _check_verification_evidence(data: dict[str, Any]) -> tuple[list[str], list[str]]:
@@ -277,14 +312,6 @@ def _check_verification_evidence(data: dict[str, Any]) -> tuple[list[str], list[
     for k in required_classes:
         if k in ve and not isinstance(ve[k], list):
             errors.append(f"验证证据.{k} 必须是数组")
-    def meaningful(value: Any) -> bool:
-        if isinstance(value, str):
-            return bool(value.strip())
-        if isinstance(value, dict):
-            return any(meaningful(v) for v in value.values())
-        if isinstance(value, list):
-            return any(meaningful(v) for v in value)
-        return False
     has_any = any(isinstance(ve.get(k), list) and any(meaningful(v) for v in ve[k])
                   for k in required_classes)
     if not has_any:
@@ -449,7 +476,8 @@ def _check_slice_sync(data: dict[str, Any], root: Path) -> list[str]:
     return issues
 
 
-def validate_architecture(data: dict[str, Any], root: Path, stage: str = "full") -> tuple[list[str], list[str]]:
+def validate_architecture(data: dict[str, Any], root: Path, stage: str = "full", *,
+                          source_paths: set[Path] | None = None) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     warnings: list[str] = []
 
@@ -474,6 +502,7 @@ def validate_architecture(data: dict[str, Any], root: Path, stage: str = "full")
     capability_errors, capability_warnings = _capabilitylib.validate_capability_index(data)
     errors.extend(capability_errors)
     warnings.extend(capability_warnings)
+    errors.extend(_check_module_directory(data, root, stage, source_paths))
 
     entry_required, entry_optional = derive_entry_keys(schema)
     entry = data.get("入口")
@@ -517,19 +546,19 @@ def validate_architecture(data: dict[str, Any], root: Path, stage: str = "full")
             warnings.append(f"模块树节点未登记到模块拓扑.节点: {module_id}")
 
     if isinstance(topology, dict):
-        edges = topology.get("依赖图", [])
-        if not isinstance(edges, list):
-            errors.append("模块拓扑.依赖图 必须是数组")
-            edges = []
+        declared = declared_dependencies(data)
+        errors.extend(item["message"] + ": " + item["pointer"] for item in declared["diagnostics"]
+                      if item["code"] != "descriptive_reference")
+        edges = declared["edges"]
         for edge in edges:
             if not isinstance(edge, dict):
                 continue
             src = edge.get("从")
             dst = edge.get("到")
             if isinstance(src, str) and src not in topology_ids:
-                warnings.append(f"依赖图来源模块未登记: {src}")
+                (errors if "模块路由" in data else warnings).append(f"依赖图来源模块未登记: {src}")
             if isinstance(dst, str) and dst not in topology_ids:
-                warnings.append(f"依赖图目标模块未登记: {dst}")
+                (errors if "模块路由" in data else warnings).append(f"依赖图目标模块未登记: {dst}")
         cycle_edges = edges
         if stage == "skeleton":
             cycle_edges = [edge for edge in edges if isinstance(edge, dict)
@@ -583,8 +612,9 @@ def main(argv: list[str] | None = None) -> int:
                         help="Validation stage: 'skeleton' tolerates missing detail keys (模块详情/接口契约/实现清单/完整细节/测试责任矩阵)")
     args = parser.parse_args(argv)
 
+    source_paths: set[Path] = set()
     data, io_error, io_exit = _archlib.run_with_io_errors(
-        lambda: _archlib.load_architecture_json(args.architecture)
+        lambda: _archlib.load_architecture_json(args.architecture, source_paths)
     )
     if io_error is not None:
         if args.json:
@@ -600,9 +630,17 @@ def main(argv: list[str] | None = None) -> int:
             print("ERROR: architecture 根节点必须是对象", file=sys.stderr)
         return 2
 
-    errors, warnings = validate_architecture(
-        data, _archlib.project_root_for_architecture(args.architecture.resolve()), stage=args.stage
-    )
+    validation, io_error, io_exit = _archlib.run_with_io_errors(lambda: validate_architecture(
+        data, _archlib.project_root_for_architecture(args.architecture.resolve()), stage=args.stage,
+        source_paths=source_paths,
+    ))
+    if io_error is not None:
+        if args.json:
+            print(json.dumps({"status": "unknown", "错误": [io_error], "警告": []}, ensure_ascii=False))
+        else:
+            print(f"ERROR: {io_error}", file=sys.stderr)
+        return io_exit
+    errors, warnings = validation
     if args.json:
         print(json.dumps({"错误": errors, "警告": warnings}, ensure_ascii=False, indent=2))
     else:

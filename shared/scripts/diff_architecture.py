@@ -99,7 +99,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.json:
         print(json.dumps(diff, ensure_ascii=False, indent=2))
     else:
-        emit_text(diff, args.max_items)
+        emit_text(diff, max(0, args.max_items))
     total = len(diff["新增"]) + len(diff["删除"]) + len(diff["修改"])
     return 1 if total else 0
 

@@ -616,13 +616,28 @@ if [ -f "${SCRIPT_DIR}/shared/scripts/render_architecture.py" ]; then
         "python '${SCRIPT_DIR}/shared/scripts/render_architecture.py' '${SCRIPT_DIR}/shared/assets/example-architecture.json' | grep -q 'mermaid'" \
         "Markdown 视图应含 Mermaid 代码块"
     run_check \
-        "可视化渲染（html）" \
-        "python '${SCRIPT_DIR}/shared/scripts/render_architecture.py' '${SCRIPT_DIR}/shared/assets/example-architecture.json' --format html --output '${TMPDIR_VERIFY}/arch.html' && grep -q 'const DATA = ' '${TMPDIR_VERIFY}/arch.html'" \
-        "单文件交互版应生成且内嵌架构数据"
+        "可视化渲染（完整项目 html）" \
+        "python '${SCRIPT_DIR}/shared/scripts/render_architecture.py' '${SCRIPT_DIR}/shared/assets/example-architecture.json' --format html --output '${TMPDIR_VERIFY}/arch.html' && python -c \"import json,re,sys; text=open(sys.argv[1],encoding='utf-8').read(); m=re.search(r'<script[^>]*project-data[^>]*>(.*?)</script>',text,re.S); assert m, 'project data missing'; d=json.loads(m.group(1)); assert d['nodes'] and d['leaf_count'] > 0 and d['physical_mappings'], 'project content missing'\" '${TMPDIR_VERIFY}/arch.html'" \
+        "默认完整项目画布应内嵌可解析的数据、内容节点及物理来源映射"
+    run_check \
+        "可视化渲染（专题 html）" \
+        "python '${SCRIPT_DIR}/shared/scripts/render_architecture.py' '${SCRIPT_DIR}/shared/assets/example-architecture.json' --format html --html-view report --output '${TMPDIR_VERIFY}/report.html' && grep -q 'const DATA = ' '${TMPDIR_VERIFY}/report.html'" \
+        "专题报告入口应生成完整内嵌数据"
     run_check \
         "可视化渲染（json）" \
         "python '${SCRIPT_DIR}/shared/scripts/render_architecture.py' '${SCRIPT_DIR}/shared/assets/example-architecture.json' --format json --output '${TMPDIR_VERIFY}/arch.json' && python -c \"import json,sys; d=json.load(open(sys.argv[1],encoding='utf-8')); assert d['模块'] and d['依赖边']\" '${TMPDIR_VERIFY}/arch.json'" \
         "JSON 视图应含模块与依赖边结构"
+fi
+
+if [ -f "${SCRIPT_DIR}/shared/scripts/check_toolchain_inventory.py" ]; then
+    run_check \
+        "工具维护动态清单" \
+        "python '${SCRIPT_DIR}/shared/scripts/check_toolchain_inventory.py' --json > '${TMPDIR_VERIFY}/toolchain-inventory.json'" \
+        "实际工具的用途、入口和接口必须均已维护"
+    run_check \
+        "公开工具帮助入口" \
+        "python '${SCRIPT_DIR}/shared/scripts/check_toolchain_inventory.py' --verify-help --json > '${TMPDIR_VERIFY}/toolchain-help.json'" \
+        "已审阅公开 CLI 应可显示帮助且不创建调用方状态"
 fi
 
 # 生成摘要

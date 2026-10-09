@@ -19,8 +19,8 @@ from typing import Any
 import _archlib
 
 _archlib.configure_utf8_stdout()
-VERSION = "1.1"
-SUPPORTED = {"dependency", "acyclic", "metric", "crap", "execution", "decision"}
+VERSION = "1.2"
+SUPPORTED = {"dependency", "acyclic", "metric", "crap", "execution", "decision", "contract"}
 
 
 class InputError(ValueError):
@@ -250,96 +250,86 @@ def metric_records(facts: dict, rule: dict, name: str, units: list[str],
     return records
 
 
-def check_rule(project: Path, facts: dict, sources: dict, rule: dict) -> tuple[str, str, list]:
+def _check_execution(project: Path, rule: dict) -> tuple[str, str, list]:
+    """Recheck a receipt and the exact expected command; never execute it."""
+    from run_verification import check_receipt
+    receipt = project_file(project, rule.get("receipt"))
+    if not receipt.is_file():
+        return "unknown", "verification receipt is missing", []
+    inputs = string_list(rule.get("inputs"), "execution.inputs", nonempty=True)
+    data = strict_json(receipt.read_text(encoding="utf-8-sig"))
+    state, reason = check_receipt(data, project, required_inputs=inputs)
+    if not isinstance(data, dict):
+        return "unknown", reason, []
+    expected = rule.get("command")
+    if not isinstance(expected, list) or not expected or any(not isinstance(v, str) for v in expected):
+        raise InputError("execution rule requires the expected command argv")
+    if data.get("command") != expected:
+        return "unknown", "receipt belongs to a different command", []
+    return state, reason, [{"receipt": rule["receipt"]}]
+
+
+def _check_dependencies(facts: dict, rule: dict, scope: list[str]) -> tuple[str, str, list]:
+    """Compare observed edges or detect cycles within the explicit rule scope."""
     check = rule["check"]
-    if check not in SUPPORTED:
-        return "unknown", f"unsupported check capability: {check}", []
-    if check == "execution":
-        from run_verification import check_receipt
-        receipt = project_file(project, rule.get("receipt"))
-        if not receipt.is_file():
-            return "unknown", "verification receipt is missing", []
-        inputs = string_list(rule.get("inputs"), "execution.inputs", nonempty=True)
-        data = strict_json(receipt.read_text(encoding="utf-8-sig"))
-        state, reason = check_receipt(data, project, required_inputs=inputs)
-        if not isinstance(data, dict):
-            return "unknown", reason, []
-        expected = rule.get("command")
-        if not isinstance(expected, list) or not expected or any(not isinstance(v, str) for v in expected):
-            raise InputError("execution rule requires the expected command argv")
-        if data.get("command") != expected:
-            return "unknown", "receipt belongs to a different command", []
-        return state, reason, [{"receipt": rule["receipt"]}]
+    if not set(scope).issubset(set(facts.get("modules", []))):
+        return "unknown", "requested modules are absent from the observation", []
+    edges = dependency_edges(facts, rule)
+    if check == "acyclic":
+        selected = [(a, b) for a, b in edges if a in scope and b in scope]
+        cycle = find_cycle(selected, scope)
+        return ("fail", "dependency cycle", [{"cycle": cycle}]) if cycle else ("pass", "no cycle within selected relation and scope", [])
+    allowed = pairs(rule.get("allow"), "dependency.allow")
+    forbidden = pairs(rule.get("forbid", []), "dependency.forbid")
+    violations = [{"from": a, "to": b, "kind": rule["kind"]}
+                  for a, b in edges if a in scope and ((a, b) not in allowed or (a, b) in forbidden)]
+    return ("fail", "forbidden module dependency", violations) if violations else ("pass", "observed dependencies satisfy the explicit allow list", [])
 
-    scope = string_list(rule.get("scope"), "rule.scope", nonempty=True)
-    source_id = rule.get("source")
-    if not isinstance(source_id, str) or not source_id.strip():
-        raise InputError("rule.source must be a nonempty source identifier")
-    if check in ("dependency", "acyclic"):
-        kind = rule.get("kind")
-        if not isinstance(kind, str) or not kind.strip():
-            raise InputError("dependency rule requires an explicit relation kind")
-        capability = "dependencies:" + kind
+
+def _check_metrics(facts: dict, rule: dict, scope: list[str]) -> tuple[str, str, list]:
+    """Apply project thresholds to measured values, including continuous CRAP."""
+    check = rule["check"]
+    limit = finite_number(rule["max"], "rule.max") if "max" in rule else None
+    lower = finite_number(rule["min"], "rule.min") if "min" in rule else None
+    if limit is None and lower is None:
+        raise InputError("metric rule requires an explicit min or max threshold")
+    if limit is not None and lower is not None and lower > limit:
+        raise InputError("metric min cannot exceed max")
+    if check == "metric":
+        name, method = rule.get("metric"), rule.get("method")
+        if not isinstance(name, str) or not name or not isinstance(method, str) or not method:
+            raise InputError("metric rule requires name and method")
+        records = metric_records(facts, rule, name, scope, method)
+        if set(records) != set(scope):
+            return "unknown", "metric missing for one or more requested units/methods", []
+        values = [{"unit": unit, "value": records[unit]["value"], "method": method} for unit in sorted(scope)]
     else:
-        capability = check
-    problem = source_problem(project, sources.get(source_id), scope, capability)
-    if problem:
-        return "unknown", problem, []
+        method = rule.get("coverage_method")
+        if not isinstance(method, str) or not method:
+            raise InputError("CRAP rule requires an explicit coverage_method")
+        complexity = metric_records(facts, rule, "complexity", scope, "cyclomatic")
+        coverage = metric_records(facts, rule, "coverage", scope, method)
+        if set(complexity) != set(scope) or set(coverage) != set(scope):
+            return "unknown", "CRAP requires measured complexity and coverage for every selected unit", []
+        values = []
+        for unit in sorted(scope):
+            c = finite_number(complexity[unit]["value"], "complexity")
+            cov = finite_number(coverage[unit]["value"], "coverage")
+            if c < 1 or c != int(c):
+                raise InputError("cyclomatic complexity must be a positive integer")
+            if coverage[unit].get("scale") != "percent" or not 0 <= cov <= 100:
+                raise InputError("coverage must be measured percent in [0, 100]")
+            value = c * c * (1 - cov / 100) ** 3 + c
+            if not math.isfinite(value):
+                raise InputError("CRAP result is not finite")
+            values.append({"unit": unit, "value": value, "complexity": c,
+                           "coverage_percent": cov, "coverage_method": method})
+    breaches = [v for v in values if (limit is not None and v["value"] > limit)
+                or (lower is not None and v["value"] < lower)]
+    return ("fail", "quality metric exceeds configured threshold", breaches) if breaches else ("pass", "selected measured metrics satisfy the configured threshold", values)
 
-    if check in ("dependency", "acyclic"):
-        if not set(scope).issubset(set(facts.get("modules", []))):
-            return "unknown", "requested modules are absent from the observation", []
-        edges = dependency_edges(facts, rule)
-        if check == "acyclic":
-            selected = [(a, b) for a, b in edges if a in scope and b in scope]
-            cycle = find_cycle(selected, scope)
-            return ("fail", "dependency cycle", [{"cycle": cycle}]) if cycle else ("pass", "no cycle within selected relation and scope", [])
-        allowed = pairs(rule.get("allow"), "dependency.allow")
-        forbidden = pairs(rule.get("forbid", []), "dependency.forbid")
-        violations = [{"from": a, "to": b, "kind": rule["kind"]}
-                      for a, b in edges if a in scope and ((a, b) not in allowed or (a, b) in forbidden)]
-        return ("fail", "forbidden module dependency", violations) if violations else ("pass", "observed dependencies satisfy the explicit allow list", [])
 
-    if check in ("metric", "crap"):
-        limit = finite_number(rule["max"], "rule.max") if "max" in rule else None
-        lower = finite_number(rule["min"], "rule.min") if "min" in rule else None
-        if limit is None and lower is None:
-            raise InputError("metric rule requires an explicit min or max threshold")
-        if limit is not None and lower is not None and lower > limit:
-            raise InputError("metric min cannot exceed max")
-        if check == "metric":
-            name, method = rule.get("metric"), rule.get("method")
-            if not isinstance(name, str) or not name or not isinstance(method, str) or not method:
-                raise InputError("metric rule requires name and method")
-            records = metric_records(facts, rule, name, scope, method)
-            if set(records) != set(scope):
-                return "unknown", "metric missing for one or more requested units/methods", []
-            values = [{"unit": unit, "value": records[unit]["value"], "method": method} for unit in sorted(scope)]
-        else:
-            method = rule.get("coverage_method")
-            if not isinstance(method, str) or not method:
-                raise InputError("CRAP rule requires an explicit coverage_method")
-            complexity = metric_records(facts, rule, "complexity", scope, "cyclomatic")
-            coverage = metric_records(facts, rule, "coverage", scope, method)
-            if set(complexity) != set(scope) or set(coverage) != set(scope):
-                return "unknown", "CRAP requires measured complexity and coverage for every selected unit", []
-            values = []
-            for unit in sorted(scope):
-                c = finite_number(complexity[unit]["value"], "complexity")
-                cov = finite_number(coverage[unit]["value"], "coverage")
-                if c < 1 or c != int(c):
-                    raise InputError("cyclomatic complexity must be a positive integer")
-                if coverage[unit].get("scale") != "percent" or not 0 <= cov <= 100:
-                    raise InputError("coverage must be measured percent in [0, 100]")
-                value = c * c * (1 - cov / 100) ** 3 + c
-                if not math.isfinite(value):
-                    raise InputError("CRAP result is not finite")
-                values.append({"unit": unit, "value": value, "complexity": c,
-                               "coverage_percent": cov, "coverage_method": method})
-        breaches = [v for v in values if (limit is not None and v["value"] > limit)
-                    or (lower is not None and v["value"] < lower)]
-        return ("fail", "quality metric exceeds configured threshold", breaches) if breaches else ("pass", "selected measured metrics satisfy the configured threshold", values)
-
+def _check_decisions(facts: dict, rule: dict, scope: list[str]) -> tuple[str, str, list]:
     # Only completeness/consistency of decision records is mechanized, not wisdom.
     decisions = indexed(facts.get("decisions", []), "decisions")
     missing = []
@@ -387,6 +377,122 @@ def check_rule(project: Path, facts: dict, sources: dict, rule: dict) -> tuple[s
     return "pass", "decision records are structurally complete; architectural suitability still needs review", []
 
 
+def check_rule(project: Path, facts: dict, sources: dict, rule: dict) -> tuple[str, str, list]:
+    """Validate shared observation provenance before dispatching a rule type."""
+    check = rule["check"]
+    if check not in SUPPORTED:
+        return "unknown", f"unsupported check capability: {check}", []
+    if check == "execution":
+        return _check_execution(project, rule)
+    scope = string_list(rule.get("scope"), "rule.scope", nonempty=True)
+    source_id = rule.get("source")
+    if not isinstance(source_id, str) or not source_id.strip():
+        raise InputError("rule.source must be a nonempty source identifier")
+    if check in ("dependency", "acyclic"):
+        kind = rule.get("kind")
+        if not isinstance(kind, str) or not kind.strip():
+            raise InputError("dependency rule requires an explicit relation kind")
+        capability = "dependencies:" + kind
+    else:
+        capability = check
+    problem = source_problem(project, sources.get(source_id), scope, capability)
+    if problem:
+        return "unknown", problem, []
+    if check == "contract":
+        return check_contract(project, facts, rule)
+    handlers = {"dependency": _check_dependencies, "acyclic": _check_dependencies,
+                "metric": _check_metrics, "crap": _check_metrics, "decision": _check_decisions}
+    return handlers[check](facts, rule, scope)
+
+
+def check_contract(project: Path, facts: dict, rule: dict) -> tuple[str, str, list]:
+    """Compare architecture declarations with project-native API observations.
+
+    Signatures are opaque normalized strings. No language/parser is assumed.
+    Observed errors/consumers are facts only when the exporter actually supports
+    them; source capability and completeness are checked by check_rule first.
+    """
+    architecture = project_file(project, rule.get("architecture", "architecture.json"))
+    data = _archlib.load_architecture_json(architecture, project_root=project)
+    declarations = data.get("接口契约")
+    if not isinstance(declarations, dict):
+        return "unknown", "architecture has no keyed API contracts", []
+    scope = string_list(rule.get("scope"), "rule.scope", nonempty=True)
+    if not set(scope).issubset(set(facts.get("modules", []))):
+        return "unknown", "contract scope references unknown modules", []
+    observations = facts.get("contracts")
+    if not isinstance(observations, list):
+        return "unknown", "project-native API observations missing", []
+    observed = {}
+    source = next(item for item in facts["sources"] if item["id"] == rule["source"])
+    for item in observations:
+        if not isinstance(item, dict):
+            raise InputError("contract observations must be objects")
+        if item.get("source") != rule["source"]:
+            continue
+        module = item.get("module")
+        if not isinstance(module, str) or module not in facts.get("modules", []):
+            raise InputError("contract observation references unknown module")
+        if module not in scope:
+            continue
+        for field in ("name", "signature", "file"):
+            if not isinstance(item.get(field), str) or not item[field].strip():
+                raise InputError(f"contract observation requires {field}")
+        project_file(project, item["file"])
+        if item["file"] not in source["input_hashes"]:
+            return "unknown", "observed API file is not bound to input hashes", []
+        for field in ("errors", "consumers"):
+            string_list(item.get(field), "contract." + field)
+        if not set(item["consumers"]).issubset(set(facts["modules"])):
+            raise InputError("contract consumers must be explicit module IDs")
+        key = (module, item["name"])
+        if key in observed:
+            raise InputError("duplicate observed API; use a qualified overload identifier")
+        observed[key] = item
+    findings = []
+    expected = {}
+    for module in scope:
+        declaration = declarations.get(module)
+        if not isinstance(declaration, dict) or not isinstance(declaration.get("导出"), list):
+            return "unknown", f"module API contract missing: {module}", []
+        for export in declaration["导出"]:
+            if not isinstance(export, dict):
+                raise InputError("declared exports must be objects")
+            name = export.get("名称")
+            if not isinstance(name, str) or not name.strip():
+                raise InputError("declared export requires its actual identifier")
+            key = (module, name)
+            if key in expected:
+                raise InputError("duplicate declared API identifier")
+            expected[key] = export
+            if not isinstance(export.get("签名"), str) or not export["签名"].strip():
+                findings.append({"module": module, "name": name, "field": "签名", "issue": "missing"})
+            for field in ("可能异常", "消费者"):
+                if field not in export:
+                    findings.append({"module": module, "name": name, "field": field, "issue": "missing"})
+                else:
+                    string_list(export[field], "export." + field)
+                    if field == "消费者" and not set(export[field]).issubset(set(facts["modules"])):
+                        findings.append({"module": module, "name": name, "field": field, "issue": "unknown module"})
+    for key in sorted(set(expected) | set(observed)):
+        wanted, actual = expected.get(key), observed.get(key)
+        if wanted is None or actual is None:
+            findings.append({"module": key[0], "name": key[1], "issue": "undeclared export" if wanted is None else "export not observed"})
+            continue
+        for declared_field, fact_field in (("签名", "signature"), ("可能异常", "errors"), ("消费者", "consumers")):
+            if declared_field not in wanted:
+                continue
+            left, right = wanted[declared_field], actual[fact_field]
+            same = set(left) == set(right) if isinstance(left, list) else left == right
+            if not same:
+                findings.append({"module": key[0], "name": key[1], "field": declared_field,
+                                 "expected": left, "observed": right})
+    if not expected and not observed:
+        return "unknown", "no API units selected; cannot certify a contract check", []
+    return ("fail", "API declarations differ from observed interface facts", findings) if findings else (
+        "pass", "API identifiers, signatures, errors and consumers match selected observations; semantics still need behavioral tests", [])
+
+
 def evaluate_project(project: Path, facts: dict, policy: dict) -> dict:
     try:
         project = project.resolve()
@@ -408,6 +514,10 @@ def evaluate_project(project: Path, facts: dict, policy: dict) -> dict:
                          "input_hashes": source.get("input_hashes", {}),
                          "reason": reason, "findings": findings})
         required = [row for row in rows if row["required"]]
+        optional = [row for row in rows if not row["required"]]
+        rule_counts = {name: {"total": len(group), **{state: sum(row["status"] == state for row in group)
+                       for state in ("pass", "fail", "unknown")}}
+                       for name, group in (("required", required), ("optional", optional))}
         statuses = {row["status"] for row in required}
         status = "fail" if "fail" in statuses else "unknown" if "unknown" in statuses or not required else "pass"
         counts = {state: sum(row["status"] == state for row in rows) for state in ("pass", "fail", "unknown")}
@@ -415,7 +525,7 @@ def evaluate_project(project: Path, facts: dict, policy: dict) -> dict:
                 "code": {"pass": 0, "fail": 1, "unknown": 2}[status], "checks": rows,
                 "coverage": {"rules_total": len(rows), "rules_evaluated": counts["pass"] + counts["fail"],
                              "rules_unknown": counts["unknown"], "required_total": len(required)},
-                "counts": counts, "facts_sha256": canonical_hash(facts), "policy_sha256": canonical_hash(policy),
+                "counts": counts, "rule_counts": rule_counts, "facts_sha256": canonical_hash(facts), "policy_sha256": canonical_hash(policy),
                 "limitations": ["Checks cover explicitly selected observations and input files only.",
                                 "Hashes bind content; they do not authenticate external exporters or test sufficiency.",
                                 "No arbitrary-language parser or architectural optimality claim is implied."]}

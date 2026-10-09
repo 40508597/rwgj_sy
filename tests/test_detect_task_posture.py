@@ -69,9 +69,19 @@ class TestDetectTaskPosture(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             (root / "architecture").mkdir()
+            (root / "architecture/index.json").write_text("{}", encoding="utf-8")
             result = detect_task_posture.detect_task_posture("新增一个导出功能", root, RULES)
             self.assertTrue(result["受管项目"])
             self.assertIn("architecture/index.json", result["必须加载"])
+
+    def test_auxiliary_directory_does_not_invent_centralized_index(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            (root / "architecture/quality").mkdir(parents=True)
+            result = detect_task_posture.detect_task_posture("纳管已有项目并增加库存预留", root, RULES)
+            self.assertTrue(result["受管项目"])
+            self.assertIn("architecture.json", result["必须加载"])
+            self.assertNotIn("architecture/index.json", result["必须加载"])
 
     def test_unmanaged_defaults(self):
         with tempfile.TemporaryDirectory() as td:

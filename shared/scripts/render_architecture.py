@@ -1,32 +1,37 @@
 #!/usr/bin/env python3
 """渲染架构真相源为人类可读产物（单向渲染，JSON 永远是唯一真相源）。
 
-铁律（ADR-0001 真相源分离的直接推论）：architecture/index.json + 切片是唯一真相源，
+铁律（ADR-0001 真相源分离的直接推论）：项目根架构与登记的模块架构/切片是架构事实源，
 本工具只读不写；渲染产物（Markdown / HTML / JSON）都是派生视图，可随时重新生成，
 绝不反向编辑 JSON。任何架构修改仍走现有命令链（/修改架构 → JSON → 校验）。
 
 产物:
 - md（默认）: Mermaid 依赖图/功能树 + 进度表 + 模块摘要 + 数据拓扑 + 质量红线标注，
   GitHub 等平台原生渲染 Mermaid，可直接贴 PR / 审计报告 / README
-- html: 单文件零依赖交互版（SVG 依赖图 + 可折叠功能树 + 模块详情面板 + 进度条 + 红线区）
+- html: 单文件完整项目画布，逐层展开资料、明确关系和物理来源，保存阅读位置；
+  --html-view report 可输出按专题组织的图表报告
 - json: 结构化数据（供其他工具消费）
 
 用法:
     python render_architecture.py architecture/index.json                # Markdown 到 stdout
     python render_architecture.py architecture/index.json --format html --output arch.html
+    python render_architecture.py architecture/index.json --format html --html-view report --output report.html
     python render_architecture.py architecture/index.json --format json --output arch.json
     python render_architecture.py architecture/index.json --max-nodes 40 --state-path architecture/_state.json
+    python render_architecture.py architecture/index.json --check-view arch.html  # fresh/stale/unknown，退出 0/1/2
 """
 
 from __future__ import annotations
 
 import argparse
 import copy
+import hashlib
 import html
 import json
 import os
 import re
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -36,27 +41,14 @@ import _archlib  # noqa: E402
 
 _archlib.configure_utf8_stdout()
 
-# 模块详情底线子字段（与 check_quality_redlines 共用口径：schema x-required-subfields 优先）
-FALLBACK_MODULE_DETAIL_SUBFIELDS = [
-    "职责", "非职责", "所属功能树节点", "上游依赖", "下游消费者",
-    "内部结构", "状态机", "数据读写责任", "错误边界", "配置",
-    "安全", "日志审计", "性能", "测试责任",
-]
-# 依赖图层级 → 渲染列顺序（未识别的层级追加到尾部）
+from _architecture_core import (FALLBACK_MODULE_DETAIL_SUBFIELDS,
+    derive_module_detail_subfields, load_schema as _load_schema, declared_dependencies)
+
 LAYER_ORDER = ["基础设施", "基础", "公共", "业务", "子模块", "界面", "集成", "部署"]
 
 
 def _module_detail_subfields() -> list[str]:
-    schema_path = Path(__file__).resolve().parents[1] / "assets" / "schema" / "architecture.schema.json"
-    if schema_path.exists():
-        try:
-            schema = json.loads(schema_path.read_text(encoding="utf-8"))
-            subs = schema.get("properties", {}).get("模块详情", {}).get("x-required-subfields")
-            if isinstance(subs, list) and subs:
-                return list(subs)
-        except (OSError, json.JSONDecodeError):
-            pass
-    return list(FALLBACK_MODULE_DETAIL_SUBFIELDS)
+    return derive_module_detail_subfields(_load_schema()[0])
 
 
 def now_iso() -> str:
@@ -76,107 +68,186 @@ def _nodes_of(data: dict[str, Any]) -> list[dict[str, Any]]:
     return []
 
 
+def _module_catalog(data: dict[str, Any]) -> list[dict[str, Any]]:
+    """完整模块目录兼容嵌套树/分组引用；不凭详情推断依赖。"""
+    catalog = [dict(node, 拓扑登记=True) for node in _nodes_of(data)]
+    known = {str(node.get("编号")) for node in catalog}
+    details = data.get("模块详情")
+    details = details if isinstance(details, dict) else {}
+
+    def add(identifier: Any, record: dict[str, Any] | None = None) -> None:
+        key = str(identifier) if identifier is not None else ""
+        if not key or key in known:
+            return
+        known.add(key)
+        detail = details.get(key, {})
+        detail = detail if isinstance(detail, dict) else {}
+        node = dict(record or {})
+        node.update({"编号": key, "名称": node.get("名称") or detail.get("模块名") or key,
+                     "层级": node.get("层级") or node.get("层") or "未登记拓扑", "拓扑登记": False})
+        if "说明" not in node and detail.get("职责"):
+            node["说明"] = detail["职责"]
+        catalog.append(node)
+
+    stack = list(data.get("模块树") or []) if isinstance(data.get("模块树"), list) else []
+    while stack:
+        record = stack.pop(0)
+        if not isinstance(record, dict):
+            continue
+        refs = record.get("模块")
+        if isinstance(refs, list):
+            for ref in refs:
+                if isinstance(ref, dict):
+                    add(ref.get("编号"), ref)
+                else:
+                    add(ref)
+        else:
+            add(record.get("编号"), record)
+        children = record.get("子模块")
+        if isinstance(children, list):
+            stack.extend(children)
+    for key, detail in details.items():
+        if str(key).startswith("__") or not isinstance(detail, dict):
+            continue
+        add(detail.get("模块编号") or key, {"名称": detail.get("模块名") or key})
+    return catalog
+
+
 def _edges_of(data: dict[str, Any]) -> list[dict[str, Any]]:
-    topology = data.get("模块拓扑")
-    if isinstance(topology, dict):
-        edges = topology.get("依赖图")
-        if isinstance(edges, list):
-            return [e for e in edges if isinstance(e, dict)]
-    return []
+    """Declared consumer→provider graph shared with impact, HTML and query."""
+    return declared_dependencies(data)["edges"]
+
+
+def _dependency_extraction(result: dict[str, Any]) -> dict[str, Any]:
+    """Report declaration parsing only, never certify code or graph semantics."""
+    explanatory = sum(item.get("code") == "descriptive_reference" for item in result["diagnostics"])
+    blocking = len(result["diagnostics"]) - explanatory
+    reason = (f"{blocking} 项依赖声明未能形成明确依赖边，当前关系图不完整；请核对依赖诊断与原声明。"
+              if blocking else "依赖声明解析未发现阻断诊断；说明性记录不形成依赖边。")
+    reason += " 仅指已加载声明的解析，不代表项目没有依赖，也不代表实现或测试通过。"
+    return {"scope": "declared_dependencies", "status": "incomplete" if blocking else "complete",
+            "parsed_edge_count": len(result["edges"]), "blocking_diagnostic_count": blocking,
+            "explanatory_diagnostic_count": explanatory, "reason": reason}
+
+
+def _dependency_notice(diagnostic: dict[str, Any]) -> str:
+    """Keep physical source facts visible without inventing missing provenance."""
+    source = str(diagnostic.get("file") or "加载视图（无物理来源）") + "#" + str(diagnostic.get("pointer", ""))
+    digest = str(diagnostic.get("sha256") or "未提供")
+    disposition = ("说明性记录已保留，不作为依赖边。" if diagnostic.get("code") == "descriptive_reference"
+                   else "该声明未形成明确依赖边，当前关系图不完整。")
+    return (f"依赖声明 {diagnostic.get('code', 'unknown')}: {diagnostic.get('message', '')}；"
+            f"来源 {source}；SHA256 {digest}；{disposition}")
 
 
 def _mermaid_label(text: Any) -> str:
-    """Mermaid 节点/边 label 转义：引号与特殊字符安全。"""
-    return str(text or "").replace('"', "&quot;").replace("\n", "<br/>")
+    """数据只作为 quoted label；编号另用稳定的安全别名。"""
+    value = str(text if text is not None else "")
+    for character, entity in [("&", "#38;"), ('"', "#34;"), ("<", "#60;"),
+                              (">", "#62;"), ("|", "#124;"), ("[", "#91;"),
+                              ("]", "#93;"), ("{", "#123;"), ("}", "#125;")]:
+        value = value.replace(character, entity)
+    return value.replace("\r", "").replace("\n", "<br/>")
+
+
+def _cell(value: Any) -> str:
+    if isinstance(value, (dict, list)):
+        value = json.dumps(value, ensure_ascii=False)
+    return html.escape(str(value if value is not None else ""), quote=False).replace("|", "&#124;").replace("\n", "<br>").replace("\r", "")
+
+
+def _page_size(max_nodes: int) -> int:
+    if max_nodes < 1:
+        raise ValueError("每图节点上限必须大于 0")
+    return max_nodes
 
 
 def _func_nodes(data: dict[str, Any]) -> list[dict[str, Any]]:
+    """Flatten the read model only; nested domain facts remain in their owners."""
     tree = data.get("功能树")
     if not isinstance(tree, list):
         return []
-    return [n for n in tree if isinstance(n, dict)]
+    nodes, pending = [], list(reversed(tree))
+    while pending:
+        node = pending.pop()
+        if not isinstance(node, dict):
+            continue
+        rendered = dict(node)
+        children = node.get("子节点", [])
+        if isinstance(children, list):
+            rendered["子节点"] = [child.get("编号") if isinstance(child, dict) else child for child in children]
+            pending.extend(reversed([child for child in children if isinstance(child, dict)]))
+        nodes.append(rendered)
+    return nodes
 
 
 def to_dependency_flow(data: dict[str, Any], max_nodes: int = 60) -> str:
-    """模块拓扑 → Mermaid graph LR（层级分组 + 依赖说明 label）。"""
-    nodes = _nodes_of(data)
-    edges = _edges_of(data)
+    """每图限制密度，分页保留全部节点；跨页依赖在完整关系表中展示。"""
+    size = _page_size(max_nodes)
+    nodes = _module_catalog(data)
+    declared = declared_dependencies(data)
+    edges = declared["edges"]
+    extraction = _dependency_extraction(declared)
     if not nodes:
-        return '```mermaid\ngraph LR\n  空["无模块拓扑数据"]\n```'
-
-    truncated = len(nodes) > max_nodes
-    node_ids = {n.get("编号") for n in nodes[:max_nodes]}
-    lines = ["graph LR"]
-    # 按层级分组
-    groups: dict[str, list[dict[str, Any]]] = {}
-    for node in nodes[:max_nodes]:
-        groups.setdefault(str(node.get("层级") or "未分层"), []).append(node)
-    for layer in sorted(groups, key=lambda k: (LAYER_ORDER.index(k) if k in LAYER_ORDER else len(LAYER_ORDER))):
-        lines.append(f'  subgraph "{_mermaid_label(layer) or "未分层"}"')
-        for node in groups[layer]:
-            nid = str(node.get("编号", ""))
-            name = _mermaid_label(node.get("名称"))
-            note = _mermaid_label(node.get("说明"))
-            label = f"{name}<br/>{note}" if note else name
-            lines.append(f'    {nid}["{label}"]')
-        lines.append("  end")
-    for edge in edges:
-        src, dst = str(edge.get("从", "")), str(edge.get("到", ""))
-        if src not in node_ids or dst not in node_ids:
-            continue
-        desc = _mermaid_label(edge.get("说明"))
-        lines.append(f"  {src} -->|{desc}| {dst}" if desc else f"  {src} --> {dst}")
-    if truncated:
-        lines.append(f"  %% 已截断 {len(nodes) - max_nodes} 个节点，用 --max-nodes 调整")
-    return "```mermaid\n" + "\n".join(lines) + "\n```"
+        return _cell(extraction["reason"]) + '\n\n```mermaid\ngraph LR\n  空["无模块拓扑数据"]\n```'
+    reports = [f"共 {len(nodes)} 个模块，{len(edges)} 条依赖。箭头 A → B 表示 A 依赖 B；分层是归属，不表示执行顺序。",
+               _cell(extraction["reason"])]
+    for start in range(0, len(nodes), size):
+        page = nodes[start:start + size]
+        aliases = {str(n.get("编号")): f"m{start + i}" for i, n in enumerate(page)}
+        lines = ["graph LR"]
+        groups: dict[str, list[tuple[int, dict[str, Any]]]] = {}
+        for i, node in enumerate(page):
+            groups.setdefault(str(node.get("层级") or node.get("层") or "未分层"), []).append((start + i, node))
+        for layer in sorted(groups, key=lambda k: LAYER_ORDER.index(k) if k in LAYER_ORDER else len(LAYER_ORDER)):
+            lines.append(f'  subgraph "{_mermaid_label(layer)}"')
+            for index, node in groups[layer]:
+                label = "<br/>".join(_mermaid_label(node.get(key)) for key in ["名称", "编号", "说明"] if node.get(key) is not None)
+                lines.append(f'    m{index}["{label}"]')
+            lines.append("  end")
+        for edge in edges:
+            src, dst = str(edge.get("从")), str(edge.get("到"))
+            if src in aliases and dst in aliases:
+                desc = _mermaid_label(edge.get("说明") or edge.get("原声明"))
+                lines.append(f'  {aliases[src]} -->|"{desc}"| {aliases[dst]}' if desc else f"  {aliases[src]} --> {aliases[dst]}")
+        reports.append(f"**分图 {start // size + 1} / {(len(nodes) + size - 1) // size}：模块 {start + 1}–{start + len(page)}**\n\n```mermaid\n" + "\n".join(lines) + "\n```")
+    reports.append("**已解析的完整依赖关系清单（含跨分图关系；失败声明见渲染提示；显式声明不代表源码观察）**\n\n| 依赖方 | 被依赖方 | 依赖说明 | 声明来源 |\n|---|---|---|---|\n" +
+                   "\n".join(f"| {_cell(e.get('从'))} | {_cell(e.get('到'))} | {_cell(e.get('说明') or e.get('原声明'))} | {_cell('; '.join(loc.get('file', '') + '#' + loc['pointer'] for loc in e['sources']))} |" for e in edges))
+    return "\n\n".join(reports)
 
 
 def to_function_tree(data: dict[str, Any], max_nodes: int = 200) -> str:
-    """功能树 → Mermaid graph TD（叶子标注可验收/异常信号）。"""
+    """显式声明全部功能，包括无根循环分量；只画当前分图内的边。"""
+    size = _page_size(max_nodes)
     nodes = _func_nodes(data)
     if not nodes:
         return '```mermaid\ngraph TD\n  空["无功能树数据"]\n```'
 
-    by_id = {str(n.get("编号")): n for n in nodes if n.get("编号") is not None}
-    children_of: dict[str, list[str]] = {}
+    reports = [f"共 {len(nodes)} 个功能节点。箭头表示父子拆分；验收标记只表示记录存在，不代表测试通过。"]
+    relations = []
     for node in nodes:
-        kids = node.get("子节点") or []
-        children_of.setdefault(str(node.get("编号")), []).extend(str(k) for k in kids if str(k) in by_id)
-    roots = [nid for nid in by_id if not any(nid in children_of.get(str(other.get("编号")), []) for other in nodes)]
-
-    truncated = len(nodes) > max_nodes
-    included = set(list(by_id)[:max_nodes])
-
-    lines = ["graph TD"]
-    emitted: set[str] = set()
-
-    def emit_node(nid: str) -> None:
-        if nid in emitted or nid not in by_id or nid not in included:
-            return
-        emitted.add(nid)
-        node = by_id[nid]
-        name = _mermaid_label(node.get("名称"))
-        marks = []
-        if not (node.get("子节点")):
-            if node.get("验收标准"):
-                marks.append("✔")
-            else:
-                marks.append("⚠️ 无验收")
-            landing = node.get("架构落位")
-            tests = landing.get("测试") if isinstance(landing, dict) else None
-            if not tests:
-                marks.append("无测试")
-        label = f"{name}<br/>{' '.join(marks)}" if marks else name
-        lines.append(f"  {nid}[\"{label}\"]")
-        for kid in children_of.get(nid, []):
-            emit_node(kid)
-            lines.append(f"  {nid} --> {kid}")
-
-    for root in roots:
-        emit_node(root)
-    if truncated:
-        lines.append(f"  %% 已截断 {len(nodes) - max_nodes} 个节点")
-    return "```mermaid\n" + "\n".join(lines) + "\n```"
+        kids = node.get("子节点")
+        if isinstance(kids, list):
+            relations.extend((node.get("编号"), kid) for kid in kids)
+    for start in range(0, len(nodes), size):
+        page = nodes[start:start + size]
+        aliases = {str(n.get("编号")): f"f{start + i}" for i, n in enumerate(page)}
+        lines = ["graph TD"]
+        for i, node in enumerate(page):
+            marks = []
+            if not node.get("子节点"):
+                marks.append("✔ 已记录验收" if node.get("验收标准") else "⚠ 无验收")
+                landing = node.get("架构落位")
+                if not isinstance(landing, dict) or not landing.get("测试"):
+                    marks.append("无测试")
+            label = "<br/>".join([_mermaid_label(node.get("名称")), _mermaid_label(node.get("编号"))] + marks)
+            lines.append(f'  f{start + i}["{label}"]')
+        for src, dst in relations:
+            if str(src) in aliases and str(dst) in aliases:
+                lines.append(f"  {aliases[str(src)]} --> {aliases[str(dst)]}")
+        reports.append(f"**功能分图 {start // size + 1} / {(len(nodes) + size - 1) // size}**\n\n```mermaid\n" + "\n".join(lines) + "\n```")
+    reports.append("**完整功能父子关系**\n\n| 父节点 | 子节点 |\n|---|---|\n" + "\n".join(f"| {_cell(src)} | {_cell(dst)} |" for src, dst in relations))
+    return "\n\n".join(reports)
 
 
 def to_progress_table(state: dict[str, Any] | None) -> str:
@@ -188,8 +259,8 @@ def to_progress_table(state: dict[str, Any] | None) -> str:
                    "completed": "✅ 已完成", "skipped": "⊘ 已跳过"}
     rows = []
     for stage in state["stages"]:
-        rows.append(f"| {stage.get('id', '?')} | {status_icon.get(stage.get('status'), stage.get('status'))} "
-                    f"| {stage.get('description', '')} |")
+        rows.append(f"| {_cell(stage.get('id', '?'))} | {_cell(status_icon.get(stage.get('status'), stage.get('status')))} "
+                    f"| {_cell(stage.get('description', ''))} |")
     completion = state.get("completion", {})
     header = (f"**整体完成度 {completion.get('percentage', 0):g}%** "
               f"（必需阶段 {completion.get('required_completed', 0)}/{completion.get('required_total', 0)}）\n\n")
@@ -219,7 +290,7 @@ def to_module_summary(data: dict[str, Any]) -> str:
         if not isinstance(detail, dict) or str(module_name).startswith("__"):
             continue
         filled = sum(1 for s in required_subs if detail.get(s) not in (None, "", [], {}))
-        rows.append(f"| {module_name} | {_brief(detail.get('职责'))} | {filled}/{len(required_subs)} | {detail.get('状态机') or '-'} |")
+        rows.append(f"| {_cell(module_name)} | {_cell(_brief(detail.get('职责')))} | {filled}/{len(required_subs)} | {_cell(detail.get('状态机') or '-')} |")
     table = "| 模块 | 职责摘要 | 底线填充 | 状态机 |\n|------|----------|----------|--------|\n" + "\n".join(rows)
     return table
 
@@ -265,40 +336,132 @@ def to_data_tables(data: dict[str, Any]) -> str:
         if not isinstance(table, dict):
             continue
         name = table.get("表名") or table.get("名称") or "?"
-        module = table.get("所属模块") or "-"
-        fields = table.get("字段") or []
+        module = table.get("所属模块") or table.get("读写责任模块") or "-"
+        fields = table.get("字段") or table.get("字段契约") or []
         if isinstance(fields, list) and fields:
             field_desc = "; ".join(
-                f"{f.get('名称')} {f.get('类型')}" + (f"({'/'.join(f.get('约束') or [])})" if f.get("约束") else "")
-                for f in fields if isinstance(f, dict))[:120]
+                f"{f.get('名称')} {f.get('类型')}" + (f"({_cell(f.get('约束'))})" if f.get("约束") else "")
+                if isinstance(f, dict) else str(f) for f in fields)
         else:
             field_desc = "-"
-        rows.append(f"| {name} | {module} | {len(fields) if isinstance(fields, list) else 0} | {field_desc} |")
+        rows.append(f"| {_cell(name)} | {_cell(module)} | {len(fields) if isinstance(fields, list) else 0} | {_cell(field_desc)} |")
     return "| 表 | 所属模块 | 字段数 | 字段明细 |\n|----|----------|--------|----------|\n" + "\n".join(rows)
+
+
+def _dependency_payload(data: dict[str, Any]) -> list[dict[str, Any]]:
+    """Preserve the legacy edge record format; origins have their own sidecar."""
+    result = []
+    for edge in _edges_of(data):
+        record = {key: value for key, value in edge.items() if key != "sources"}
+        for source in edge["sources"]:
+            pointer = source.get("view_pointer", source["pointer"])
+            if not pointer.startswith("/模块拓扑/依赖图/"):
+                continue
+            raw = data
+            try:
+                for part in pointer.split("/")[1:]:
+                    part = part.replace("~1", "/").replace("~0", "~")
+                    raw = raw[int(part)] if isinstance(raw, list) else raw[part]
+            except (KeyError, IndexError, TypeError, ValueError):
+                continue
+            if isinstance(raw, dict) and "从" in raw and "到" in raw:
+                record = copy.deepcopy(raw)
+                break
+        result.append(record)
+    return result
 
 
 def _build_json_payload(data: dict[str, Any], state: dict[str, Any] | None,
                         errors: list[str], warnings: list[str]) -> dict[str, Any]:
     """JSON 输出的结构化载荷（HTML 版复用同一载荷嵌入）。"""
+    declared = declared_dependencies(data)
     return {
         "项目": data.get("项目", {}),
         "元信息": {
             "生成时间": now_iso(),
-            "单向渲染": "本产物是派生视图；架构真相源永远在 architecture/index.json + 切片，禁止反向编辑。",
+            "单向渲染": "本产物是派生视图；架构真相源永远在项目根架构及登记的模块架构或集中切片，禁止反向编辑。",
         },
         "模块": _nodes_of(data),
-        "依赖边": _edges_of(data),
+        "模块目录": _module_catalog(data),
+        "依赖边": _dependency_payload(data),
+        "依赖来源": [{"从": edge["从"], "到": edge["到"],
+                       "sources": [{k: v for k, v in loc.items() if k != "value"} for loc in edge["sources"]]}
+                      for edge in declared["edges"]],
+        "依赖诊断": copy.deepcopy(declared["diagnostics"]),
+        "依赖提取": _dependency_extraction(declared),
         "功能树": _func_nodes(data),
         "数据拓扑": data.get("数据拓扑", []),
         "模块详情": data.get("模块详情", {}),
         "进度": _state_for_render(state),
         "数据实体": _data_entities(data.get("数据拓扑")),
         "质量问题": {"错误": errors, "警告": warnings},
+        "完整架构": copy.deepcopy(data),
+        "渲染提示": _render_diagnostics(data),
+        "模块必需字段": _module_detail_subfields(),
+        "视图设置": {"每图节点上限": 60},
     }
 
 
+def _render_diagnostics(data: dict[str, Any]) -> list[str]:
+    """渲染结构诊断单列，不能冒充完整架构校验或测试结果。"""
+    declared = declared_dependencies(data)
+    notices = [_dependency_notice(item) for item in declared["diagnostics"]]
+    for field in ["功能树", "模块树"]:
+        if field in data and not isinstance(data[field], list):
+            notices.append(f"{field}应为数组；原始内容仍保留在完整资料中。")
+    for field, records in [("模块", _nodes_of(data)), ("功能", _func_nodes(data))]:
+        seen = set()
+        for record in records:
+            identifier = record.get("编号")
+            if identifier is None or str(identifier) == "":
+                notices.append(f"{field}存在缺失编号的记录；完整资料保留该记录。")
+            elif str(identifier) in seen:
+                notices.append(f"{field}编号重复：{identifier}；请核对完整资料。")
+            seen.add(str(identifier))
+    ids = {str(n.get("编号")) for n in _nodes_of(data)}
+    missing = [str(n.get("编号")) for n in _module_catalog(data) if not n.get("拓扑登记")]
+    if missing:
+        notices.append(f"{len(missing)} 个模块有目录记录但未登记依赖拓扑：{'、'.join(missing)}；保留详情，不推断依赖。")
+    for edge in declared["edges"]:
+        for field in ["从", "到"]:
+            if str(edge.get(field)) not in ids:
+                notices.append(f"依赖端点不存在：{field}={edge.get(field)}；该关系保留在关系清单中。")
+    functions = _func_nodes(data)
+    by_id = {str(n.get("编号")): n for n in functions}
+    indegree = dict.fromkeys(by_id, 0)
+    graph = {}
+    for node in functions:
+        identifier = str(node.get("编号"))
+        kids = node.get("子节点", [])
+        if not isinstance(kids, list):
+            notices.append(f"功能 {identifier} 子节点不是数组；请核对完整资料。")
+            kids = []
+        graph[identifier] = [str(k) for k in kids if str(k) in by_id]
+        for child in kids:
+            if str(child) not in by_id:
+                notices.append(f"功能 {identifier} 引用缺失子节点 {child}。")
+        for child in graph[identifier]:
+            indegree[child] += 1
+        if not kids:
+            if not node.get("验收标准"):
+                notices.append(f"功能 {identifier} 无验收标准。")
+            landing = node.get("架构落位")
+            if not isinstance(landing, dict) or not landing.get("测试"):
+                notices.append(f"功能 {identifier} 无测试落位。")
+    queue = [identifier for identifier, degree in indegree.items() if degree == 0]
+    for identifier in queue:
+        for child in graph.get(identifier, []):
+            indegree[child] -= 1
+            if indegree[child] == 0:
+                queue.append(child)
+    if len(queue) != len(by_id):
+        notices.append("功能树存在循环关系；循环分量仍展示，请核对父子拆分。")
+    return list(dict.fromkeys(notices))
+
+
 def render_markdown_report(data: dict[str, Any], state: dict[str, Any] | None,
-                           errors: list[str], warnings: list[str], max_nodes: int) -> str:
+                           errors: list[str], warnings: list[str], max_nodes: int, *,
+                           snapshot_basis: dict[str, Any] | None = None) -> str:
     """组装 Markdown 报告（Mermaid + 表格 + 质量标注）。"""
     project = data.get("项目", {})
     name = project.get("名称") if isinstance(project, dict) else None
@@ -306,7 +469,9 @@ def render_markdown_report(data: dict[str, Any], state: dict[str, Any] | None,
         f"# 📐 架构可视化报告{('：' + str(name)) if name else ''}",
         "",
         f"> 生成时间：{now_iso()}",
-        "> 本报告是**单向渲染的派生视图**：架构真相源永远在 `architecture/index.json` + 切片，"
+        "> 生成快照、尚未核验当前输入。新鲜度由本地 --check-view 命令只读核验，不代表架构质量或测试通过。",
+        "> 来源：" + _cell(snapshot_basis.get("entry") if snapshot_basis else "内存输入（未提供物理生成依据）"),
+        "> 本报告是**单向渲染的派生视图**：架构事实源在项目根架构及登记的模块架构或集中切片，"
         "禁止反向编辑 JSON；对架构的任何修改请走命令链。",
         "",
         "## 1. 模块依赖图",
@@ -343,8 +508,15 @@ def render_markdown_report(data: dict[str, Any], state: dict[str, Any] | None,
         sections.extend(f"- {item}" for item in warnings)
         sections.append("")
     if not errors and not warnings:
-        sections.append("✅ 无质量红线，无警告。")
+        sections.append("无质量红线，无警告（仅指本次传入的质量检查结果；不代表实现或测试通过）。")
         sections.append("")
+    notices = _render_diagnostics(data)
+    if notices:
+        sections.extend(["### 渲染结构提示", ""] + [f"- {_cell(item)}" for item in notices] + [""])
+    sections.extend(["## 7. 完整架构资料", "", "以下保留加载后的全部字段、详情及扩展信息；图中摘要不替代这些资料。", ""])
+    for key, value in data.items():
+        sections.extend([f"### {_cell(key)}", "", "<details>", f"<summary>{_cell(key)}完整内容</summary>", "",
+                         "```json", json.dumps(value, ensure_ascii=False, indent=2).replace("<", "\\u003c").replace(">", "\\u003e").replace("`", "\\u0060"), "```", "", "</details>", ""])
     return "\n".join(sections)
 
 
@@ -352,264 +524,72 @@ def render_markdown_report(data: dict[str, Any], state: dict[str, Any] | None,
 # HTML 单文件交互版（零外部依赖：无 CDN、无 Web 服务，纯原生 JS/CSS + 内联 SVG）
 # ---------------------------------------------------------------------------
 
-HTML_TEMPLATE = r"""<!DOCTYPE html>
-<html lang="zh">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>@TITLE@</title>
-<style>
-  :root { --line:#d8dde3; --fg:#1f2733; --muted:#6b7686; --red:#d64541; --yellow:#d69c2e; --green:#27ae60; --bg:#f7f9fb; --card:#ffffff; }
-  * { box-sizing: border-box; }
-  body { margin:0; font-family:"Segoe UI","Microsoft YaHei",system-ui,sans-serif; background:var(--bg); color:var(--fg); }
-  header { background:var(--card); border-bottom:1px solid var(--line); padding:14px 24px; display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; }
-  header h1 { font-size:18px; margin:0; }
-  header .meta { color:var(--muted); font-size:12px; }
-  nav { display:flex; gap:4px; padding:10px 24px; background:var(--card); border-bottom:1px solid var(--line); flex-wrap:wrap; }
-  nav button { border:1px solid var(--line); background:#fff; border-radius:6px; padding:6px 14px; cursor:pointer; font-size:13px; color:var(--fg); }
-  nav button.active { background:#eef4ff; border-color:#7aa5e8; }
-  main { padding:18px 24px; max-width:1280px; }
-  section.tab { display:none; }
-  section.tab.active { display:block; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:14px 16px; margin-bottom:14px; }
-  .card h2 { margin:0 0 10px; font-size:15px; }
-  table { border-collapse:collapse; width:100%; font-size:13px; }
-  th, td { border:1px solid var(--line); padding:6px 9px; text-align:left; vertical-align:top; }
-  th { background:#f0f3f7; }
-  .pill { display:inline-block; border-radius:10px; padding:2px 10px; font-size:12px; margin:2px 4px 2px 0; }
-  .pill.ok { background:#e7f6ec; color:var(--green); }
-  .pill.wait { background:#fdf3e0; color:var(--yellow); }
-  .pill.run { background:#e8f1fd; color:#2b6cb0; }
-  .pill.skip { background:#eef1f5; color:var(--muted); }
-  .bar { height:10px; background:#eef1f5; border-radius:5px; overflow:hidden; margin-top:6px; }
-  .bar > div { height:100%; background:var(--green); }
-  .issue { padding:7px 10px; border-radius:6px; margin:4px 0; font-size:13px; }
-  .issue.err { background:#fdecea; color:var(--red); }
-  .issue.warn { background:#fdf6e3; color:#9a6b00; }
-  svg text { font-family:"Segoe UI","Microsoft YaHei",sans-serif; }
-  .node-box { fill:#fff; stroke:#7aa5e8; stroke-width:1.2; rx:6; }
-  .node-box:hover { fill:#eef4ff; cursor:pointer; }
-  .edge { stroke:#9aa7b5; stroke-width:1.2; fill:none; }
-  .edge-arrow { fill:#9aa7b5; }
-  details { margin:2px 0 2px 14px; }
-  summary { cursor:pointer; padding:3px 6px; border-radius:4px; font-size:13px; }
-  summary:hover { background:#f0f3f7; }
-  .leaf { padding:3px 6px; font-size:13px; }
-  .leaf .tag { font-size:11px; color:var(--muted); margin-left:8px; }
-  .leaf .tag.warn { color:var(--red); }
-  #detail-panel { position:fixed; right:16px; top:120px; width:380px; max-height:70vh; overflow:auto;
-                  background:#fff; border:1px solid var(--line); border-radius:10px; box-shadow:0 6px 24px rgba(0,0,0,.14);
-                  padding:14px; display:none; z-index:10; }
-  #detail-panel h3 { margin:0 0 8px; font-size:14px; }
-  #detail-panel pre { font-size:11px; white-space:pre-wrap; background:#f7f9fb; padding:8px; border-radius:6px; }
-  #detail-panel .close { position:absolute; top:8px; right:10px; border:none; background:none; font-size:16px; cursor:pointer; }
-</style>
-</head>
-<body>
-<header>
-  <h1>📐 @TITLE@</h1>
-  <span class="meta">单向渲染视图 · 真相源在 architecture/index.json + 切片 · @TIME@</span>
-</header>
-<nav id="nav">
-  <button data-tab="dep" class="active">依赖图</button>
-  <button data-tab="tree">功能树</button>
-  <button data-tab="progress">进度</button>
-  <button data-tab="modules">模块</button>
-  <button data-tab="data">数据</button>
-  <button data-tab="quality">质量</button>
-</nav>
-<main>
-  <section class="tab active" id="tab-dep"><div class="card"><h2>模块依赖图</h2><div id="dep-svg"></div></div></section>
-  <section class="tab" id="tab-tree"><div class="card"><h2>功能树</h2><div id="func-tree"></div></div></section>
-  <section class="tab" id="tab-progress"><div class="card"><h2>架构进度</h2><div id="progress-box"></div></div></section>
-  <section class="tab" id="tab-modules"><div class="card"><h2>模块摘要</h2><div id="module-table"></div></div></section>
-  <section class="tab" id="tab-data"><div class="card"><h2>数据拓扑</h2><div id="data-table"></div></div></section>
-  <section class="tab" id="tab-quality"><div class="card"><h2>质量问题</h2><div id="quality-box"></div></div></section>
-</main>
-<div id="detail-panel"><button class="close" id="detail-close">×</button><h3 id="detail-title"></h3><pre id="detail-body"></pre></div>
-<script>
-const DATA = @DATA@;
-function esc(s) { return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
-const LAYER_ORDER = ["基础设施","基础","公共","业务","子模块","界面","集成","部署"];
+HTML_TEMPLATE_PATH = Path(__file__).resolve().parents[1] / 'assets' / 'architecture-view.html'
 
-// ---- 标签页 ----
-document.querySelectorAll("#nav button").forEach(function(btn){
-  btn.addEventListener("click", function(){
-    document.querySelectorAll("#nav button").forEach(b=>b.classList.remove("active"));
-    document.querySelectorAll("section.tab").forEach(s=>s.classList.remove("active"));
-    btn.classList.add("active");
-    document.getElementById("tab-"+btn.dataset.tab).classList.add("active");
-  });
-});
 
-// ---- 依赖图（内联 SVG，按层级分列） ----
-function renderDep() {
-  const nodes = DATA.模块 || [], edges = DATA.依赖边 || [];
-  const el = document.getElementById("dep-svg");
-  if (!nodes.length) { el.innerHTML = "<p>无模块拓扑数据</p>"; return; }
-  const colW = 250, rowH = 66, boxW = 170, boxH = 44, pad = 24;
-  const layers = [];
-  nodes.forEach(function(n){
-    const l = String(n.层级 || "未分层");
-    if (!layers.includes(l)) layers.push(l);
-  });
-  layers.sort(function(a,b){ return (LAYER_ORDER.indexOf(a)+1||99) - (LAYER_ORDER.indexOf(b)+1||99); });
-  const pos = Object.create(null); const colCount = layers.length;
-  layers.forEach(function(layer, col){
-    const colNodes = nodes.filter(n=>String(n.层级||"未分层")===layer);
-    colNodes.forEach(function(n, row){
-      pos[String(n.编号)] = { x: pad + col*colW, y: pad + row*rowH };
-    });
-  });
-  const svgW = pad*2 + Math.max(1,colCount-1)*colW + boxW;
-  const maxRows = Math.max.apply(null, layers.map(l=>nodes.filter(n=>String(n.层级||"未分层")===l).length));
-  const svgH = pad*2 + Math.max(1,maxRows-1)*rowH + boxH;
-  let s = '<svg width="100%" viewBox="0 0 '+svgW+' '+svgH+'" xmlns="http://www.w3.org/2000/svg">';
-  s += '<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="edge-arrow" d="M0,0 L10,5 L0,10 z"/></marker></defs>';
-  edges.forEach(function(e){
-    const a = pos[String(e.从)], b = pos[String(e.到)];
-    if (!a || !b) return;
-    const x1 = a.x + boxW, y1 = a.y + boxH/2, x2 = b.x, y2 = b.y + boxH/2;
-    const mx = (x1+x2)/2;
-    s += '<path class="edge" d="M'+x1+','+y1+' C'+mx+','+y1+' '+mx+','+y2+' '+x2+','+y2+'" marker-end="url(#arrow)">' +
-         '<title>'+esc(e.从)+' → '+esc(e.到)+'：'+esc(e.说明||"")+'</title></path>';
-  });
-  nodes.forEach(function(n){
-    const p = pos[String(n.编号)]; if (!p) return;
-    const id = esc(String(n.编号));
-    const label = esc(String(n.名称||n.编号)) + (n.说明 ? '<tspan x="'+(p.x+boxW/2)+'" dy="14" font-size="9" fill="#6b7686">'+esc(String(n.说明).slice(0,16))+'</tspan>' : '');
-    s += '<g data-module="'+id+'"><rect class="node-box" x="'+p.x+'" y="'+p.y+'" width="'+boxW+'" height="'+boxH+'"/>' +
-         '<text x="'+(p.x+boxW/2)+'" y="'+(p.y+boxH/2+4)+'" text-anchor="middle" font-size="12">'+label+'</text></g>';
-  });
-  s += '</svg>';
-  el.innerHTML = s;
-}
-
-// ---- 功能树（可折叠） ----
-function renderTree() {
-  const nodes = DATA.功能树 || [];
-  const el = document.getElementById("func-tree");
-  if (!nodes.length) { el.innerHTML = "<p>无功能树数据</p>"; return; }
-  const byId = Object.create(null); nodes.forEach(n=>{ if (n.编号!=null) byId[String(n.编号)] = n; });
-  const childrenOf = Object.create(null); nodes.forEach(n=>{ childrenOf[String(n.编号)] = (n.子节点||[]).map(String).filter(k=>byId[k]); });
-  const roots = nodes.map(n=>String(n.编号)).filter(id=>!nodes.some(o=>((o.子节点||[]).map(String).includes(id))));
-  function nodeHtml(id) {
-    const n = byId[id];
-    const kids = childrenOf[id] || [];
-    if (!kids.length) {
-      let tags = "";
-      if (n.验收标准) tags += '<span class="tag">✔可验收</span>'; else tags += '<span class="tag warn">⚠️无验收</span>';
-      const land = n.架构落位;
-      if (!land || !land.测试) tags += '<span class="tag warn">无测试落位</span>';
-      return '<div class="leaf" data-module="'+esc(id)+'">'+esc(n.名称||id)+tags+'</div>';
-    }
-    return '<details open><summary>'+esc(n.名称||id)+'</summary>' + kids.map(nodeHtml).join("") + '</details>';
-  }
-  el.innerHTML = roots.map(nodeHtml).join("");
-}
-
-// ---- 进度 ----
-function renderProgress() {
-  const state = DATA.进度; const el = document.getElementById("progress-box");
-  if (!state || !state.stages) { el.innerHTML = "<p>无状态文件（可运行 manage_state.py init）</p>"; return; }
-  const icon = {"pending":["⭕","wait"],"in_progress":["⏳","run"],"completed":["✅","ok"],"skipped":["⊘","skip"]};
-  let html = '<p>整体完成度 <b>'+esc(state.completion && state.completion.percentage)+'%</b>（必需阶段 '+
-             esc(state.completion && state.completion.required_completed)+'/'+esc(state.completion && state.completion.required_total)+'）</p>';
-  html += '<div class="bar"><div style="width:'+esc(state.completion && state.completion.percentage)+'%"></div></div><br/>';
-  state.stages.forEach(function(st){
-    const ic = icon[st.status] || ["?","wait"];
-    html += '<span class="pill '+ic[1]+'">'+ic[0]+' '+esc(st.id)+'</span>';
-  });
-  el.innerHTML = html;
-}
-
-// ---- 模块摘要 ----
-function renderModules() {
-  const details = DATA.模块详情 || {}; const el = document.getElementById("module-table");
-  const subs = ["职责","非职责","所属功能树节点","上游依赖","下游消费者","内部结构","状态机","数据读写责任","错误边界","配置","安全","日志审计","性能","测试责任"];
-  let rows = "";
-  Object.keys(details).forEach(function(k){
-    if (k.indexOf("__") === 0) return;
-    const d = details[k] || {};
-    const filled = subs.filter(function(s){ const v = d[s]; return !(v==null||v===""||(Array.isArray(v)&&!v.length)||(typeof v==="object"&&!Object.keys(v).length)); }).length;
-    const duty = Array.isArray(d.职责) ? d.职责.join(" / ") : String(d.职责 || "");
-    rows += '<tr><td>'+esc(k)+'</td><td>'+esc(duty.slice(0,40))+'</td><td>'+filled+'/'+subs.length+'</td><td>'+esc(d.状态机||"-")+'</td></tr>';
-  });
-  el.innerHTML = rows ? '<table><tr><th>模块</th><th>职责摘要</th><th>底线填充</th><th>状态机</th></tr>'+rows+'</table>'
-                      : '<p>无模块详情数据</p>';
-}
-
-// ---- 数据拓扑 ----
-function renderData() {
-  const topology = DATA.数据实体 || []; const el = document.getElementById("data-table");
-  if (!topology.length) { el.innerHTML = "<p>无数据拓扑数据</p>"; return; }
-  let rows = "";
-  topology.forEach(function(t){
-    const fields = t.字段 || [];
-    const desc = fields.map(function(f){
-      return esc(f.名称+" "+f.类型) + (f.约束&&f.约束.length ? " ("+esc(f.约束.join("/"))+")" : "");
-    }).join("; ");
-    rows += '<tr><td>'+esc(t.表名||t.名称||"?")+'</td><td>'+esc(t.所属模块||"-")+'</td><td>'+fields.length+'</td><td>'+desc+'</td></tr>';
-  });
-  el.innerHTML = '<table><tr><th>表</th><th>所属模块</th><th>字段数</th><th>字段明细</th></tr>'+rows+'</table>';
-}
-
-// ---- 质量 ----
-function renderQuality() {
-  const q = DATA.质量问题 || {}; const el = document.getElementById("quality-box");
-  let html = "";
-  (q.错误||[]).forEach(function(x){ html += '<div class="issue err">🔴 '+esc(x)+'</div>'; });
-  (q.警告||[]).forEach(function(x){ html += '<div class="issue warn">🟡 '+esc(x)+'</div>'; });
-  if (!html) html = "<p>✅ 无质量红线，无警告。</p>";
-  el.innerHTML = html;
-}
-
-// ---- 模块详情面板 ----
-function showModule(id) {
-  const details = DATA.模块详情 || {};
-  let detail = details[id] || details[id.replace(/^[^.]*\./,"")] || null;
-  const panel = document.getElementById("detail-panel");
-  if (!detail) { panel.style.display = "none"; return; }
-  document.getElementById("detail-title").textContent = "模块：" + id;
-  document.getElementById("detail-body").textContent = JSON.stringify(detail, null, 2);
-  panel.style.display = "block";
-}
-function closeDetail() { document.getElementById("detail-panel").style.display = "none"; }
-document.getElementById("detail-close").addEventListener("click", closeDetail);
-document.addEventListener("click", function(event) {
-  const node = event.target.closest("[data-module]");
-  if (node) showModule(node.getAttribute("data-module"));
-});
-
-renderDep(); renderTree(); renderProgress(); renderModules(); renderData(); renderQuality();
-</script>
-</body>
-</html>
-"""
+def render_project_view(data: dict[str, Any], state: dict[str, Any] | None,
+                        errors: list[str], warnings: list[str],
+                        sources: list[dict[str, Any]] | None = None, *,
+                        view_identity: str | None = None,
+                        snapshot_basis: dict[str, Any] | None = None) -> str:
+    """完整项目画布；原始内容、物理出处和阅读状态相互分离。"""
+    from _architecture_visual import build_visual_model
+    payload = build_visual_model(data, sources or [])
+    payload["content_fingerprint"] = hashlib.sha256(
+        json.dumps(data, ensure_ascii=False, sort_keys=True, allow_nan=False).encode("utf-8")
+    ).hexdigest()
+    if view_identity is not None:
+        payload["view_identity"] = view_identity
+    # JSON.parse uses IEEE-754 numbers. Preserve the exact readable number literal,
+    # including large integer IDs, independently of the browser's numeric storage.
+    for node in payload["nodes"]:
+        if node["t"] == "number":
+            node["number_literal"] = json.dumps(node["v"], allow_nan=False)
+    payload["quality"] = {"errors": list(errors), "warnings": list(warnings)}
+    # State is presented as a separate input; never override business declarations.
+    payload["progress"] = copy.deepcopy(state)
+    payload["snapshot_basis"] = copy.deepcopy(snapshot_basis)
+    template = (Path(__file__).resolve().parents[1] / 'assets' / 'architecture-project.html').read_text(encoding='utf-8')
+    encoded = (json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+               .replace("&", "\\u0026").replace("<", "\\u003c").replace(">", "\\u003e")
+               .replace("\u2028", "\\u2028").replace("\u2029", "\\u2029"))
+    return template.replace("__PROJECT_DATA__", encoded)
 
 
 def render_html_report(data: dict[str, Any], state: dict[str, Any] | None,
-                       errors: list[str], warnings: list[str], max_nodes: int) -> str:
+                       errors: list[str], warnings: list[str], max_nodes: int, *,
+                       snapshot_basis: dict[str, Any] | None = None) -> str:
     """单文件零依赖交互版 HTML。"""
     payload = _build_json_payload(data, state, errors, warnings)
-    # 截断保护：超过 max_nodes 的模块不参与 SVG 布局
-    if len(payload["模块"]) > max_nodes:
-        payload["模块"] = payload["模块"][:max_nodes]
+    payload["视图设置"]["每图节点上限"] = _page_size(max_nodes)
     project = data.get("项目", {})
     name = project.get("名称") if isinstance(project, dict) else None
     title = f"架构可视化报告{('：' + str(name)) if name else ''}"
     data_json = (json.dumps(payload, ensure_ascii=False)
                  .replace("&", "\\u0026").replace("<", "\\u003c").replace(">", "\\u003e")
                  .replace("\u2028", "\\u2028").replace("\u2029", "\\u2029"))
-    replacements = {"@TITLE@": html.escape(title, quote=True), "@TIME@": now_iso(), "@DATA@": data_json}
+    extraction = payload["依赖提取"]
+    dependency_status = (f"依赖声明解析：{extraction['status']}；已解析 {extraction['parsed_edge_count']} 条依赖；"
+                         f"阻断诊断 {extraction['blocking_diagnostic_count']} 项；"
+                         f"说明性记录 {extraction['explanatory_diagnostic_count']} 项。{extraction['reason']}")
+    replacements = {"@TITLE@": html.escape(title, quote=True), "@TIME@": now_iso(), "@DATA@": data_json,
+                    "@SNAPSHOT_BASIS@": html.escape(json.dumps(snapshot_basis, ensure_ascii=False, indent=2)
+                        if snapshot_basis else "内存输入（未提供物理生成依据）", quote=True),
+                    "@DEPENDENCY_STATUS@": html.escape(dependency_status, quote=True),
+                    "@DEPENDENCY_CLASS@": "warning" if extraction["status"] == "incomplete" else "read-note"}
     # One pass: marker-like text in user data is never interpreted as template.
-    return re.sub(r"@TITLE@|@TIME@|@DATA@", lambda match: replacements[match.group()], HTML_TEMPLATE)
+    return re.sub(r"@TITLE@|@TIME@|@DATA@|@DEPENDENCY_STATUS@|@DEPENDENCY_CLASS@|@SNAPSHOT_BASIS@",
+                  lambda match: replacements[match.group()], HTML_TEMPLATE_PATH.read_text(encoding="utf-8"))
 
 
 def render_json_output(data: dict[str, Any], state: dict[str, Any] | None,
-                       errors: list[str], warnings: list[str], max_nodes: int) -> str:
+                       errors: list[str], warnings: list[str], max_nodes: int, *,
+                       snapshot_basis: dict[str, Any] | None = None) -> str:
     """结构化 JSON 输出。"""
     payload = _build_json_payload(data, state, errors, warnings)
+    payload["视图设置"]["每图节点上限"] = _page_size(max_nodes)
+    if snapshot_basis is not None:
+        payload["snapshot_basis"] = copy.deepcopy(snapshot_basis)
     return json.dumps(payload, ensure_ascii=False, indent=2)
 
 
@@ -626,16 +606,324 @@ def _resolve_state_path(arch_path: Path, explicit: Path | None) -> Path | None:
     return arch_path.parent / "architecture" / "_state.json"
 
 
+_MANIFEST_ID = "architecture-view-manifest"
+_MANIFEST_HTML = re.compile(r'<script id="architecture-view-manifest" type="application/json">(.*?)</script>\r?\n', re.DOTALL)
+_MANIFEST_MD = re.compile(r'\r?\n<!-- architecture-view-manifest\r?\n(.*?)\r?\n-->\r?\n\Z', re.DOTALL)
+_INPUT_KINDS = {"architecture", "state", "schema", "renderer", "quality-review", "implementation", "quality-evidence"}
+
+
+def _renderer_inputs() -> dict[Path, str]:
+    """Explicit dependency closure, not a scan of the project or installed skills."""
+    shared = Path(__file__).resolve().parents[1]
+    paths = {shared / "scripts" / name: "renderer" for name in (
+        "render_architecture.py", "_archlib.py", "_architecture_core.py", "_module_tree.py",
+        "_architecture_visual.py", "manage_state.py", "check_quality_redlines.py", "check_project_quality.py")}
+    paths.update({shared / "assets" / name: "renderer" for name in (
+        "architecture-project.html", "architecture-view.html")})
+    paths[shared / "assets/schema/architecture.schema.json"] = "schema"
+    return paths
+
+
+def _input_records(paths: dict[Path, str]) -> list[dict[str, Any]]:
+    """Hash physical bytes; explicit absent inputs are part of the snapshot too."""
+    normalized = {path.resolve(): kind for path, kind in paths.items()}
+    records = []
+    for path, kind in sorted(normalized.items(), key=lambda item: str(item[0])):
+        if path.exists() and not path.is_file():
+            raise ValueError(f"生成依据必须是文件或尚不存在的候选文件: {path}")
+        present = path.is_file()
+        records.append({"path": str(path), "kind": kind, "exists": present,
+                        "sha256": hashlib.sha256(path.read_bytes()).hexdigest() if present else None})
+    return records
+
+
+def _render_input_paths(architecture: Path, state_path: Path | None,
+                        data: dict[str, Any], sources: set[Path]) -> dict[Path, str]:
+    paths = {path.resolve(): kind for path, kind in _renderer_inputs().items()}
+    paths.update({path.resolve(): "architecture" for path in sources})
+    paths[architecture.resolve()] = "architecture"
+    if state_path is not None:
+        paths[state_path.resolve()] = "state"
+    project = _archlib.project_root_for_architecture(architecture.resolve())
+    review_path = project / "architecture/quality/redline-reviews.json"
+    paths[review_path] = "quality-review"
+    # Quality annotations depend on registered implementation existence and
+    # explicit review evidence. Unregistered source files are not freshness inputs.
+    paths.update({_archlib._contained_path(project, rel, "实施文件"): "implementation"
+                  for rel in _archlib.collect_implementation_files(data)})
+    if review_path.is_file():
+        try:
+            review = _archlib.strict_json_loads(review_path.read_bytes())
+            for item in review.get("reviews", []) if isinstance(review, dict) else []:
+                hashes = item.get("input_hashes", {}) if isinstance(item, dict) else {}
+                if isinstance(hashes, dict):
+                    for rel in hashes:
+                        if isinstance(rel, str):
+                            candidate = _archlib._contained_path(project, rel, "红线复核证据")
+                            paths.setdefault(candidate, "quality-evidence")
+        except (OSError, UnicodeError, ValueError, TypeError):
+            # Invalid reviews remain visibly unknown in the quality report; the
+            # bytes of the invalid document are still tracked, never executed.
+            pass
+    return paths
+
+
+def _current_basis(architecture: Path, explicit_state: Path | None, *,
+                   tracked_sources: set[Path] | None = None) -> tuple[dict, dict | None, dict]:
+    sources = tracked_sources if tracked_sources is not None else set()
+    data = _archlib.load_architecture_json(architecture, sources)
+    if not isinstance(data, dict):
+        raise ValueError("architecture 根节点必须是对象")
+    state_path = _resolve_state_path(architecture.resolve(), explicit_state)
+    state = None
+    if state_path is not None and state_path.exists():
+        import manage_state
+        state = manage_state.load_state(state_path)
+    basis = {"entry": str(architecture.resolve()),
+             "state_path": str(state_path.resolve()) if state_path is not None else None,
+             "inputs": _input_records(_render_input_paths(architecture, state_path, data, sources))}
+    return data, state, basis
+
+
+def _json_fingerprint(value: Any) -> str:
+    return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True,
+                         separators=(",", ":"), allow_nan=False).encode("utf-8")).hexdigest()
+
+
+def _manifest_json(manifest: dict) -> str:
+    return (json.dumps(manifest, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
+            .replace("&", "\\u0026").replace("<", "\\u003c").replace(">", "\\u003e"))
+
+
+def _attach_manifest(document: str, fmt: str, basis: dict, html_view: str, max_nodes: int) -> str:
+    """One embedded manifest: the output itself is bound, not only its inputs."""
+    manifest = dict(basis, schema_version=1, generated_at=now_iso(),
+                    render_options={"format": fmt, "html_view": html_view, "max_nodes": max_nodes},
+                    view_sha256=(_json_fingerprint(_archlib.strict_json_loads(document)) if fmt == "json"
+                                 else hashlib.sha256(document.encode("utf-8")).hexdigest()))
+    if fmt == "json":
+        payload = _archlib.strict_json_loads(document)
+        payload["view_manifest"] = manifest
+        return json.dumps(payload, ensure_ascii=False, indent=2, allow_nan=False)
+    encoded = _manifest_json(manifest)
+    if fmt == "md":
+        return document + "\n<!-- architecture-view-manifest\n" + encoded + "\n-->\n"
+    return document.replace("</body>", '<script id="' + _MANIFEST_ID +
+                            '" type="application/json">' + encoded + '</script>\n</body>', 1)
+
+
+def _read_view_manifest(path: Path) -> tuple[dict, str, str]:
+    """Untrusted view bytes are parsed as data; no JS, commands or source imports."""
+    from html.parser import HTMLParser
+    raw = path.read_bytes()
+    document = raw.decode("utf-8")  # Preserve newline and BOM bytes for textual view hashes.
+    leading = document.lstrip("\ufeff \r\n\t")
+    if leading.startswith("{"):
+        payload = _archlib.strict_json_loads(raw)
+        manifest = payload.pop("view_manifest", None)
+        fmt, digest = "json", _json_fingerprint(payload)
+    elif leading.lower().startswith("<!doctype html"):
+        class ManifestParser(HTMLParser):
+            def __init__(self):
+                super().__init__()
+                self.count = 0
+                self.invalid = False
+                self.capture = False
+                self.parts: list[str] = []
+
+            def handle_starttag(self, tag, attrs):
+                if tag == "script" and dict(attrs).get("id") == _MANIFEST_ID:
+                    self.count += 1
+                    self.capture = True
+                    self.invalid |= (len(attrs) != 2 or dict(attrs).get("type") != "application/json")
+
+            def handle_data(self, text):
+                if self.capture:
+                    self.parts.append(text)
+
+            def handle_endtag(self, tag):
+                if tag == "script":
+                    self.capture = False
+
+        parser = ManifestParser()
+        parser.feed(document)
+        parser.close()
+        blocks = list(_MANIFEST_HTML.finditer(document))
+        if parser.count != 1 or parser.invalid or len(blocks) != 1:
+            raise ValueError("HTML 生成清单缺失、重复或损坏")
+        manifest = _archlib.strict_json_loads("".join(parser.parts))
+        bare = document[:blocks[0].start()] + document[blocks[0].end():]
+        fmt, digest = "html", hashlib.sha256(bare.encode("utf-8")).hexdigest()
+    else:
+        match = _MANIFEST_MD.search(document)
+        if match is None or len(re.findall(r"<!-- architecture-view-manifest\r?\n", document)) != 1:
+            raise ValueError("Markdown 生成清单缺失、重复或损坏")
+        manifest = _archlib.strict_json_loads(match.group(1))
+        fmt, digest = "md", hashlib.sha256(document[:match.start()].encode("utf-8")).hexdigest()
+    if not isinstance(manifest, dict) or type(manifest.get("schema_version")) is not int or manifest["schema_version"] != 1:
+        raise ValueError("生成清单版本无效")
+    required = {"schema_version", "generated_at", "entry", "state_path", "inputs", "render_options", "view_sha256"}
+    if set(manifest) != required:
+        raise ValueError("生成清单字段缺失或未知")
+    for key in ("entry", "state_path"):
+        value = manifest[key]
+        if key == "state_path" and value is None:
+            continue
+        if (not isinstance(value, str) or "\x00" in value or not Path(value).is_absolute()
+                or str(Path(value)) != value or os.path.normpath(value) != value):
+            raise ValueError(f"生成清单 {key} 必须是规范绝对路径")
+    if not isinstance(manifest["generated_at"], str) or not manifest["generated_at"].strip():
+        raise ValueError("生成清单缺少生成时间")
+    options = manifest["render_options"]
+    if (not isinstance(options, dict) or set(options) != {"format", "html_view", "max_nodes"}
+            or options["format"] != fmt or options["html_view"] not in ("project", "report")
+            or type(options["max_nodes"]) is not int or options["max_nodes"] < 1):
+        raise ValueError("生成清单渲染参数无效")
+    if not isinstance(manifest["view_sha256"], str) or re.fullmatch(r"[0-9a-f]{64}", manifest["view_sha256"]) is None:
+        raise ValueError("生成清单产物 SHA256 无效")
+    records = manifest["inputs"]
+    if not isinstance(records, list) or not records:
+        raise ValueError("生成清单输入集合为空或无效")
+    seen = set()
+    for record in records:
+        if not isinstance(record, dict) or set(record) != {"path", "kind", "exists", "sha256"}:
+            raise ValueError("生成清单输入字段无效")
+        value = record["path"]
+        if (not isinstance(value, str) or "\x00" in value or not Path(value).is_absolute()
+                or str(Path(value)) != value or os.path.normpath(value) != value or value in seen):
+            raise ValueError("生成清单输入路径无效或重复")
+        seen.add(value)
+        if record["kind"] not in _INPUT_KINDS or type(record["exists"]) is not bool:
+            raise ValueError("生成清单输入类型或存在标记无效")
+        sha = record["sha256"]
+        if ((record["exists"] and (not isinstance(sha, str) or re.fullmatch(r"[0-9a-f]{64}", sha) is None))
+                or (not record["exists"] and sha is not None)):
+            raise ValueError("生成清单输入 SHA256 无效")
+    return manifest, digest, fmt
+
+
+def _basis_changes(generated: dict, current: dict) -> list[dict]:
+    changes = []
+    for field in ("entry", "state_path"):
+        if generated[field] != current[field]:
+            changes.append({"field": field, "generated": generated[field], "current": current[field]})
+    old = {item["path"]: item for item in generated["inputs"]}
+    new = {item["path"]: item for item in current["inputs"]}
+    for path in sorted(set(old) | set(new)):
+        if old.get(path) != new.get(path):
+            changes.append({"path": path, "generated": old.get(path), "current": new.get(path)})
+    return changes
+
+
+def _partial_architecture_paths(architecture: Path, sources: set[Path]) -> dict[Path, str]:
+    """Recover current declared candidates after a loader error, never from a view."""
+    project = _archlib.project_root_for_architecture(architecture.resolve())
+    paths = {path.resolve(): "architecture" for path in sources | {architecture}}
+    for source in list(paths):
+        try:
+            document = _archlib.strict_json_loads(source.read_bytes())
+            if not isinstance(document, dict):
+                continue
+            slicing = document.get("架构切片", {})
+            if isinstance(slicing, dict) and slicing.get("启用") is True:
+                items = slicing.get("切片清单", [])
+                for item in items if isinstance(items, list) else []:
+                    if isinstance(item, dict) and isinstance(item.get("路径"), str):
+                        candidate = _archlib._contained_path(project, item["路径"], "当前架构切片")
+                        candidate.resolve().relative_to((project / "architecture").resolve())
+                        paths[candidate.resolve()] = "architecture"
+            routing = document.get("模块路由", {})
+            children = routing.get("子模块", []) if isinstance(routing, dict) else []
+            for child in children if isinstance(children, list) else []:
+                if isinstance(child, dict) and isinstance(child.get("路径"), str):
+                    candidate = _archlib._contained_path(project, child["路径"], "当前子模块路由", base=source.parent)
+                    paths[candidate.resolve()] = "architecture"
+        except (OSError, UnicodeError, ValueError, TypeError):
+            continue
+    return paths
+
+
+def check_view(architecture: Path, view_path: Path, explicit_state: Path | None = None) -> dict:
+    """Read-only three-state check; the saved manifest never chooses input paths."""
+    result = {"status": "unknown", "freshness": "unknown", "code": 2, "view": str(view_path.resolve()),
+              "current_entry": str(architecture.resolve()), "generated_basis": None, "current_basis": None,
+              "changes": [], "reason": ""}
+    try:
+        manifest, digest, _ = _read_view_manifest(view_path)
+        result["generated_basis"] = manifest
+        if digest != manifest["view_sha256"]:
+            result["changes"].append({"field": "view_sha256", "generated": manifest["view_sha256"], "current": digest})
+        tracked_sources: set[Path] = set()
+        try:
+            _, _, current = _current_basis(architecture, explicit_state, tracked_sources=tracked_sources)
+        except (OSError, UnicodeError, ValueError, TypeError) as exc:
+            # Compare only independently known inputs, never follow saved paths.
+            paths = _renderer_inputs()
+            paths.update(_partial_architecture_paths(architecture, tracked_sources))
+            state = _resolve_state_path(architecture.resolve(), explicit_state)
+            if state is not None:
+                paths[state] = "state"
+            current = {"entry": str(architecture.resolve()), "state_path": str(state.resolve()) if state else None,
+                       "inputs": _input_records(paths)}
+            result["current_basis"] = dict(current, incomplete=True)
+            known = {item["path"] for item in current["inputs"]}
+            partial = dict(manifest, inputs=[item for item in manifest["inputs"] if item["path"] in known])
+            result["changes"].extend(_basis_changes(partial, current))
+            result["reason"] = f"当前输入读取失败，未完成完整集合核验: {exc}"
+        else:
+            result["current_basis"] = current
+            result["changes"].extend(_basis_changes(manifest, current))
+            result["reason"] = "当前入口、文件集合、存在状态与 SHA256 一致；仅核验生成快照，不证明架构质量或测试通过。"
+        if result["changes"]:
+            result.update(status="fail", freshness="stale", code=1)
+            result["reason"] = "生成快照与当前产物或输入不一致。" + result["reason"]
+        elif not result["current_basis"].get("incomplete"):
+            result.update(status="pass", freshness="fresh", code=0)
+    except (OSError, UnicodeError, ValueError, TypeError, RecursionError) as exc:
+        result["reason"] = f"生成依据未核验: {exc}"
+    return result
+
+
+def _write_view_atomic(path: Path, document: str) -> None:
+    """A failed write leaves an existing view intact; no manifest sidecar races."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", newline="\n",
+                                         dir=path.parent, prefix=".architecture-view-", suffix=".tmp", delete=False) as handle:
+            temporary = Path(handle.name)
+            handle.write(document)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+    finally:
+        if temporary is not None and temporary.exists():
+            temporary.unlink()
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="渲染架构真相源（单向渲染，只读不写）")
     parser.add_argument("architecture", type=Path, help="Path to architecture.json 或 architecture/index.json")
     parser.add_argument("--format", choices=["md", "html", "json"], default="md",
                         help="输出格式：md=Mermaid 报告（默认）/ html=单文件交互 / json=结构化")
     parser.add_argument("--output", type=Path, default=None, help="输出文件（默认 stdout）")
+    parser.add_argument("--html-view", choices=["project", "report"], default="project",
+                        help="HTML 视图：project=完整项目展开画布（默认），report=专题报告")
     parser.add_argument("--state-path", type=Path, default=None, help="状态文件路径（默认按架构路径推导）")
-    parser.add_argument("--max-nodes", type=int, default=60, help="依赖图/功能树节点截断阈值（默认 60）")
+    parser.add_argument("--max-nodes", type=int, default=60, help="每张分图节点上限，不删除完整数据（默认 60）")
     parser.add_argument("--json", action="store_true", help="等价于 --format json（兼容）")
+    parser.add_argument("--check-view", type=Path, help="只读核验既有视图，输出 JSON；fresh/stale/unknown 对应退出 0/1/2")
     args = parser.parse_args(argv)
+    if args.check_view is not None:
+        if args.output is not None:
+            print("ERROR: --check-view 只读核验，不接受 --output", file=sys.stderr)
+            return 2
+        result = check_view(args.architecture, args.check_view, args.state_path)
+        print(json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False))
+        return result["code"]
+    if args.max_nodes < 1:
+        print("ERROR: --max-nodes 必须大于 0", file=sys.stderr)
+        return 2
 
     source_paths: set[Path] = set()
     data, io_error, io_exit = _archlib.run_with_io_errors(
@@ -660,9 +948,29 @@ def main(argv: list[str] | None = None) -> int:
             print(f"ERROR: 状态输入错误: {exc}", file=sys.stderr)
             return 2
 
+    project_root = _archlib.project_root_for_architecture(args.architecture.resolve())
+    review_path = project_root / "architecture/quality/redline-reviews.json"
+    if review_path.exists():
+        source_paths.add(review_path)
+
+    # A derived view must not overwrite any registered implementation bytes.
+    protected_paths = set(source_paths)
+    try:
+        protected_paths.update(project_root / rel for rel in _archlib.collect_implementation_files(data))
+        render_paths = _render_input_paths(args.architecture, state_path, data, source_paths)
+        protected_paths.update(render_paths)
+        snapshot_basis = {"entry": str(args.architecture.resolve()),
+                          "state_path": str(state_path.resolve()) if state_path is not None else None,
+                          "inputs": _input_records(render_paths)}
+        input_hashes = {path.resolve(): hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else None
+                        for path in protected_paths}
+    except (OSError, ValueError) as exc:
+        print(f"ERROR: 渲染输入读取失败: {exc}", file=sys.stderr)
+        return 2
+
     if args.output:
         try:
-            for source in source_paths:
+            for source in protected_paths:
                 same = args.output.resolve() == source.resolve()
                 if args.output.exists() and source.exists():
                     same = same or os.path.samefile(args.output, source)
@@ -675,28 +983,71 @@ def main(argv: list[str] | None = None) -> int:
     # 质量红线标注：进程内复用 check_quality_redlines（不重复实现口径）
     try:
         import check_quality_redlines as redlines
-        errors, warnings, _infos = redlines.check_redlines(data)
-    except ImportError:
-        errors, warnings = [], []
+        result = redlines.evaluate_redlines(data, project_root)
+        errors, warnings = result["错误"], list(result["警告"])
+        warnings.extend(f"已记录语义复核（原始启发式条目）：{item}" for item in result["已豁免"])
+        if result["status"] == "unknown":
+            warnings.append(f"质量红线状态未知：{result['reason']}")
+    except (ImportError, OSError, UnicodeError, ValueError, TypeError) as exc:
+        errors, warnings = [], [f"质量检查器不可用，本次质量状态未知；请补跑架构质量检查：{exc}"]
 
     fmt = "json" if args.json else args.format
     if fmt == "md":
-        text = render_markdown_report(data, state, errors, warnings, args.max_nodes)
+        text = render_markdown_report(data, state, errors, warnings, args.max_nodes, snapshot_basis=snapshot_basis)
     elif fmt == "html":
-        text = render_html_report(data, state, errors, warnings, args.max_nodes)
+        if args.html_view == "report":
+            try:
+                text = render_html_report(data, state, errors, warnings, args.max_nodes, snapshot_basis=snapshot_basis)
+            except (OSError, UnicodeError, ValueError, TypeError) as exc:
+                print(f"ERROR: 专题视图渲染失败: {exc}", file=sys.stderr)
+                return 2
+        else:
+            try:
+                sources = []
+                # Pointer/slice paths may be relative while the independently
+                # inferred state path is absolute. Count each resolved source
+                # once, so invocation style cannot inflate coverage or sources.
+                for source in sorted({path.resolve() for path in source_paths}):
+                    if not source.exists():
+                        continue
+                    content = source.read_bytes()
+                    sources.append({"path": str(source.resolve()),
+                                    "sha256": hashlib.sha256(content).hexdigest(),
+                                    "data": json.loads(content.decode("utf-8-sig"))})
+                text = render_project_view(data, state, errors, warnings, sources,
+                                           view_identity=str(args.architecture.resolve()), snapshot_basis=snapshot_basis)
+            except (ImportError, OSError, UnicodeError, ValueError, TypeError) as exc:
+                print(f"ERROR: 项目可视化输入失败: {exc}", file=sys.stderr)
+                return 2
     else:
-        text = render_json_output(data, state, errors, warnings, args.max_nodes)
+        text = render_json_output(data, state, errors, warnings, args.max_nodes, snapshot_basis=snapshot_basis)
+
+    try:
+        current_data, current_state, current_basis = _current_basis(args.architecture, args.state_path)
+        if (_basis_changes(snapshot_basis, current_basis)
+                or _json_fingerprint(data) != _json_fingerprint(current_data)
+                or _json_fingerprint(state) != _json_fingerprint(current_state)):
+            raise ValueError("渲染过程中输入发生变化，请重新生成")
+        text = _attach_manifest(text, fmt, snapshot_basis, args.html_view, args.max_nodes)
+    except (OSError, UnicodeError, ValueError, TypeError) as exc:
+        print(f"ERROR: 生成依据读取失败: {exc}", file=sys.stderr)
+        return 2
 
     if args.output:
         try:
-            args.output.parent.mkdir(parents=True, exist_ok=True)
-            args.output.write_text(text, encoding="utf-8")
-        except (OSError, UnicodeError) as exc:
+            for source, digest in input_hashes.items():
+                current = hashlib.sha256(source.read_bytes()).hexdigest() if source.is_file() else None
+                if current != digest:
+                    raise ValueError(f"渲染过程中输入发生变化，请重新生成: {source}")
+            _write_view_atomic(args.output, text)
+        except (OSError, UnicodeError, ValueError) as exc:
             print(f"ERROR: 渲染输出失败: {exc}", file=sys.stderr)
             return 2
         print(f"✅ 已渲染 {fmt.upper()} 视图: {args.output}")
     else:
-        print(text)
+        if hasattr(sys.stdout, "reconfigure"):
+            sys.stdout.reconfigure(newline="\n")
+        print(text, end="" if text.endswith("\n") else "\n")
     return 0
 
 

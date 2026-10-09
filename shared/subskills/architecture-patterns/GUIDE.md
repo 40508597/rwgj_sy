@@ -33,9 +33,9 @@ Related Skills中的microservices、CQRS、Saga和event-store仅为额外候选�
 ## 架构回写与证据
 
 职责及依赖写调用方 `/模块树`、`/模块详情`；端口写 `/接口契约`，不变量和失败路径写 `/完整细节`。
-验证边界写 `/测试责任矩阵`，审查与运行结果写 `/验证证据`；以上JSON Pointer落在调用方 `architecture/index.json` 或对应切片。
+验证边界写 `/测试责任矩阵`，审查与运行结果写 `/验证证据`；以上JSON Pointer落在调用方根或所属模块 `architecture.json`（集中布局为 `architecture/index.json` 或登记切片）。
 实际调用记录必须给出具体文件及Pointer；只允许本次范围内回写，先回写设计，再由主流程推进已授权实现。
 `review`：记录实际输入、文件哈希、覆盖模块、设计取舍、结论、发现和未验证项；零发现可以记录，不证明运行通过。
 `execution`：只有实际运行检查或测试才记录命令argv、返回码、输入版本和证据；分别保留completed、partial、failed、unknown。
-规划、加载、审查、运行和回写分别记账；独立核对产物与架构字段，不以文件存在或读取原文宣称完成。
+规划、加载及证据记账沿用 [统一适配契约](../../references/programming-subskills.md#统一适配契约)，不以文件存在或读取原文宣称完成。
 不执行原文安装命令，不擅自重排全仓或增加服务，不写全局技能目录状态，不创建中央协调智能体。

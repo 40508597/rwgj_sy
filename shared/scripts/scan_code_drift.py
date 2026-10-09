@@ -60,7 +60,8 @@ def _project_root(project_root: Path) -> Path:
     return root
 
 
-def _load_project_architecture(root: Path, architecture_path: Path) -> dict[str, Any]:
+def _load_project_architecture(root: Path, architecture_path: Path,
+                               source_paths: set[Path] | None = None) -> dict[str, Any]:
     """Validate pointer/slice bounds before reading any of their contents."""
     path = _safe_path(root, str(architecture_path), "架构文件路径", relative=False)
     data = _archlib._read_architecture_file(path)
@@ -96,45 +97,70 @@ def _load_project_architecture(root: Path, architecture_path: Path) -> dict[str,
                 raise _archlib.ArchitectureInputError(f"启用的架构切片不存在或不是文件: {slice_path}")
     # Use the same pointer-chain/slice semantics as all other architecture
     # consumers after lexical bounds checks, with this caller's explicit root.
-    return _archlib.load_architecture_json(architecture_path, project_root=root)
+    return _archlib.load_architecture_json(architecture_path, source_paths, project_root=root)
 
 
-def looks_like_file_path(value: str, root: Path) -> bool:
-    """Legacy optional tree hints; authoritative registration uses the manifest."""
-    normalized = value.replace("\\", "/").strip()
-    if not normalized or any(c in normalized for c in ("\x00", "\n", "\r")):
-        return False
-    if normalized.startswith(("http://", "https://")):
-        return False
-    if normalized.split()[0] in {"python", "python3", "node", "npm", "pnpm", "yarn", "uv", "pytest"}:
-        return False
-    path = Path(normalized)
-    if "/" in normalized and (path.suffix.lower() in DEFAULT_EXTENSIONS or "." in path.name):
-        return True
-    if normalized.startswith(".") and path.suffix.lower() in DEFAULT_EXTENSIONS:
-        return True
-    return " " not in normalized and path.suffix.lower() in DEFAULT_EXTENSIONS and (root / normalized).exists()
+def _tree_file_paths(value: Any, label: str, root: Path):
+    """Read explicit file slots, not arbitrary descriptions or behavior IDs.
 
-
-def _iter_values(value: Any) -> list[Any]:
-    if isinstance(value, dict):
-        return [leaf for child in value.values() for leaf in _iter_values(child)]
-    if isinstance(value, list):
-        return [leaf for child in value for leaf in _iter_values(child)]
-    return [value]
+    Placement 文件 is a path slot. 测试 also permits responsibility labels: only
+    explicit path records, path-structured strings or existing files register.
+    验证责任/测试责任 and prose never register. Directory placements stay directories. Legacy
+    untyped tree strings are not authoritative file registrations.
+    """
+    stack = [(value, label, False)]
+    while stack:
+        node, context, placement = stack.pop()
+        if isinstance(node, list):
+            stack.extend((item, f"{context}[{i}]", placement) for i, item in enumerate(node))
+            continue
+        if not isinstance(node, dict):
+            continue
+        fields = ("文件", "文件列表", "文件路径", "测试文件") + (("测试",) if placement else ())
+        for field in fields:
+            if field not in node:
+                continue
+            entries = node[field] if isinstance(node[field], list) else [node[field]]
+            for index, entry in enumerate(entries):
+                if placement and field == "测试" and isinstance(entry, dict) and "路径" not in entry:
+                    continue  # A named acceptance/scenario record is not a file.
+                raw = entry.get("路径") if isinstance(entry, dict) else entry
+                if not isinstance(raw, str):
+                    raise _archlib.ArchitectureInputError(f"{context}.{field}[{index}]必须是路径字符串或路径对象")
+                if placement and field == "测试" and isinstance(entry, str):
+                    # Test references may be human labels rather than paths.
+                    # No suffix/language/word whitelist: a missing bare-label
+                    # test file must use 测试文件 or an explicit 路径 record.
+                    if not any(c in raw for c in ("/", "\\")) and not PureWindowsPath(raw).drive:
+                        if any(c in raw for c in ("\x00", "\n", "\r")) or not raw:
+                            continue
+                        if not _safe_path(root, raw, f"{context}.{field}[{index}]").is_file():
+                            continue
+                directory_ok = placement and field in ("文件", "测试")
+                if isinstance(entry, dict) and entry.get("类型") == "文件":
+                    directory_ok = False
+                yield raw, f"{context}.{field}[{index}]", directory_ok
+        if node.get("类型") == "文件":
+            yield node.get("路径"), f"{context}.路径", False
+        for key, child in node.items():
+            if isinstance(child, (dict, list)):
+                stack.append((child, f"{context}.{key}", key in ("架构落位", "落位")))
 
 
 def collect_declared_files(data: dict[str, Any], root: Path) -> set[str]:
-    """Use the shared explicit manifest contract, irrespective of file suffix."""
+    """Check every explicit manifest/tree registration, irrespective of suffix."""
     declared: set[str] = set()
     for value in _archlib.collect_implementation_files(data):
         candidate = _safe_path(root, value, "实现清单文件路径")
         declared.add(candidate.relative_to(root).as_posix())
     for key in ("功能树", "模块树"):
-        for value in _iter_values(data.get(key, [])):
-            if isinstance(value, str) and looks_like_file_path(value, root):
-                candidate = _safe_path(root, value, f"{key}文件路径")
-                declared.add(candidate.relative_to(root).as_posix())
+        for value, context, directory_ok in _tree_file_paths(data.get(key, []), key, root):
+            candidate = _safe_path(root, value, context)
+            # Validate even directory references before excluding them from file
+            # completeness. A typed file/manifest record is never exempt here.
+            if directory_ok and (value.endswith(("/", "\\")) or candidate.is_dir()):
+                continue
+            declared.add(candidate.relative_to(root).as_posix())
     return declared
 
 
@@ -172,7 +198,8 @@ def collect_actual_files(root: Path, extensions: set[str], ignore_dirs: set[str]
 def scan_code_drift(project_root: Path, architecture_path: Path, extensions: set[str],
                     *, all_files: bool = False, explicit_extensions: bool = False) -> dict[str, Any]:
     root = _project_root(project_root)
-    data = _load_project_architecture(root, architecture_path)
+    source_paths: set[Path] = set()
+    data = _load_project_architecture(root, architecture_path, source_paths)
     declared = collect_declared_files(data, root)
     skipped_links: list[str] = []
     actual = collect_actual_files(root, extensions, DEFAULT_IGNORE_DIRS,
@@ -185,6 +212,9 @@ def scan_code_drift(project_root: Path, architecture_path: Path, extensions: set
 
     metadata = {identity(arch_path.relative_to(root).as_posix()),
                 *(identity(item) for item in ("architecture.json", "architecture/index.json", "architecture/_state.json"))}
+    # Only successfully loaded authoritative sources are metadata. An unrelated
+    # architecture.json or JSON file elsewhere is still an inventory candidate.
+    metadata.update(os.path.normcase(str(path.resolve())) for path in source_paths)
     actual = {item for item in actual if identity(item) not in metadata}
     declared_identities = {identity(path) for path in declared}
     # Declaration completeness is deliberately independent of scan scope.
@@ -201,8 +231,10 @@ def scan_code_drift(project_root: Path, architecture_path: Path, extensions: set
             "忽略文件前缀": list(DEFAULT_IGNORE_FILE_PREFIXES),
             "空文件": "included" if all_files else "excluded",
             "声明文件核查": "all-declared-paths",
+            "声明来源": "实现清单与明确树文件槽（文件/文件列表/文件路径/测试文件、架构落位或落位的文件、测试路径对象/有路径结构或实际文件确认的测试引用、文件类型记录）；测试责任标签不作为路径，不从说明、异常、验收或验证责任文本推断",
             "未扫描符号链接目录": sorted(skipped_links),
             "检查内容": "file-inventory-only",
+            "架构源文件": sorted(path.resolve().relative_to(root).as_posix() for path in source_paths),
         },
     }
 

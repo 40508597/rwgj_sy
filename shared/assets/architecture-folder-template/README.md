@@ -12,13 +12,15 @@
 
 ## 不要直接复制本目录作为新架构
 
-实际生成新架构请走：
+本样张只对应显式选择的集中切片布局，其初始化命令为：
 
 ```bash
 python shared/scripts/init_architecture.py --mode init --output <项目根>
 ```
 
-init 默认使用 `../architecture-template-with-placeholders.json`（带占位符的单文件模板），
+新项目默认的递归模块入口和操作见 [SCHEMA](../../../skills/architecture-json/SCHEMA.md)；既有集中项目按登记入口继续读取。
+
+上述 init 使用 `../architecture-template-with-placeholders.json`（带占位符的单文件模板），
 在内存中拆分为切片写盘，并自动剥离模板的 `__` 开头元数据/示例 key——保证产物干净。
 本目录的切片用的是空值风格（`""` / `[]` / `{}`），与 init 实际生成的"带占位符"风格不同，
 因此直接复制本目录会让占位符机制（F）失效。

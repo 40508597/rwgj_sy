@@ -85,9 +85,11 @@ def _load_recovery_stage(project: Path, architecture_path: Path | None = None,
     return stage, touched
 
 
-def _check_desync(project: Path, architecture_path: Path | None = None) -> tuple[bool, str]:
+def _check_desync(project: Path, architecture_path: Path | None = None,
+                  *, data: dict | None = None) -> tuple[bool, str]:
     """Compare recovery with explicitly registered, existing implementation files."""
-    data = _archlib.load_architecture_json(architecture_path or project / "architecture.json", project_root=project)
+    if data is None:
+        data = _archlib.load_architecture_json(architecture_path or project / "architecture.json", project_root=project)
     stage, touched = _load_recovery_stage(project, architecture_path, data=data)
     impl_files = _count_impl_files(project, data)
     registered = _implementation_files(project, data)
@@ -129,6 +131,16 @@ def run_gate(project: Path, architecture: str, *, quality_required: bool = False
         stage("环境", "unknown", msg)
         return None, [msg], stages
 
+    # Keep one hydrated tree for in-process module and recovery checks. The
+    # ordinary validator and drift CLI still run independently as real evidence.
+    architecture_data = None
+    architecture_error = None
+    architecture_sources: set[Path] = set()
+    try:
+        architecture_data = _archlib.load_architecture_json(arch_path, architecture_sources, project_root=project)
+    except (OSError, UnicodeError, ValueError) as exc:
+        architecture_error = exc
+
     # 1. 完成条件共用一个实现，不在收尾入口另设较弱的判断。
     completion = judge_progress.generate_verdict(
         judge_progress.check_placeholders(arch_path),
@@ -138,6 +150,28 @@ def run_gate(project: Path, architecture: str, *, quality_required: bool = False
     stages.extend(completion["stages"])
     lines.extend(item["detail"] for item in completion["stages"])
     lines.extend(f"提示：{warning}" for warning in completion["warnings"])
+
+    if isinstance(architecture_data, dict) and "模块路由" in architecture_data:
+        try:
+            from validate_architecture import _check_module_directory
+            module_errors = _check_module_directory(architecture_data, project, "full", architecture_sources)
+            # The validator reconciles the catalog and uses the shared file
+            # check; require a real derived catalog before reporting PASS.
+            catalog = architecture_data.get("模块目录")
+            if not isinstance(catalog, list) or not catalog:
+                raise ValueError("递归模块目录缺失，无法确认全树已加载")
+            if module_errors:
+                detail = f"[模块树] FAIL：{len(module_errors)} 项错误；" + "；".join(map(str, module_errors[:3]))
+                module_status = "fail"
+            else:
+                file_count = sum(len(record.get("文件", [])) for record in catalog)
+                detail = f"[模块树] PASS：已递归核对 {len(catalog)} 个模块及 {file_count} 个自有实现文件"
+                module_status = "pass"
+        except (ImportError, OSError, UnicodeError, ValueError) as exc:
+            detail = f"[模块树] 无法判定：{exc}"
+            module_status = "unknown"
+        lines.append(detail)
+        stage("模块树", module_status, detail)
 
     # 2. 代码漂移（声明但不存在 = 架构承诺了文件但代码没有）
     drift_args = [str(project), "--architecture", str(arch_path)]
@@ -168,9 +202,31 @@ def run_gate(project: Path, architecture: str, *, quality_required: bool = False
         lines.append(detail)
         stage("代码漂移", "unknown", detail)
 
+    # Same evaluator as the standalone CLI: no second, weaker completion rule.
+    try:
+        from check_quality_redlines import evaluate_redlines
+        if architecture_error is not None:
+            raise architecture_error
+        result = evaluate_redlines(architecture_data, project)
+        redline_status = result["status"]
+        detail = (f"[质量红线] {redline_status.upper()}："
+                  f"错误 {len(result['错误'])}，警告 {len(result['警告'])}，"
+                  f"已复核 {len(result['已豁免'])}；{result.get('reason', '')}")
+        for finding in result["错误"]:
+            lines.append(f"红线：{finding}")
+        for warning in result["警告"]:
+            lines.append(f"提示：{warning}")
+    except (ImportError, OSError, UnicodeError, ValueError, TypeError) as exc:
+        redline_status = "unknown"
+        detail = f"[质量红线] 无法判定：{exc}"
+    lines.append(detail)
+    stage("质量红线", redline_status, detail)
+
     # 3. 脱轨判定（核心）
     try:
-        desynced, msg = _check_desync(project, arch_path)
+        if architecture_error is not None:
+            raise architecture_error
+        desynced, msg = _check_desync(project, arch_path, data=architecture_data)
     except (OSError, ValueError) as exc:
         detail = f"[流程脱轨] 无法判定：{exc}"
         lines.append(detail)
