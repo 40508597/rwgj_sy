@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Suggest task postures for the task-architecture skill.
+"""Suggest task postures for the xl-ai-language skill.
 
 This tool is intentionally advisory: it reads lightweight rules and prints a
 JSON suggestion. It does not modify files, execute project code, or replace the

@@ -1,143 +1,157 @@
-# 任务架构（rwgj）
+# Xl-Ai-Language
 
-**换模型，换会话，项目接着走。**
+## 让 AI 写的不只是代码，而是一份能继续生长的项目。
 
-任务架构是一套为 AI 长期开发设计的工程化技能包。你描述需求，AI 按任务范围梳理架构、推进实现、核验结果，并把决策、进度与下一步留在项目里。让一轮轮 AI 开发积累成可理解、可维护、可接力的工程。
+**架构看得见 · 修改找得到 · 结果验得清 · 换会话接得上**
+
+面向 Codex 等支持技能的编程智能体，Xl-Ai-Language 把需求、模块目录、接口依赖、实现与验证连成一条工程链路。你描述想做什么，AI 按任务范围组织项目；项目越做越大，仍能沿根架构找到该改的模块，而不是每一轮从头猜。
 
 [![Project license: MIT](https://img.shields.io/badge/Project-MIT-yellow.svg)](LICENSE)
-[![GitHub stars](https://img.shields.io/github/stars/40508597/rwgj_sy?style=social)](https://github.com/40508597/rwgj_sy)
-[![GitHub forks](https://img.shields.io/github/forks/40508597/rwgj_sy?style=social)](https://github.com/40508597/rwgj_sy)
-[![当前版本 v1.3.0](https://img.shields.io/badge/version-v1.3.0-blue)](https://github.com/40508597/rwgj_sy/tree/v1.3.0)
+[![当前版本 v1.3.1](https://img.shields.io/badge/version-v1.3.1-blue)](https://github.com/40508597/rwgj_sy/tree/v1.3.1)
 [![verify](https://github.com/40508597/rwgj_sy/actions/workflows/verify.yml/badge.svg)](https://github.com/40508597/rwgj_sy/actions/workflows/verify.yml)
-[![中文文档](https://img.shields.io/badge/文档-中文-red.svg)](README.md)
+[![GitHub stars](https://img.shields.io/github/stars/40508597/rwgj_sy?style=social)](https://github.com/40508597/rwgj_sy)
 
-**当前版本：rwgj v1.3.0（2026-10-09）。** 包版本记录在 `SKILL.md` 的 `metadata.version`、本页发布表与 [CHANGELOG](CHANGELOG.md)；工具身份、收据协议和 schema 版本独立维护。源码标签为 `v1.3.0`。
+[快速开始](#二快速开始) · [核心能力](#一从需求到项目接力) · [完整参考](#五按需阅读) · [更新记录](CHANGELOG.md) · [版本源码](https://github.com/40508597/rwgj_sy/tree/v1.3.1)
 
-## 一、它能帮你解决什么
+**当前版本：Xl-Ai-Language v1.3.1（2026-10-10）。** 展示名称统一为 `Xl-Ai-Language`，技能标识、安装目录和调用名统一为 `xl-ai-language`。包版本以 `SKILL.md metadata.version` 为准；工具身份和协议版本独立维护。历史版本名、标签与仓库地址保留。
 
-**给项目留下可接力的记忆。** 模块职责、接口承诺、用户约束和当前进度随项目保存，新会话可以沿记录继续。
+> **项目自己的记忆，而不是某一次聊天的记忆。** 规则随技能复用，架构、进度和证据随项目保存。换模型、换会话或换电脑时，接收者先核对项目现状，再从记录继续。
 
-**让复杂项目有章可循。** 从功能全景到模块边界，再到实现与验证，AI 有明确的组织方式；局部任务沿根路由逐层读取相关模块架构和依赖契约。
+## 一、从需求到项目接力
 
-**让“做完了”有据可查。** 把验证结果、未完成项和下一步一起记录，让后续开发有依据。
+| 你希望 AI 做到 | 技能怎样支持 | 项目里留下什么 |
+|---|---|---|
+| **先想清楚，再动手** | 展开功能全景，比较方案，明确模块边界、接口与异常；本轮范围由用户确认 | 功能树、模块职责、契约与决策依据 |
+| **大项目也能精准修改** | 一个受管模块目录一份架构，父级路由指向子模块；按真实职责递归展开 | 根导航 + 模块局部事实 + 源码、测试归属 |
+| **像看地图一样看项目** | 合成只读项目画布，支持展开、搜索、关系追踪和来源定位；可核对图纸是否过期 | HTML 画布、Markdown 报告或 JSON 视图 |
+| **质量检查不只靠一句“没问题”** | 核对依赖边界、循环、接口、质量指标与 CRAP；采集项目提供的观察与真实执行收据 | 检查结果、原始输出、输入哈希与未验证项 |
+| **检查器也要证明能发现问题** | 在隔离副本中故意改坏选定输入，观察目标检查是否检出，不改坏原工程 | 正常/故障对照、漏检与未知记录 |
+| **需要专业能力时再加载** | 按已确认任务和姿态选择架构、规划、调试、测试、UI 等适用指南 | 能力计划、实际使用与回写依据 |
+| **中断后有人能接着做** | 留下恢复点、当前任务、验证结果与下一步；长程工具支持受控变更、交接和恢复 | 项目状态、检查点、交接记录与时间线 |
 
-| 你遇到的情况 | 任务架构提供的做法 |
-|---|---|
-| 换会话后，需要重新解释项目做到哪里 | 把当前任务、约束、未验证项和下一步写入项目恢复点 |
-| 多轮修改后，模块职责和接口越来越难追踪 | 按模块记录职责、接口与依赖，修改时检查相关影响 |
-| AI 只说“完成了”，难以核对实际结果 | 记录实际验证命令、结果与未验证项，完整交付前运行门禁 |
-| 项目很大，每次都要读取大量资料 | 从根架构逐层定位相关模块，按需读取局部架构与依赖契约 |
+```mermaid
+flowchart LR
+    A[描述需求] --> B[理解与方案设计]
+    B --> C[根架构与模块路由]
+    C --> D[定位相关源码和依赖]
+    D --> E[实现与真实验证]
+    E --> F[记录结果与下一步]
+    F --> G[下一轮继续]
+    C -. 合成 .-> H[可视化项目画布]
+    G --> D
+```
 
-适合长期维护、多模块、需要多轮开发或跨会话接力的项目。一次性脚本、小 demo 和临时实验可以直接交给智能体处理；受管项目中的局部修改按本次范围走轻量流程。
-
-项目记录保存在你的项目中：
+### 一个项目，逐层铺开的可视化骨架
 
 ```text
 你的项目/
-├── architecture.json       # 总目标、全局约束与模块路由
-├── architecture/_state.json # 开发阶段辅助状态（与业务架构区分）
-├── 订单/                    # 实际模块目录；名称由项目决定
-│   ├── architecture.json   # 订单职责、契约、实现与子模块入口
-│   ├── …                   # 本层自己的源码与测试
+├── architecture.json          # 总目标、全局约束、模块路由
+├── architecture/_state.json   # 开发阶段辅助状态，不混入业务架构
+├── 订单/
+│   ├── architecture.json      # 本层职责、接口、依赖、源码与测试
+│   ├── …                      # 本层自己的实现
 │   └── 定价/
-│       ├── architecture.json # 继续递归，无预设层数
-│       └── …               # 定价源码与测试
+│       ├── architecture.json  # 子模块继续递归，按职责而非层数拆分
+│       └── …
 └── 支付/
     ├── architecture.json
     └── …
 ```
 
-一个模块目录一份当前架构文件，父级路由和依赖关系分别表达；源码可以存在于任何模块层级。局部功能树、契约、源码和测试由所属模块保存，根保留全局目标及导航；完整图纸与校验视图由这些事实合成。已有集中切片项目继续按其入口读取，纳管不会只为形式移动源码。协议与工具见 [递归模块架构](shared/references/recursive-modules.md)。
+**根是导航，模块是事实，图纸是视图。** 父子归属与跨模块依赖分别表达；任何模块层级都可以有源码与测试。局部修改沿相关分支读取契约、实现和影响依据，不要求每次读完整个项目。既有集中切片项目沿用实际入口，不为形式搬动源码。见 [递归模块架构](shared/references/recursive-modules.md)。
 
-**全景不等于本轮全部实施。** 待确认、延期或排除的候选保留在功能树中，记录取舍依据；当前纳入和已有实施事实仍需设计、质量及验证。范围合同见 [功能簇](shared/references/function-clusters.md#候选状态与本轮实施范围)。工程责任按项目需要由合适模块承担，不为模板强拆目录。
+**全景设计不等于全部实施。** 候选功能保留取舍依据，由用户确认本轮纳入、延期或排除的范围。图纸保留诊断与原始字段，不把缺失画成正确，也不把结构通过当成代码正确。
 
-**图纸保留问题，不把问题画成空白。** 依赖关系可追到声明文件和具体字段；出现非法或矛盾引用时，报告保留诊断并标明提取不完整。图中声明、结构检查和实际代码观察仍分别表达，图纸不是代码正确性的证明。
+### 谁适合用
 
-AI 负责按流程维护这些记录。技能包与每个项目的状态独立；在另一台电脑继续时，也要带上相应代码、架构记录和必要配置。
+适合持续迭代、多模块、跨会话接力、架构演进和需要质量证据的项目。**项目语言不限**，规则与事实协议不依赖特定语言；Python 是随包工具运行时，不是业务语言限制。
+
+纯概念问答、只读查看、一次性脚本和小 demo 走轻量路径；受管项目的局部修改只做相称闭环。它不是新的 IDE、自动加载系统或全语言解析器，也不承诺自动消除模型错误。
 
 ## 二、快速开始
 
-### 1. 安装技能包
+### 1. 安装到技能目录
 
-先保留一份源码，再构建到你使用的智能体技能目录。运行包保留完整工具和按需子技能，自动排除缓存、历史验证报告及开发资料：
+用源码构建可核验运行包，自动排除缓存、历史报告和开发资料，保留共享工具、专业指南与来源许可：
 
 ```bash
-git clone https://github.com/40508597/rwgj_sy.git task-architecture-source
-python task-architecture-source/scripts/package_skill.py --output "<宿主技能目录>/task-architecture"
-python task-architecture-source/scripts/package_skill.py --verify "<宿主技能目录>/task-architecture"
+git clone --branch v1.3.1 https://github.com/40508597/rwgj_sy.git xl-ai-language-source
+python xl-ai-language-source/scripts/package_skill.py --output "<宿主技能目录>/xl-ai-language"
+python xl-ai-language-source/scripts/package_skill.py --verify "<宿主技能目录>/xl-ai-language"
 ```
 
-把占位目录替换为实际路径；目标父目录需已存在。已有安装时，先构建到新的目录并核验，再备份和替换旧目录，构建器不会覆盖现有文件。也可以从 [Release](https://github.com/40508597/rwgj_sy/releases) 获取对应分发。随包检查工具需要 Python 3.9+；Bash 一键验证另需 Git Bash、WSL 或 POSIX shell。
+把占位目录替换为实际路径，目标父目录需存在，输出目录必须尚不存在。Codex 常用的全局安装位置是 `~/.agents/skills/xl-ai-language/`。构建器不会覆盖旧安装：先构建到临时新目录、核验，再备份并替换，**不要把新包覆盖解压进旧目录**。
 
-### 2. 在你的业务项目中提出任务
+也可使用维护者提供的同版本运行 ZIP，解压后应得到 `xl-ai-language/SKILL.md`；开发 ZIP 则包含测试和维护资料。用源码中的构建器核验解压后的 `skill-distribution.json`。源码 ZIP 不等于已裁剪运行包。发布索引见 [GitHub Releases](https://github.com/40508597/rwgj_sy/releases)，标签源码见 [v1.3.1](https://github.com/40508597/rwgj_sy/tree/v1.3.1)。
 
-打开需要开发的项目，再选择与你当前情况相符的一句话：
+随包工具需要 Python 3.9+；一键 Bash 验证另需 Git Bash、WSL 或 POSIX shell。部分开发测试和可选原生观察示例需要 Node。版本支持范围不等于本次每个环境都已实际通过，见更新记录中的验证说明。
 
-**已有项目纳管：**
+### 2. 打开业务项目，直接描述任务
 
+在支持显式技能调用的宿主中使用 `$xl-ai-language`，例如：
+
+**新项目：**
 ```text
-使用任务架构分析这个项目，记录当前模块、接口和依赖，核对实现，保留未验证项，再给出下一步。
+使用 $xl-ai-language 创建一个支持角色权限和审批流的内部管理系统。
+先充分展开功能和设计方案，由我确认本轮范围，再建立模块目录并实现、验证。
 ```
 
-**开发或修改功能：**
-
+**已有项目：**
 ```text
-使用任务架构给这个项目增加退款功能，先梳理相关模块、接口和影响范围，再实现并验证。
+使用 $xl-ai-language 分析这个项目，记录当前模块、接口和依赖。
+核对架构与实现，保留未验证项，再给出下一步。
 ```
 
-**创建新项目：**
-
+**局部功能：**
 ```text
-使用任务架构创建一个支持角色权限和审批流的内部管理系统，先展开功能全景，再按已确认范围逐块实现与验证。
+使用 $xl-ai-language 给这个项目增加退款功能。
+沿根架构定位相关模块，检查接口和消费者影响，再修改源码并真实验证。
 ```
 
-如果宿主未自动识别技能，让 AI 先读取安装目录中的 `SKILL.md`，再处理当前项目。技能安装目录与业务项目目录分开；业务架构和进度应写回业务项目。
+宿主未识别技能时，让 AI 读取安装目录中的 `SKILL.md` 后再处理业务项目。技能加载、命令调用和自动化集成由宿主负责；业务架构与状态留在业务项目，不写进全局技能目录。
 
-### 3. 看它有没有实际执行
+### 3. 看交付，而不是只看承诺
 
-检查 AI 是否给出技能启动回执，是否在项目中保存了相关架构与恢复记录，以及本轮实际运行了哪些验证。完整实现交付应报告门禁结果；没有运行、失败和无法判断的部分应如实保留。
+确认 AI 给出启动回执、更新本次相关架构与恢复记录，并报告实际执行的验证及结果。**没运行、失败、证据过期和无法判断都应如实保留**；完整实现交付应报告适用门禁，不靠“已完成”三个字验收。
 
-不需要先学会所有命令。日常可以直接描述需求，AI 根据任务选择创建、分析、修改、追加或校验。需要项目级隔离安装时，见 [详细部署说明](#51-安装与部署)。
+## 三、换会话，项目接着走
 
-## 三、换会话接力示例
-
-把一次真实的功能修改分成两轮，就能体验项目接力。下面以退款模块为例：
-
-**第一轮：让当前 AI 完成一部分工作并留下记录。**
-
+**第一轮：完成一部分，并留下接力依据。**
 ```text
-使用任务架构给退款模块增加重复请求处理。
-本轮结束前，把实际完成的内容、修改文件、验证结果、未验证项和下一步写入项目恢复点。
+使用 $xl-ai-language 给退款模块增加重复请求处理。
+结束前记录实际完成内容、修改文件、验证结果、未验证项和下一步。
 ```
 
-**第二轮：换会话或换模型，打开同一份项目继续。**
-
+**第二轮：换会话或换模型，打开同一份项目。**
 ```text
-使用任务架构接手这个项目。
-先读取总索引和上下文恢复点，核对相关文件与当前状态，再从下一步继续。
+使用 $xl-ai-language 接手这个项目。
+先读取总索引和恢复点，核对相关文件与当前状态，再从下一步继续。
 保留原有约束，已有实现与记录不一致时先校验。
 ```
 
-接收者应能定位当前模块、说明已完成与未完成部分，并依据当前文件继续。换电脑时一并准备项目所需的配置、依赖和外部服务；接收者核对当前文件与证据，记录需要重新验证的部分。
+换电脑时一并带上项目代码、架构记录及必要配置；外部依赖、服务和旧证据需要重新核对。接力机制减少重新解释的机会，不保证未经核验的记录永远正确。见 [上下文恢复](shared/references/context-recovery.md) 和 [协作交接](shared/references/handoff-integrity.md)。
 
-详细规则见 [上下文恢复](shared/references/context-recovery.md) 与 [协作交接](shared/references/handoff-integrity.md)。
+## 四、能力强在哪里，边界在哪里
 
-## 四、怎样判断它对你有用
+- **架构不是装饰。** 它连接真实目录、契约、源码与测试，是后续修改的导航；只读图纸是架构事实的可视化版本，不是双向代码编辑器。
+- **质量不是拍分数。** 依赖、接口和 CRAP 等度量需要项目原生观察或可信采集；缺证据为未验证。规则语言中立，不冒充内置全语言解析器。
+- **专业能力不是越多越好。** 按需规划并实际读取，计划不等于加载，加载不等于验证；审查结论仍需证据。
+- **长程不是永远不出错。** 状态、受控变更、交接与检查点帮助定位和恢复；不承诺宿主隔离或跨文件强事务。
 
-用一个需要连续修改的真实项目试用：观察换会话时是否少解释背景，局部修改时是否能找到相关模块，验证失败或中断后是否能从记录继续。记录实际收益与额外维护成本，比只看生成了多少架构文件更有意义。
-
-技能提供项目管理方法与检查工具，现有智能体负责实际读取、调用与执行。完整质量与证据要求见 [通用质量协议](shared/references/universal-quality.md)。
+用一个需要连续修改的真实项目评估：换会话是否少解释背景，局部修改能否找对模块，失败后能否从记录继续；同时记录额外维护成本。**不宣传未经验证的效率倍数或项目成功率。** 完整质量合同见 [通用质量协议](shared/references/universal-quality.md)。
 
 ## 五、按需阅读
 
 | 你现在想做什么 | 从这里开始 |
 |---|---|
-| 了解日常开发方式 | [快速上手](shared/references/quickstart.md) |
-| 查创建、修改和校验入口 | [命令速查](shared/references/commands-cheatsheet.md) |
-| 了解模块与架构文件如何拆分 | [递归模块架构](shared/references/recursive-modules.md)、[集中切片协议](shared/references/json-sharding.md) |
-| 换会话或换执行者继续项目 | [上下文恢复](shared/references/context-recovery.md)、[协作交接](shared/references/handoff-integrity.md) |
-| 查看完整能力、脚本和部署方式 | 展开下方“完整参考” |
-| 查看更新和来源 | [CHANGELOG](CHANGELOG.md)、下方“版本演进”、[第三方声明](THIRD-PARTY-NOTICES.md) |
+| 日常使用、创建与修改 | [快速上手](shared/references/quickstart.md)、[命令速查](shared/references/commands-cheatsheet.md) |
+| 设计模块目录和根路由 | [递归模块架构](shared/references/recursive-modules.md) |
+| 看项目画布、检查图纸新鲜度 | [架构可视化](shared/references/architecture-visualization.md) |
+| 核对依赖、代码质量、CRAP 和故障探针 | [通用质量协议](shared/references/universal-quality.md) |
+| 接入架构、规划、测试和 UI 专业指南 | [编程子技能](shared/references/programming-subskills.md) |
+| 长程查询、变更、交接和恢复 | [项目工具链](shared/references/project-toolchain.md) |
+| 查看工具全表、安装与发布 | 展开下方“完整参考” |
+| 更新记录和许可归属 | [CHANGELOG](CHANGELOG.md)、[第三方声明](THIRD-PARTY-NOTICES.md) |
 
 ---
 
@@ -156,7 +170,7 @@ python task-architecture-source/scripts/package_skill.py --verify "<宿主技能
 
 实用性验收补充：已有渲染入口可用 `--check-view` 只读核对图纸是否过期；通用质量协议提供可选的 Node/CommonJS 原生运行依赖观察示例，明确区分真实 `runtime-load` 与静态依赖、接口及 CRAP；开发分发新增固定长程任务重放，记录真实失败拦截、交接、重新协调、恢复与上下文字节。三者分别证明输入一致性、选定运行观察和流程不变量，不替代架构判断或未知业务开发验收。说明见 [图纸更新](shared/references/architecture-visualization.md#更新与事实边界)、[原生质量事实](shared/references/universal-quality.md) 和 [工具链维护](docs/toolchain-maintenance.md#发布基准与实际收益)。
 
-当前版本包含 2026-10-04 通用质量升级：架构决策记录、按指定关系检查模块边界与循环、项目配置的质量指标与 CRAP、绑定选定输入的真实执行收据，以及在隔离副本中故意引入字节故障验收检查器。规则与事实协议不限制项目语言，`.e`、未知工程格式、二进制和无后缀实现单元均可接入；外部信息不足时显示未验证，不声称内置全语言解析器。完整交付使用 gate_check 的 --quality-required。说明与模板见 [通用质量协议](shared/references/universal-quality.md)。技能元数据名规范为 task-architecture，中文标题与使用说明保留。
+当前版本包含 2026-10-04 通用质量升级：架构决策记录、按指定关系检查模块边界与循环、项目配置的质量指标与 CRAP、绑定选定输入的真实执行收据，以及在隔离副本中故意引入字节故障验收检查器。规则与事实协议不限制项目语言，`.e`、未知工程格式、二进制和无后缀实现单元均可接入；外部信息不足时显示未验证，不声称内置全语言解析器。完整交付使用 gate_check 的 --quality-required。说明与模板见 [通用质量协议](shared/references/universal-quality.md)。展示名称统一为 **Xl-Ai-Language**，技能标识与安装目录统一为 `xl-ai-language`；中文工程术语保留。
 
 - **角色**：薄入口技能包，承载任务架构规则与共享工具
 - **使用方**：支持 `SKILL.md` 技能规范的智能体宿主（含自研 CLI Agent），不绑定具体产品
@@ -168,7 +182,7 @@ python task-architecture-source/scripts/package_skill.py --verify "<宿主技能
 ## 三、仓库结构
 
 ```text
-任务架构/
+xl-ai-language/
 ├── .git/                       # git 仓库
 ├── .github/                    # CI 工作流
 │   └── workflows/verify.yml    # 一键验证 + 单元测试（push/PR 自动运行）
@@ -200,7 +214,7 @@ python task-architecture-source/scripts/package_skill.py --verify "<宿主技能
 │   ├── scripts/                # 工具脚本（数量见 §4.5，含 _archlib 等内部辅助）
 │   └── subskills/              # 专业 GUIDE + 固定上游原文、参考与许可
 └── skills/                     # 能力层（单一技能入口）
-    ├── task-architecture/      # 路由层 LAYER.md
+    ├── xl-ai-language/         # 路由层 LAYER.md
     ├── project-depth-core/     # 主动理解内核 CORE.md
     ├── architecture-json/      # 架构物化层 SCHEMA.md
     └── agent-protocol/         # 外围协议层 PROTOCOL.md
@@ -243,7 +257,7 @@ python task-architecture-source/scripts/package_skill.py --verify "<宿主技能
 | `check_placeholders.py` | **强制执行** | 检测占位符，核心字段未填写返回错误码 |
 | `manage_state.py` | **强制执行** | 管理进度状态文件（9 个必需阶段 + 1 个可选追踪）|
 | `judge_progress.py` | **强制执行** | 事中验证裁判（综合三重检查）|
-| `detect_should_trigger.py` | **强制触发** | 检测项目是否应使用任务架构 |
+| `detect_should_trigger.py` | **强制触发** | 检测项目是否应使用 Xl-Ai-Language |
 
 ##### 传统验证工具
 
@@ -287,10 +301,10 @@ python task-architecture-source/scripts/package_skill.py --verify "<宿主技能
 
 长程项目的统一操作说明见 [项目工具链](shared/references/project-toolchain.md)，现有工具的维护与退出约定见 [工具维护说明](docs/toolchain-maintenance.md)。技能负责充分设计，工具负责精确操作，根与模块架构文件继续保存权威事实。查询可跨模块，修改有明确范围；操作成功、门禁通过和变更接受分别表达。SQLite 只协调遵守协议的元数据写者，项目文件修改具有持久日志与受保护恢复，不承诺跨文件强事务或宿主隔离。业务语言和文件后缀均不限。
 
-#### 4.2.1 `task-architecture` — 总入口
+#### 4.2.1 `xl-ai-language` — 总入口
 
 - **职责**：薄路由，不承载完整规则
-- **加载时机**：所有用户需求的第一站
+- **加载时机**：本技能适用任务的第一站；纯只读、概念问答与一次性实验按范围降级
 - **关键能力**：决定是否进入完整三层流程（含小命令降级三档判定：完全跳过 / 最小闭环 / 完整流程）
 - **不做**：不直接写代码、不展开业务细节
 
@@ -418,16 +432,16 @@ python task-architecture-source/scripts/package_skill.py --verify "<宿主技能
 | 顶层入口文件 | 2（SKILL.md / AGENT-USAGE.md）|
 | 单元测试 | 49 个测试文件（tests/test_*.py，stdlib unittest；用例数由 check_doc_counts.py 动态统计；画布客户端和原生观察示例需要 Node，CI 先检查其实际可用）|
 | CI 工作流 | 1（.github/workflows/verify.yml）|
-| 总文件数 | ~255（不含 .git/、缓存和生成的验证报告，含测试与 CI）|
+| 总文件数 | ~256（不含 .git/、缓存和生成的验证报告，含测试与 CI）|
 
 #### 4.5.1 运行与开发分发
 
 使用 [分发构建器](scripts/package_skill.py) 生成可核验运行包，避免整仓复制缓存与历史报告。默认运行集如下，实际清单以生成的 `skill-distribution.json` 为准：
 
 ```text
-SKILL.md
+SKILL.md                   agents/openai.yaml
 LICENSE                    THIRD-PARTY-NOTICES.md
-skills/task-architecture   skills/project-depth-core   skills/architecture-json   skills/agent-protocol
+skills/xl-ai-language   skills/project-depth-core   skills/architecture-json   skills/agent-protocol
 shared/scripts             shared/references           shared/assets
 shared/subskills
 verify-all.sh              # 项目验证；包自身自检需开发分发
@@ -472,7 +486,7 @@ python scripts/package_skill.py --profile development --output "<新的开发包
 
 ### 4.7 与传统开发流程的对比
 
-| 维度 | 传统开发 | 任务架构（rwgj） |
+| 维度 | 传统开发 | Xl-Ai-Language |
 |------|----------|------------------|
 | 需求理解 | 文档/PR/口头 | 功能簇展开 + 强制停止规则 |
 | 架构设计 | 自由发挥 | 职责模块目录 + 局部架构 + 模块详情底线 |
@@ -493,9 +507,9 @@ python scripts/package_skill.py --profile development --output "<新的开发包
 
 ```bash
 # 1. 保留源码，从源码构建独立运行包
-git clone https://github.com/40508597/rwgj_sy.git task-architecture-source
-python task-architecture-source/scripts/package_skill.py --output "<宿主技能目录>/task-architecture"
-python task-architecture-source/scripts/package_skill.py --verify "<宿主技能目录>/task-architecture"
+git clone https://github.com/40508597/rwgj_sy.git xl-ai-language-source
+python xl-ai-language-source/scripts/package_skill.py --output "<宿主技能目录>/xl-ai-language"
+python xl-ai-language-source/scripts/package_skill.py --verify "<宿主技能目录>/xl-ai-language"
 
 # 2. 触发：支持 SKILL.md 的宿主按 name/description 自动识别技能；
 #    不支持自动识别的宿主按 agent-protocol 协议加载。
@@ -508,10 +522,10 @@ python task-architecture-source/scripts/package_skill.py --verify "<宿主技能
 
 ```bash
 # 先准备项目的 .agents/skills 父目录，再指定一个尚不存在的安装目录
-python "<源码目录>/scripts/package_skill.py" --output "<项目根>/.agents/skills/task-architecture"
-python "<源码目录>/scripts/package_skill.py" --verify "<项目根>/.agents/skills/task-architecture"
+python "<源码目录>/scripts/package_skill.py" --output "<项目根>/.agents/skills/xl-ai-language"
+python "<源码目录>/scripts/package_skill.py" --verify "<项目根>/.agents/skills/xl-ai-language"
 
-# 告诉 Agent：读取 .agents/skills/task-architecture/SKILL.md，处理本项目。
+# 告诉 Agent：读取 .agents/skills/xl-ai-language/SKILL.md，处理本项目。
 ```
 
 运行包只写到上述技能子目录；项目的根与模块架构独立保存在调用方项目，并按项目协作要求版本化。构建器同样支持 Windows PowerShell；已有安装先构建到新目录，验证后再备份和替换，避免混入旧文件。
@@ -529,16 +543,16 @@ python "<源码目录>/scripts/package_skill.py" --verify "<项目根>/.agents/s
 用户**不需要**直接调用任何子能力层或脚本，只需要：
 
 ```text
-使用任务架构做 XXX
+使用 Xl-Ai-Language做 XXX
 ```
 
 宿主按本次范围读取内部规则与所选专业指南。用户可直接描述要交付的行为、硬约束和希望验证的边界，例如：
 
 ```text
-使用任务架构设计这个项目的模块边界、依赖方向和接口契约，并记录架构取舍。
-使用任务架构把这个功能拆成按依赖执行的任务，写清修改范围和验收责任。
-使用任务架构实现这个界面，覆盖处理中、成功、失败和键盘操作，并做实际可用的验收。
-使用任务架构排查这个异常，保留复现证据，并用固定预期验证修复。
+使用 Xl-Ai-Language设计这个项目的模块边界、依赖方向和接口契约，并记录架构取舍。
+使用 Xl-Ai-Language把这个功能拆成按依赖执行的任务，写清修改范围和验收责任。
+使用 Xl-Ai-Language实现这个界面，覆盖处理中、成功、失败和键盘操作，并做实际可用的验收。
+使用 Xl-Ai-Language排查这个异常，保留复现证据，并用固定预期验证修复。
 ```
 
 用户无需逐项点名子技能；宿主根据已确认需求和实际工具条件选择，缺少必需证据时报告未验证。
@@ -623,7 +637,7 @@ python shared/scripts/init_architecture.py --mode init --output .
 #### 5.4.4 任务姿态与小命令降级
 
 ```bash
-python shared/scripts/detect_task_posture.py --request "使用任务架构检查当前项目"
+python shared/scripts/detect_task_posture.py --request "使用 Xl-Ai-Language检查当前项目"
 python shared/scripts/detect_small_command.py --request "启动项目" --project-root .
 python shared/scripts/check_regression_assertions.py --scenario export --file output.md
 ```
@@ -761,7 +775,7 @@ python "<check_subskill_sources_path>" "<能力包根>" --json
 #### 5.6.1 新建项目并初始化
 
 ```text
-用户："使用任务架构做一个 TODO 应用"
+用户："使用 Xl-Ai-Language做一个 TODO 应用"
 ```
 
 执行流程：
@@ -772,7 +786,7 @@ python "<check_subskill_sources_path>" "<能力包根>" --json
 #### 5.6.2 修改已有功能
 
 ```text
-用户："用任务架构给 TODO 加个标签功能"
+用户："用 Xl-Ai-Language 给 TODO 加个标签功能"
 ```
 
 执行流程：
@@ -782,7 +796,7 @@ python "<check_subskill_sources_path>" "<能力包根>" --json
 
 ### 5.7 最佳实践
 
-1. **薄入口优先**：所有需求先说"使用任务架构做 XXX"，让系统自己路由
+1. **薄入口优先**：所有需求先说"使用 Xl-Ai-Language做 XXX"，让系统自己路由
 2. **模块递归**：新项目默认模块目录内架构文件；已有项目按实际边界纳管，集中切片仍可完整校验
 3. **工具优先**：工具可用时优先跑工具，工具不可用时按文本规则降级
 4. **规则单源**：所有宿主读同一份 `shared/`，不维护宿主专用规则文件
@@ -850,24 +864,32 @@ git push origin main
 
 ### 6.4 发布流程
 
-发布以「CHANGELOG 定稿 → README 同步 → 打 tag → 打包 → 建 Release」为固定顺序。发布包包含标签对应的全部已提交文件；`.git/`、未提交的草稿、缓存和本地报告不进入归档。发布前运行 `bash verify-all.sh --self-test`，确认本次变更已经提交且版本说明与该提交一致。
+发布前同步 `SKILL.md metadata.version`、README 和 CHANGELOG，保留真实验证结果与已知限制。先在独立副本验证，再提交与打标签；从该标签导出源码到仓库外，分别构建运行/开发分发，核验清单后压缩，并对解压内容再次核验。发布目录不混入 Git 数据、缓存、用户项目状态或本地历史报告。
 
 ```bash
-# 1. CHANGELOG.md：把 [Unreleased] 更名为 [x.y.z] - YYYY-MM-DD，并补齐条目
-# 2. README §二「发布版本」表同步新增一行
-# 3. 确认本次代码与文档已提交，再打标签并推送（tag 与提交一起推送）
-git tag -a vx.y.z -m "任务架构 rwgj vx.y.z：<主题>"
-git push origin main --follow-tags
+# 已完成对应验证和提交后，创建发布标签
+git tag -a vx.y.z -m "Xl-Ai-Language vx.y.z：<主题>"
+git push --atomic origin main vx.y.z
 
-# 4. 从发布标签生成 ZIP（输出到仓库外，避免混入下一次发布）
-release_archive="../rwgj-vx.y.z.zip"
-git archive --format=zip --prefix=task-architecture/ --output="$release_archive" vx.y.z
-
-# 5. 创建 GitHub Release 并附带发布包
-gh release create vx.y.z "$release_archive" --title "任务架构 rwgj vx.y.z" --notes-file CHANGELOG.md
+# 从标签取得明确的已提交源码；所有输出均在仓库外
+git archive --format=zip --prefix=xl-ai-language/ --output="../xl-ai-language-vx.y.z-source.zip" vx.y.z
+# 解压源码 ZIP 到一个新目录，使用其中的构建器
+python "<解压源码>/scripts/package_skill.py" --output "<新的运行包目录>/xl-ai-language"
+python "<解压源码>/scripts/package_skill.py" --profile development --output "<新的开发包目录>/xl-ai-language"
+python "<解压源码>/scripts/package_skill.py" --verify "<新的运行包目录>/xl-ai-language"
+python "<解压源码>/scripts/package_skill.py" --verify "<新的开发包目录>/xl-ai-language"
+# 分别压缩，解压到新的临时目录，再执行 --verify；生成 ZIP 的 SHA256
 ```
 
-只分发给业务项目时按 §4.5.1 的最小运行集裁剪；仓库自身保留完整资产以便自检与 CI。
+运行 ZIP 用于安装，开发 ZIP 用于自检与维护，源码 ZIP 对应 Git 标签。外部 SHA256 核对 ZIP 字节，包内清单核对解压文件；它们不认证作者身份，也不证明业务行为正确。发布说明列出版本、对应提交、安装方式、变更、实测范围与已知限制。
+
+有可用且已授权的 GitHub CLI 时可附加发布包：
+
+```bash
+gh release create vx.y.z "<运行ZIP>" "<开发ZIP>" "<源码ZIP>" "<SHA256SUMS.txt>" --title "Xl-Ai-Language vx.y.z" --notes-file "<本版本发布说明>"
+```
+
+标签推送、ZIP 打包与 GitHub Release 附件上传是不同状态，不能把其中一项成功当成全部成功。远程 Actions 状态单独核验；本地通过不能替代远程结果。
 
 从 v1.2.0 或更早版本升级时，曾在宿主设置中配置旧 Stop hook 的使用方，应移除或替换指向 `optional/claude_stop_hook.py` 的命令；该脚本自 v1.2.1 起已退役。通用收尾门禁和完成声明契约仍见 `shared/references/universal-agent-protocol.md`，自动调用与拦截由宿主负责。未配置旧钩子的使用方无需迁移钩子设置。
 
@@ -886,7 +908,7 @@ gh release create vx.y.z "$release_archive" --title "任务架构 rwgj vx.y.z" -
 
 ## 二、版本演进
 
-本仓库以 **17 个历史版本 + 当前 rwgj 入口** 为时间线：早期版本按目录内文件夹的 mtime 顺序**逐个 commit**，形成可追溯的演进链；现行入口（rwgj）按语义化版本发布，配套 Git tag 与 GitHub Release。
+本仓库以 **17 个历史版本 + 当前 Xl-Ai-Language 入口** 为时间线：早期版本按目录内文件夹的 mtime 顺序**逐个 commit**，形成可追溯的演进链；现行入口（Xl-Ai-Language）按语义化版本发布，配套 Git tag 与 GitHub Release。
 
 完整 commit 历史：`git log --reverse --oneline`
 
@@ -899,7 +921,7 @@ gh release create vx.y.z "$release_archive" --title "任务架构 rwgj vx.y.z" -
 | 协议外壳 | 任务架构 1.3 | 协议适配层、虚拟模块审议、硬门禁、标准输出契约 | [`shared/legacy/任务架构1.3-SKILL.md`](shared/legacy/任务架构1.3-SKILL.md) |
 | 平台无关化 | 任务架构-通用智能体版 | 去掉平台绑定，统一规则来源 | 历史提交 |
 | 能力体系化 | 任务架构-能力体系 1.0 / 1.1.1 / 1.1.2 | 能力分层与目录化（1.1.2 = 现行入口的前身）| 历史提交 |
-| 薄入口 | rwgj（current） | 薄入口 + 内部四层 + 按需专业能力 | 根 [`SKILL.md`](SKILL.md) |
+| 薄入口 | Xl-Ai-Language（current） | 薄入口 + 内部四层 + 按需专业能力 | 根 [`SKILL.md`](SKILL.md) |
 
 > 归档说明：`shared/legacy/` 只保留 1.1 / 1.2 / 1.3 三份历史 `SKILL.md` 文本与索引，用于追溯能力来源，不参与运行时规则；其余历史版本可在 `git log --reverse --oneline` 中逐条查看。
 
@@ -912,8 +934,9 @@ gh release create vx.y.z "$release_archive" --title "任务架构 rwgj vx.y.z" -
 | rwgj v1.2.0 | 2026-10-06 | 专业子技能 15 项、通用质量协议、能力规划与核验、架构可视化；文档整理与发布包 | tag `v1.2.0` + Release |
 | rwgj v1.2.1 | 2026-10-06 | 去宿主化清理：移除全部宿主专用规则与集成脚本，协议统一到 `universal-agent-protocol.md` | tag `v1.2.1` + Release |
 | rwgj v1.3.0 | 2026-10-09 | 递归模块架构与统一项目工具链；完整只读画布及输入新鲜度核验；证据驱动质量门禁、可选原生观察与可核验分发 | tag `v1.3.0` |
+| Xl-Ai-Language v1.3.1 | 2026-10-10 | 展示名、技能标识与路由统一；新增宿主界面元数据；重写上手说明、完整能力导航与发布包指引 | tag `v1.3.1` |
 
-完整变更明细见 [CHANGELOG.md](CHANGELOG.md)；发布包（zip）与源码归档见 GitHub Releases。
+完整变更明细见 [CHANGELOG.md](CHANGELOG.md)。发布 ZIP 分运行、开发与源码三类；对应提交由 Git 标签定位，是否附加到 GitHub Release 以发布页实际附件为准。
 
 v1.3.0 保留原深度设计、功能全景、动态子技能、语言中立质量协议与已有集中切片入口。固定长程基准检验流程不变量，原生观察示例只采集选定 CommonJS 场景的 `runtime-load`；不把结构通过、图纸新鲜或单次基准当作所有项目的业务正确性证明。远程 CI 由 `main`、`codex/**` 分支推送或 PR 触发，实际结果见本版本提交的 Actions；本机验收及性能成本记录见 CHANGELOG 的验证说明。
 

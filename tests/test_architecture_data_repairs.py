@@ -269,13 +269,13 @@ class CapabilityIdentity(Isolated):
     def test_single_usage_file_is_not_package_and_project_anchor_takes_priority(self):
         (self.root / "AGENT-USAGE.md").write_text("anything", encoding="utf-8")
         self.assertFalse(_archlib.is_capability_package(self.root))
-        (self.root / "SKILL.md").write_text("---\nname: 任务架构\n---\n", encoding="utf-8")
-        for rel in ["shared/scripts/_archlib.py", "shared/assets/schema/architecture.schema.json", "skills/task-architecture/LAYER.md"]:
+        (self.root / "SKILL.md").write_text("---\nname: xl-ai-language\n---\n", encoding="utf-8")
+        for rel in ["shared/scripts/_archlib.py", "shared/assets/schema/architecture.schema.json", "skills/xl-ai-language/LAYER.md"]:
             target = self.root / rel
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text("placeholder", encoding="utf-8")
         self.assertTrue(_archlib.is_capability_package(self.root))
-        (self.root / "SKILL.md").write_text("---\nname: task-architecture\n---\n", encoding="utf-8")
+        (self.root / "SKILL.md").write_text("---\nname: xl-ai-language\n---\n", encoding="utf-8")
         self.assertTrue(_archlib.is_capability_package(self.root))
         write(self.root / "architecture.json", {})
         self.assertFalse(_archlib.is_capability_package(self.root))

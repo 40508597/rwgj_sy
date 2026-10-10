@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Small deterministic helpers for the split task-architecture system.
+"""Small deterministic helpers for the split xl-ai-language system.
 
 This CLI is intentionally non-cognitive. It can inspect architecture JSON,
 check basic write gates, and print capability lineage. It must not expand

@@ -1,12 +1,12 @@
-# 任务架构通用能力包使用说明
+# Xl-Ai-Language 通用能力包使用说明
 
 本包服务支持 SKILL.md 的任意编程智能体宿主（含自研 CLI Agent）；所有宿主使用同一套规则。安装方式见 [README](README.md)，项目事实与任务状态保存在调用方项目。
 
 ## 总路由
 
-用户可以直接要求“使用任务架构做 XXX”。全局使用从安装目录 SKILL.md 触发；项目级使用从项目的 `.agents/skills/task-architecture/SKILL.md` 进入，不把能力包文件混入项目业务根目录。
+用户可以直接要求“使用 Xl-Ai-Language做 XXX”。全局使用从安装目录 SKILL.md 触发；项目级使用从项目的 `.agents/skills/xl-ai-language/SKILL.md` 进入，不把能力包文件混入项目业务根目录。
 
-先读 [SKILL](SKILL.md) → [LAYER](skills/task-architecture/LAYER.md)，完成本次范围判定和一次简短回执。完整流程进入深度设计与物化层，协议层按需：
+先读 [SKILL](SKILL.md) → [LAYER](skills/xl-ai-language/LAYER.md)，完成本次范围判定和一次简短回执。完整流程进入深度设计与物化层，协议层按需：
 
 | 需要 | 能力层 |
 |---|---|

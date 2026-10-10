@@ -1,6 +1,6 @@
-# 任务架构检查机制
+# Xl-Ai-Language检查机制
 
-本指南说明工具如何支持完整性与完成判断。任务范围、启动回执和状态动作以 [LAYER](skills/task-architecture/LAYER.md) 为准；不再复制一套执行流程。工具检查结构、记录和可执行规则，不能独立判断项目设计是否适合或实现是否正确。
+本指南说明工具如何支持完整性与完成判断。任务范围、启动回执和状态动作以 [LAYER](skills/xl-ai-language/LAYER.md) 为准；不再复制一套执行流程。工具检查结构、记录和可执行规则，不能独立判断项目设计是否适合或实现是否正确。
 
 ## F+B+C 的职责
 
@@ -27,7 +27,7 @@
 
 ## 工具使用
 
-以下变量表示已经由 [resolve_tool](skills/task-architecture/LAYER.md#工具与完成契约) 解析的脚本绝对路径；工作目录为调用方项目。`<架构入口>` 是实际根文件，工具按声明合成模块或既有切片。
+以下变量表示已经由 [resolve_tool](skills/xl-ai-language/LAYER.md#工具与完成契约) 解析的脚本绝对路径；工作目录为调用方项目。`<架构入口>` 是实际根文件，工具按声明合成模块或既有切片。
 
 ```bash
 python "<check_placeholders_path>" <架构入口>

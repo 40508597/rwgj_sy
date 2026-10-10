@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate standardized task-architecture agent output.
+"""Validate standardized xl-ai-language agent output.
 
 This tool is intentionally lightweight. It checks only the structure needed for
 portable module-agent proposals, gate results, and reports. Full engineering

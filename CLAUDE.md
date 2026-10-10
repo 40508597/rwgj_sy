@@ -1,4 +1,4 @@
-# 在任务架构能力仓库工作
+# 在 Xl-Ai-Language 技能仓库工作
 
 此文件为本仓库维护提示，文件名不限定宿主。完整能力入口是 [SKILL](SKILL.md)，人用说明见 [README](README.md)，工具检查边界见 [ENFORCEMENT-GUIDE](ENFORCEMENT-GUIDE.md)。
 
@@ -10,7 +10,7 @@
 
 ## 入口与工具
 
-按 [LAYER](skills/task-architecture/LAYER.md) 判定本次范围，完整流程先深度设计再物化，协议层按需。可见回执、阶段动作、三重校验和完成首行引用该入口，不在本文件另写模板。详细文件的项目优先/安装回退以 [SKILL定位规则](SKILL.md#定位规则) 为准；`shared/legacy/` 只作历史参考，不能作为运行时回退规则。
+按 [LAYER](skills/xl-ai-language/LAYER.md) 判定本次范围，完整流程先深度设计再物化，协议层按需。可见回执、阶段动作、三重校验和完成首行引用该入口，不在本文件另写模板。详细文件的项目优先/安装回退以 [SKILL定位规则](SKILL.md#定位规则) 为准；`shared/legacy/` 只作历史参考，不能作为运行时回退规则。
 
 脚本数量、运行要求与发布入口以README为准。执行前用resolve_tool取得绝对路径；验证能力包按实际范围运行已有检查，一键入口为 `bash verify-all.sh`（需要相应shell）。工具缺失与语义限制如实说明。
 

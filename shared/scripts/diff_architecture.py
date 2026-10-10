@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Diff two task-architecture JSON files."""
+"""Diff two xl-ai-language JSON files."""
 
 from __future__ import annotations
 

@@ -2,7 +2,7 @@
 
 用户需求是「小命令」时自动降级，减少流程摩擦。本文件是小命令降级的规则真相源（词表见
 `shared/assets/small-command-rules.json`，检测工具 `shared/scripts/detect_small_command.py`），
-总入口 `skills/task-architecture/LAYER.md` 只保留路由与铁律。
+总入口 `skills/xl-ai-language/LAYER.md` 只保留路由与铁律。
 
 ## 判定工具
 
@@ -52,8 +52,8 @@ python shared/scripts/detect_small_command.py --request "<用户需求文本>" -
 最小闭环（修改类）：
 
 ```text
-✅ 已启用任务架构技能（小命令降级）
-入口链路：SKILL.md → skills/task-architecture/LAYER.md
+✅ 已启用Xl-Ai-Language 技能（小命令降级）
+入口链路：SKILL.md → skills/xl-ai-language/LAYER.md
 触发原因：detect_small_command.py 自动判定为小命令
 降级档位：最小闭环（修改类）
 要求：读状态 → 功能簇最小定位（不全量展开功能簇）→ 定向修改 → 三重校验
@@ -63,8 +63,8 @@ python shared/scripts/detect_small_command.py --request "<用户需求文本>" -
 最小闭环（运行类）：
 
 ```text
-✅ 已启用任务架构技能（小命令降级）
-入口链路：SKILL.md → skills/task-architecture/LAYER.md
+✅ 已启用Xl-Ai-Language 技能（小命令降级）
+入口链路：SKILL.md → skills/xl-ai-language/LAYER.md
 触发原因：detect_small_command.py 自动判定为小命令
 降级档位：最小闭环（运行类）
 要求：读状态 → 功能簇最小定位（不全量展开功能簇）→ 执行 → 记录验证证据（无变更不做三重校验）
@@ -74,7 +74,7 @@ python shared/scripts/detect_small_command.py --request "<用户需求文本>" -
 完全跳过：
 
 ```text
-✅ 已检查任务架构技能（小命令降级）
+✅ 已检查Xl-Ai-Language 技能（小命令降级）
 降级档位：完全跳过
 原因：[概念问答 / 纯只读查看 / 一次性脚本或临时实验 / 项目非受管无锚点]
 后续：使用普通编程智能体能力处理

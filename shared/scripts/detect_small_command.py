@@ -246,7 +246,7 @@ def build_receipt(effective: str, tier: str, notes: list[str], rules: dict[str, 
     if effective == "完全跳过":
         reason = "；".join(notes) if notes else "纯只读查看 / 概念问答 / 一次性脚本或临时实验"
         lines = [
-            "✅ 已检查任务架构技能（小命令降级）",
+            "✅ 已检查Xl-Ai-Language 技能（小命令降级）",
             "降级档位：完全跳过",
             f"原因：{reason}",
             "后续：使用普通编程智能体能力处理",
@@ -259,8 +259,8 @@ def build_receipt(effective: str, tier: str, notes: list[str], rules: dict[str, 
         else:
             requirement = "读状态 → 功能簇最小定位（不全量展开功能簇）→ 定向修改 → 三重校验"
         lines = [
-            "✅ 已启用任务架构技能（小命令降级）",
-            "入口链路：SKILL.md → skills/task-architecture/LAYER.md",
+            "✅ 已启用Xl-Ai-Language 技能（小命令降级）",
+            "入口链路：SKILL.md → skills/xl-ai-language/LAYER.md",
             "触发原因：detect_small_command.py 自动判定为小命令",
             f"降级档位：最小闭环（{loop}类）",
             f"要求：{requirement}",
@@ -273,8 +273,8 @@ def build_receipt(effective: str, tier: str, notes: list[str], rules: dict[str, 
     if tier == "完整流程" and risk_level == "高":
         trigger = "高风险词命中，禁止降级，强制完整流程"
     lines = [
-        "✅ 已启用任务架构技能",
-        "入口链路：SKILL.md → skills/task-architecture/LAYER.md",
+        "✅ 已启用Xl-Ai-Language 技能",
+        "入口链路：SKILL.md → skills/xl-ai-language/LAYER.md",
         f"触发原因：{trigger}",
         "本次初判：完整流程",
         "受管状态：[未检查 / 未受管 / 已受管]",

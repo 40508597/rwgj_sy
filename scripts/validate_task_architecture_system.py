@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the split task-architecture capability system."""
+"""Validate the split xl-ai-language capability system."""
 
 from __future__ import annotations
 
@@ -63,7 +63,7 @@ REQUIRED_PATHS = [
     "shared/assets/architecture-folder-template/architecture/pages/delivery.json",
     "shared/assets/architecture-folder-template/architecture/data/data.json",
     "shared/assets/architecture-folder-template/architecture/tasks/state.json",
-    "skills/task-architecture/LAYER.md",
+    "skills/xl-ai-language/LAYER.md",
     "skills/project-depth-core/CORE.md",
     "skills/architecture-json/SCHEMA.md",
     "skills/agent-protocol/PROTOCOL.md",
@@ -71,7 +71,7 @@ REQUIRED_PATHS = [
 
 # 这 4 个路径必须不存在（已重命名为 LAYER/CORE/SCHEMA/PROTOCOL，打破 SKILL.md 魔法名）
 FORBIDDEN_SKILL_PATHS = [
-    "skills/task-architecture/SKILL.md",
+    "skills/xl-ai-language/SKILL.md",
     "skills/project-depth-core/SKILL.md",
     "skills/architecture-json/SKILL.md",
     "skills/agent-protocol/SKILL.md",
@@ -144,7 +144,7 @@ def main(argv: list[str] | None = None) -> int:
     global_entry = root / "SKILL.md"
     if global_entry.exists():
         global_text = read_text(global_entry)
-        for required in ["全局薄入口", "当前工作项目", "不得把项目状态", "skills/task-architecture/LAYER.md", "../../shared/", "commands-cheatsheet.md", "quickstart.md"]:
+        for required in ["全局薄入口", "当前工作项目", "不得把项目状态", "skills/xl-ai-language/LAYER.md", "../../shared/", "commands-cheatsheet.md", "quickstart.md"]:
             if required not in global_text:
                 errors.append(f"SKILL.md must include global routing rule: {required}")
         body_lines = [
@@ -158,7 +158,7 @@ def main(argv: list[str] | None = None) -> int:
             if forbidden in global_text:
                 errors.append(f"SKILL.md still routes obsolete sub-SKILL.md path: {forbidden}")
 
-    entry = root / "skills/task-architecture/LAYER.md"
+    entry = root / "skills/xl-ai-language/LAYER.md"
     if entry.exists():
         # LAYER.md 是路由+强约束层（三层路由 / 三铁律 / 五命令 / 完成前自检），
         # 不是纯薄入口；只校验路由顺序和辅助引用，不设行数上限。
@@ -173,7 +173,7 @@ def main(argv: list[str] | None = None) -> int:
             errors.append("总入口未按 project-depth-core -> architecture-json -> agent-protocol 顺序描述")
         for required in ["commands-cheatsheet.md", "quickstart.md"]:
             if required not in text:
-                errors.append(f"skills/task-architecture/LAYER.md must route auxiliary reference: {required}")
+                errors.append(f"skills/xl-ai-language/LAYER.md must route auxiliary reference: {required}")
 
     for rel in [
         "skills/project-depth-core/CORE.md",

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check text output against fixed task-architecture regression assertions."""
+"""Check text output against fixed xl-ai-language regression assertions."""
 
 from __future__ import annotations
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate semantic baselines for the portable task-architecture protocol.
+"""Validate semantic baselines for the portable xl-ai-language protocol.
 
 The checker is intentionally small and read-only. It verifies that the upgraded
 protocol keeps project goals inside architecture.json, preserves the core
@@ -23,7 +23,7 @@ CAPABILITY_ROOT = Path(__file__).resolve().parents[2]
 
 
 REQUIRED_PROTOCOL_FILES = [
-    "skills/task-architecture/LAYER.md",
+    "skills/xl-ai-language/LAYER.md",
     "skills/project-depth-core/CORE.md",
     "skills/architecture-json/SCHEMA.md",
     "skills/agent-protocol/PROTOCOL.md",
@@ -91,7 +91,7 @@ def validate_protocol(root: Path, architecture_path: Path, *,
     skill_files = [
         capability / "SKILL.md",
         capability / "AGENT-USAGE.md",
-        capability / "skills" / "task-architecture" / "LAYER.md",
+        capability / "skills" / "xl-ai-language" / "LAYER.md",
         capability / "skills" / "project-depth-core" / "CORE.md",
         capability / "skills" / "architecture-json" / "SCHEMA.md",
         capability / "skills" / "agent-protocol" / "PROTOCOL.md",

@@ -299,7 +299,7 @@ class StoreTests(unittest.TestCase):
     def test_capability_package_cannot_receive_caller_state(self):
         (self.root / "SKILL.md").write_text("---\nname: 任务架构\ndescription: 测试\n---\n", encoding="utf-8")
         for relative in ["shared/scripts/_archlib.py", "shared/assets/schema/architecture.schema.json",
-                         "skills/task-architecture/LAYER.md"]:
+                         "skills/xl-ai-language/LAYER.md"]:
             path = self.root / relative
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text("fixture", encoding="utf-8")

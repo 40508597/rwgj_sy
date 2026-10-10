@@ -1,0 +1,4 @@
+interface:
+  display_name: "Xl-Ai-Language"
+  short_description: "面向长期开发的通用任务架构、递归模块、项目接力与验证技能"
+  default_prompt: "使用 $xl-ai-language 梳理当前项目架构，按本次范围实现、验证并留下接力记录。"

@@ -1,6 +1,6 @@
 ---
 name: Bug 报告
-about: 报告任务架构能力包中的缺陷
+about: 报告Xl-Ai-Language 能力包中的缺陷
 title: "[Bug] "
 labels: bug
 assignees: ""

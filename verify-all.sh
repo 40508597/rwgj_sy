@@ -171,12 +171,12 @@ REPORT_FILE="verification-report-${TIMESTAMP}.md"
 # 临时日志放在能力包外，避免把本次运行日志计入能力包文件数量。
 # 解析绝对父目录后创建；清理时再次解析目标，只允许删除本脚本创建的目录。
 VERIFY_TEMP_PARENT="$(cd "$SCRIPT_DIR/.." && pwd -P)" || exit 1
-TMPDIR_VERIFY=$(mktemp -d "${VERIFY_TEMP_PARENT}/.task-architecture-verify-XXXXXX") || exit 1
+TMPDIR_VERIFY=$(mktemp -d "${VERIFY_TEMP_PARENT}/.xl-ai-language-verify-XXXXXX") || exit 1
 cleanup_verify() {
     local target
     target=$(cd "$TMPDIR_VERIFY" 2>/dev/null && pwd -P) || return
     case "$target" in
-        "$VERIFY_TEMP_PARENT"/.task-architecture-verify-*) rm -rf -- "$target" ;;
+        "$VERIFY_TEMP_PARENT"/.xl-ai-language-verify-*) rm -rf -- "$target" ;;
         *) echo "Refusing cleanup outside verification workspace" >&2 ;;
     esac
 }
@@ -292,7 +292,7 @@ skip_check() {
     } >> "$REPORT_FILE"
 }
 
-# 检测当前目录是否为任务架构能力包仓库自身。
+# 检测当前目录是否为Xl-Ai-Language 能力包仓库自身。
 # 能力包自检模式下，项目级 architecture/ 检查应跳过，改跑能力包样例/系统一致性检查；
 # 受管项目模式下，继续按 architecture.json / architecture/index.json 严格验证项目状态。
 IS_CAPABILITY_PACKAGE=1  # project mode already exited above; identity was verified
@@ -368,7 +368,7 @@ else
     run_check \
         "触发检测" \
         "python '${SCRIPT_DIR}/shared/scripts/detect_should_trigger.py'; rc=\$?; test \$rc -eq 0 -o \$rc -eq 1" \
-        "检测当前项目是否应使用任务架构；触发/不触发都是有效结果，命令可运行即可"
+        "检测当前项目是否应使用 Xl-Ai-Language；触发/不触发都是有效结果，命令可运行即可"
 fi
 
 # 能力包自检专属：用示例与模板双锚验证 F 机制。
@@ -515,7 +515,7 @@ fi
 # 5. 任务姿态检测
 run_check \
     "任务姿态检测" \
-    "python '${SCRIPT_DIR}/shared/scripts/detect_task_posture.py' --request '使用任务架构检查当前项目' --project-root '${SCRIPT_DIR}'" \
+    "python '${SCRIPT_DIR}/shared/scripts/detect_task_posture.py' --request '使用 Xl-Ai-Language检查当前项目' --project-root '${SCRIPT_DIR}'" \
     "分析当前请求的任务姿态（dynamic/linear/reactive）"
 
 # 6. 小命令降级检测

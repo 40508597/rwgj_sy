@@ -1,10 +1,10 @@
 ---
-name: task-architecture
-description: 为新项目设计、已有代码纳管、功能变更、架构重构和一致性校验提供任务架构流程。显式要求使用任务架构，或当前项目存在 architecture.json 或 architecture/ 时，按本次任务范围启用。纯概念问答、只读查看和一次性实验走轻量路径。
+name: xl-ai-language
+description: 为新项目设计、已有代码纳管、功能变更、架构重构和一致性校验提供任务架构流程。显式要求使用 Xl-Ai-Language 或任务架构流程，或当前项目存在 architecture.json 或 architecture/ 时，按本次任务范围启用。纯概念问答、只读查看和一次性实验走轻量路径。
 metadata:
-  version: "1.3.0"
+  version: "1.3.1"
 ---
-# 任务架构
+# Xl-Ai-Language
 
 这是全局薄入口，只做定位和路由，不承载完整规则。
 
@@ -26,7 +26,7 @@ metadata:
 
 ```text
 用户需求
-→ skills/task-architecture/LAYER.md
+→ skills/xl-ai-language/LAYER.md
 → skills/project-depth-core/CORE.md
 → skills/architecture-json/SCHEMA.md
 → skills/agent-protocol/PROTOCOL.md（仅在需要时）
@@ -38,7 +38,7 @@ metadata:
 
 ## 可见回执
 
-加载后必须按 `skills/task-architecture/LAYER.md` 输出主会话启动回执；禁止静默调用。
+加载后必须按 `skills/xl-ai-language/LAYER.md` 输出主会话启动回执；禁止静默调用。
 
 ## 辅助参考
 

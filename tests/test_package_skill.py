@@ -23,7 +23,7 @@ class DistributionTests(unittest.TestCase):
         self.base = Path(self.temporary.name)
         self.source = self.base / "source"
         self.source.mkdir()
-        self.put("SKILL.md", b"---\nname: task-architecture\ndescription: fixture\n---\n")
+        self.put("SKILL.md", b"---\nname: xl-ai-language\ndescription: fixture\n---\n")
         self.put("LICENSE", b"license\n")
         self.put("THIRD-PARTY-NOTICES.md", b"notices\n")
         self.put("shared/scripts/tool.py", b"print('tool')\n")
@@ -176,6 +176,27 @@ class DistributionTests(unittest.TestCase):
         self.assertIn("matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'", workflow)
         self.assertIn('scripts/benchmark_long_task.py --skill-root . --output', workflow)
 
+    def test_unified_skill_name_and_entry_route(self):
+        repository = SCRIPT.parent.parent
+        entry = (repository / "SKILL.md").read_text(encoding="utf-8")
+        self.assertRegex(entry, r"(?m)^name: xl-ai-language$")
+        self.assertIn("# Xl-Ai-Language", entry)
+        self.assertTrue((repository / "skills/xl-ai-language/LAYER.md").is_file())
+        self.assertFalse((repository / "skills/task-architecture").exists())
+        interface = (repository / "agents/openai.yaml").read_text(encoding="utf-8")
+        self.assertIn('display_name: "Xl-Ai-Language"', interface)
+        self.assertIn("$xl-ai-language", interface)
+
+    def test_new_skill_name_question_preserves_lightweight_path(self):
+        repository = SCRIPT.parent.parent
+        script = repository / "shared/scripts/detect_small_command.py"
+        for name in ("Xl-Ai-Language", "xl-ai-language"):
+            process = subprocess.run([sys.executable, "-B", "-X", "utf8", str(script),
+                "--request", name + " 怎么用", "--project-root", str(self.base)],
+                capture_output=True, text=True, encoding="utf-8")
+            self.assertEqual(process.returncode, 0, process.stdout + process.stderr)
+            self.assertIn("完全跳过", process.stdout)
+
     def test_release_version_agrees_across_entry_readme_and_changelog(self):
         root = SCRIPT.parent.parent
         entry = (root / "SKILL.md").read_text(encoding="utf-8")
@@ -185,7 +206,7 @@ class DistributionTests(unittest.TestCase):
         version = match.group(1)
         readme = (root / "README.md").read_text(encoding="utf-8")
         changelog = (root / "CHANGELOG.md").read_text(encoding="utf-8")
-        self.assertIn("rwgj v" + version, readme)
+        self.assertIn("Xl-Ai-Language v" + version, readme)
         self.assertIn("tag `v" + version + "`", readme)
         self.assertRegex(changelog, r"(?m)^## \[" + re.escape(version) + r"\] - \d{4}-\d{2}-\d{2}$")
 

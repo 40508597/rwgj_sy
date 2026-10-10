@@ -1,6 +1,6 @@
 ---
 name: 功能建议
-about: 为任务架构能力包提出新能力或改进
+about: 为Xl-Ai-Language 能力包提出新能力或改进
 title: "[Feature] "
 labels: enhancement
 assignees: ""

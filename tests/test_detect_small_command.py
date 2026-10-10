@@ -269,7 +269,7 @@ class TestDetectSmallCommand(unittest.TestCase):
             root = Path(td)
             (root / "architecture.json").write_text("{}", encoding="utf-8")
             result = detect_small_command.detect_small_command("修改某个元素", root, RULES)
-            for line in ("入口链路：SKILL.md → skills/task-architecture/LAYER.md",
+            for line in ("入口链路：SKILL.md → skills/xl-ai-language/LAYER.md",
                          "触发原因：detect_small_command.py 自动判定为小命令",
                          "降级档位：最小闭环（修改类）",
                          "功能簇最小定位",
@@ -280,7 +280,7 @@ class TestDetectSmallCommand(unittest.TestCase):
     def test_receipt_skip_matches_layer_template(self):
         with tempfile.TemporaryDirectory() as td:
             result = detect_small_command.detect_small_command("查看项目", Path(td), RULES)
-            for line in ("✅ 已检查任务架构技能（小命令降级）",
+            for line in ("✅ 已检查Xl-Ai-Language 技能（小命令降级）",
                          "降级档位：完全跳过",
                          "原因：",
                          "后续：使用普通编程智能体能力处理"):
@@ -289,7 +289,7 @@ class TestDetectSmallCommand(unittest.TestCase):
     def test_receipt_full_matches_layer_startup_template(self):
         with tempfile.TemporaryDirectory() as td:
             result = detect_small_command.detect_small_command("重构架构", Path(td), RULES)
-            for line in ("入口链路：SKILL.md → skills/task-architecture/LAYER.md",
+            for line in ("入口链路：SKILL.md → skills/xl-ai-language/LAYER.md",
                          "本次初判：完整流程",
                          "受管状态：",
                          "下一步："):

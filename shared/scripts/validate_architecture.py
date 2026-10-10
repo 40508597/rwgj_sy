@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate a task-architecture JSON file.
+"""Validate a xl-ai-language JSON file.
 
 This tool is intentionally lightweight: it uses only the Python standard
 library, reads files only, and reports concise errors/warnings for an agent to

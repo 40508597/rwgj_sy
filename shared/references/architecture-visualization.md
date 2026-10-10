@@ -13,7 +13,7 @@ python "<技能安装目录>/shared/scripts/resolve_tool.py" render_architecture
 python "<render_architecture_path>" architecture.json --format html --output "<产物绝对路径>/项目架构.html"
 ```
 
-`<render_architecture_path>` 替换为已解析的绝对脚本路径；输出位于调用方项目或用户指定产物目录，不写入全局技能目录，也不覆盖输入索引、切片或进度状态。根 `architecture.json` 可包含递归模块路由，也可作为集中布局的入口指针。解析规则见 [任务架构入口](../../skills/task-architecture/LAYER.md)，工具见 [render_architecture.py](../scripts/render_architecture.py)。
+`<render_architecture_path>` 替换为已解析的绝对脚本路径；输出位于调用方项目或用户指定产物目录，不写入全局技能目录，也不覆盖输入索引、切片或进度状态。根 `architecture.json` 可包含递归模块路由，也可作为集中布局的入口指针。解析规则见 [任务架构入口](../../skills/xl-ai-language/LAYER.md)，工具见 [render_architecture.py](../scripts/render_architecture.py)。
 
 | 需求 | 参数 |
 | --- | --- |

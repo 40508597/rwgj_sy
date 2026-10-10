@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "task-architecture/capability-plan",
+  "$id": "xl-ai-language/capability-plan",
   "title": "Read plan and bindings; not execution or validation success",
   "type": "object",
   "required": ["version", "project_root", "planning_only", "status", "selected", "unmet", "unknown", "errors", "warnings", "inputs", "fingerprint", "delta", "active_requirements", "normalized_context", "architecture_snapshot", "architecture_sha256"],

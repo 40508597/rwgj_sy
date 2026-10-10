@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Shared helpers for task-architecture scripts.
+"""Shared helpers for xl-ai-language scripts.
 
 This module centralises the boilerplate that every script in
 ``shared/scripts/`` used to copy-paste: UTF-8 stdout reconfiguration,
@@ -465,7 +465,7 @@ def is_capability_package(project_root: Path) -> bool:
     if is_managed(project_root):
         return False
     required = ("SKILL.md", "shared/scripts/_archlib.py",
-                "shared/assets/schema/architecture.schema.json", "skills/task-architecture/LAYER.md")
+                "shared/assets/schema/architecture.schema.json", "skills/xl-ai-language/LAYER.md")
     if not all((project_root / relative).is_file() for relative in required):
         return False
     try:
@@ -475,5 +475,5 @@ def is_capability_package(project_root: Path) -> bool:
     parts = text.split("---", 2)
     if len(parts) != 3 or parts[0].strip():
         return False
-    return re.search(r"^name[ \t]*:[ \t]*(?:任务架构|task-architecture|'任务架构'|'task-architecture'|\"任务架构\"|\"task-architecture\")[ \t]*(?:#.*)?$",
+    return re.search(r"^name[ \t]*:[ \t]*(?:xl-ai-language|'xl-ai-language'|\"xl-ai-language\")[ \t]*(?:#.*)?$",
                      parts[1], re.MULTILINE) is not None

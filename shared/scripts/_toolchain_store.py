@@ -145,7 +145,7 @@ class Store:
         self.root = safe_path(self.project, "architecture/toolchain")
         self.path = safe_path(self.project, "architecture/toolchain/state.sqlite3")
         if create:
-            package_markers = ("SKILL.md", "shared/scripts/_archlib.py", "shared/assets/schema/architecture.schema.json", "skills/task-architecture/LAYER.md")
+            package_markers = ("SKILL.md", "shared/scripts/_archlib.py", "shared/assets/schema/architecture.schema.json", "skills/xl-ai-language/LAYER.md")
             if _archlib.is_capability_package(self.project) or all((self.project / p).is_file() for p in package_markers):
                 raise ToolchainError("能力包不承载调用方工具链状态；请指定业务项目")
             if not self.project.is_dir():

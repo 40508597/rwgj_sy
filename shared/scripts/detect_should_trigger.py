@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""检测项目是否应该使用任务架构技能"""
+"""检测项目是否应该使用Xl-Ai-Language 技能"""
 
 from __future__ import annotations
 
@@ -42,14 +42,14 @@ def is_capability_package_itself(project_root: Path) -> bool:
 
 def should_trigger_task_architecture(project_root: Path) -> tuple[bool, list[str]]:
     """
-    检测项目是否应该触发任务架构技能
+    检测项目是否应该触发Xl-Ai-Language 技能
 
     Returns:
         (should_trigger: bool, reasons: list[str])
     """
     # 有受管锚点的项目不能因拷入技能入口而被豁免。
     if is_capability_package_itself(project_root):
-        return False, ["ℹ️  此为任务架构能力包仓库，不参与触发检测（能力包自管自身不在适用场景内）"]
+        return False, ["ℹ️  此为Xl-Ai-Language 能力包仓库，不参与触发检测（能力包自管自身不在适用场景内）"]
 
     reasons = []
 
@@ -93,7 +93,7 @@ def should_trigger_task_architecture(project_root: Path) -> tuple[bool, list[str
     if not should_trigger and reasons:
         reasons.insert(0, "ℹ️  项目特征不明显，可能不需要任务架构")
     elif should_trigger and not reasons:
-        reasons.append("✓ 综合判断应使用任务架构")
+        reasons.append("✓ 综合判断应使用 Xl-Ai-Language")
 
     return should_trigger, reasons
 
@@ -108,9 +108,9 @@ def main(argv=None) -> int:
     # 供常驻型工具（如 ZCode）按用户偏好关闭「每次新任务主动提醒」的摩擦。
     auto_trigger = os.environ.get("TASK_ARCH_AUTO_TRIGGER", "1").strip().lower()
     if auto_trigger in ("0", "false", "off", "no"):
-        print("🔍 任务架构技能触发检测：已通过环境变量 TASK_ARCH_AUTO_TRIGGER=off 关闭自动检测")
+        print("🔍 Xl-Ai-Language 技能触发检测：已通过环境变量 TASK_ARCH_AUTO_TRIGGER=off 关闭自动检测")
         print()
-        print("需要时仍可显式触发：「使用任务架构做 XXX」或 /创建架构 | /分析架构 | /校验架构")
+        print("需要时仍可显式触发：「使用 Xl-Ai-Language做 XXX」或 /创建架构 | /分析架构 | /校验架构")
         return 2
 
     project_root = args.project
@@ -119,7 +119,7 @@ def main(argv=None) -> int:
         return 2
 
     print("=" * 60)
-    print("🔍 任务架构技能触发检测")
+    print("🔍 Xl-Ai-Language 技能触发检测")
     print("=" * 60)
     print()
     print(f"项目路径: {project_root}")
@@ -140,7 +140,7 @@ def main(argv=None) -> int:
               else "✅ 建议结合当前任务评估任务架构的适用范围")
         print()
         print("触发方式：")
-        print("  • 告诉 Agent：「使用任务架构做 XXX」")
+        print("  • 告诉 Agent：「使用 Xl-Ai-Language做 XXX」")
         print("  • 或运行命令：/创建架构 | /分析架构 | /校验架构")
         print()
         print("如果已有 architecture.json，任务架构会自动接管")

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://local.task-architecture/agent-output.schema.json",
+  "$id": "https://local.xl-ai-language/agent-output.schema.json",
   "标题": "智能体标准化输出结构底线",
   "说明": "本 schema 只约束模块提案、接口提案、风险报告、验证报告、阻塞报告和门禁结果的基础结构。",
   "type": "object",

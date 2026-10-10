@@ -17,9 +17,9 @@ class TestIsCapabilityPackage(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             (root / "SKILL.md").write_text(
-                "---\nname: 任务架构\ndescription: 测试\n---\n# 任务架构\n", encoding="utf-8")
+                "---\nname: xl-ai-language\ndescription: 测试\n---\n# 任务架构\n", encoding="utf-8")
             for relative in ("shared/scripts/_archlib.py", "shared/assets/schema/architecture.schema.json",
-                             "skills/task-architecture/LAYER.md"):
+                             "skills/xl-ai-language/LAYER.md"):
                 target = root / relative
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_text("结构夹具", encoding="utf-8")
