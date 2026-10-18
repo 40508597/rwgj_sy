@@ -413,5 +413,50 @@ class TestMain(unittest.TestCase):
         self.assertEqual(data["有效档位"], "完全跳过")
 
 
+class TestVisibleProgress(unittest.TestCase):
+    def test_receipt_has_current_verification_and_next_for_all_tiers(self):
+        for tier,loop in (("完全跳过",None),("最小闭环","运行"),("最小闭环","修改"),("完整流程",None)):
+            with self.subTest(tier=tier,loop=loop):
+                text=detect_small_command.build_receipt(tier,tier,[],RULES,loop_type=loop)
+                for field in ("当前：","验证：","下一步："):
+                    self.assertEqual(sum(line.startswith(field) for line in text.splitlines()),1)
+                self.assertNotIn("验证：通过",text)
+                self.assertNotIn("【任务完成】",text)
+
+    def test_initial_project_validation_is_unknown_not_pass(self):
+        for tier in ("最小闭环","完整流程"):
+            for risk in ("低","中","高"):
+                with self.subTest(tier=tier,risk=risk):
+                    text=detect_small_command.build_receipt(tier,tier,[],RULES,risk_level=risk)
+                    self.assertIn("验证：未验证（仅完成任务判定，未运行项目检查）",text)
+
+    def test_next_action_distinguishes_execution_from_editing(self):
+        run=detect_small_command.build_receipt("最小闭环","最小闭环",[],RULES,loop_type="运行")
+        edit=detect_small_command.build_receipt("最小闭环","最小闭环",[],RULES,loop_type="修改")
+        self.assertIn("下一步：读取当前状态并定位相关功能，再执行请求并记录实际结果",run)
+        self.assertIn("下一步：读取当前状态并定位相关功能，再定向修改并运行适用校验",edit)
+        full=detect_small_command.build_receipt("完整流程","完整流程",[],RULES)
+        self.assertNotIn("§0",full)
+
+    def test_skip_receipt_does_not_claim_skill_execution_or_write_state(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td)
+            result=detect_small_command.detect_small_command("查看项目",root,RULES)
+            self.assertEqual(result["有效档位"],"完全跳过")
+            self.assertIn("未进入技能流程",result["回执"])
+            self.assertIn("验证：不适用",result["回执"])
+            self.assertNotIn("已启用",result["回执"])
+            self.assertEqual(list(root.iterdir()),[])
+
+    def test_progress_contract_retains_completion_and_evidence_boundaries(self):
+        text=(REPO_ROOT/"skills/xl-ai-language/LAYER.md").read_text(encoding="utf-8")
+        for clause in ("每轮实际使用", "同一任务后续轮次", "可见进度（主会话）", "失败先报失败再继续修复", "必需检查缺证据不得跳过", "不重复无变化心跳", "不展示内部思维链", "不破坏输出格式", "宿主不能流式显示", "【任务完成】", "【未通过验证】"):
+            self.assertIn(clause,text)
+        entry=(REPO_ROOT/"SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("当前步骤",entry)
+        self.assertIn("关键步骤切换",entry)
+        self.assertLessEqual(len(entry.encode("utf-8")),8000)
+
+
 if __name__ == "__main__":
     unittest.main()

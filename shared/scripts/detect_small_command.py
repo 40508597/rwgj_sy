@@ -242,7 +242,7 @@ def closed_loop_type(request: str, rules: dict[str, Any]) -> str:
 
 def build_receipt(effective: str, tier: str, notes: list[str], rules: dict[str, Any],
                   loop_type: str | None = None, risk_level: str = "低") -> str:
-    """生成可直接贴到主会话的降级回执（与 LAYER.md「小命令降级」模板一致）。"""
+    """生成任务初判回执草稿；不能把分类成功当成项目验证通过。"""
     if effective == "完全跳过":
         reason = "；".join(notes) if notes else "纯只读查看 / 概念问答 / 一次性脚本或临时实验"
         lines = [
@@ -250,6 +250,9 @@ def build_receipt(effective: str, tier: str, notes: list[str], rules: dict[str, 
             "降级档位：完全跳过",
             f"原因：{reason}",
             "后续：使用普通编程智能体能力处理",
+            "当前：任务判定完成，未进入技能流程",
+            "验证：不适用（本次不进入技能验证流程，不代表项目验证通过）",
+            "下一步：直接处理本次请求，报告实际结果与未验证边界",
         ]
         return "\n".join(lines)
     if effective == "最小闭环":
@@ -265,6 +268,9 @@ def build_receipt(effective: str, tier: str, notes: list[str], rules: dict[str, 
             f"降级档位：最小闭环（{loop}类）",
             f"要求：{requirement}",
             "功能簇定位：[本次小命令触及的功能树节点，如 F2.1]",
+            "当前：任务判定完成（工具初判），待定位本次功能与模块",
+            "验证：未验证（仅完成任务判定，未运行项目检查）",
+            "下一步：读取当前状态并定位相关功能，再" + ("执行请求并记录实际结果" if loop == "运行" else "定向修改并运行适用校验"),
         ]
         if risk_level != "低":
             lines.append(f"风险等级：{risk_level}（核对实际操作与既有授权，缺失时再确认）")
@@ -278,7 +284,9 @@ def build_receipt(effective: str, tier: str, notes: list[str], rules: dict[str, 
         f"触发原因：{trigger}",
         "本次初判：完整流程",
         "受管状态：[未检查 / 未受管 / 已受管]",
-        "下一步：输出 §0 启动回执并按三层路由执行",
+        "当前：任务判定完成（工具初判），待核对范围与项目入口",
+        "验证：未验证（仅完成任务判定，未运行项目检查）",
+        "下一步：核对项目入口与本次范围，进入需求理解和架构设计",
     ]
     return "\n".join(lines)
 
