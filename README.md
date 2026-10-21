@@ -7,11 +7,11 @@
 面向 Codex 等支持技能的编程智能体，Xl-Ai-Language 把需求、模块目录、接口依赖、实现与验证连成一条工程链路。你描述想做什么，AI 按任务范围组织项目；项目越做越大，仍能沿根架构找到该改的模块，而不是每一轮从头猜。
 
 [![Project license: MIT](https://img.shields.io/badge/Project-MIT-yellow.svg)](LICENSE)
-[![当前版本 v1.3.1](https://img.shields.io/badge/version-v1.3.1-blue)](https://github.com/40508597/rwgj_sy/tree/v1.3.1)
-[![verify](https://github.com/40508597/rwgj_sy/actions/workflows/verify.yml/badge.svg)](https://github.com/40508597/rwgj_sy/actions/workflows/verify.yml)
-[![GitHub stars](https://img.shields.io/github/stars/40508597/rwgj_sy?style=social)](https://github.com/40508597/rwgj_sy)
+[![当前版本 v1.3.1](https://img.shields.io/badge/version-v1.3.1-blue)](https://github.com/40508597/xl-ai-language/tree/v1.3.1)
+[![verify](https://github.com/40508597/xl-ai-language/actions/workflows/verify.yml/badge.svg)](https://github.com/40508597/xl-ai-language/actions/workflows/verify.yml)
+[![GitHub stars](https://img.shields.io/github/stars/40508597/xl-ai-language?style=social)](https://github.com/40508597/xl-ai-language)
 
-[快速开始](#二快速开始) · [核心能力](#一从需求到项目接力) · [完整参考](#五按需阅读) · [更新记录](CHANGELOG.md) · [版本源码](https://github.com/40508597/rwgj_sy/tree/v1.3.1)
+[快速开始](#二快速开始) · [核心能力](#一从需求到项目接力) · [完整参考](#五按需阅读) · [更新记录](CHANGELOG.md) · [版本源码](https://github.com/40508597/xl-ai-language/tree/v1.3.1)
 
 **当前版本：Xl-Ai-Language v1.3.1（2026-10-10）。** 展示名称统一为 `Xl-Ai-Language`，技能标识、安装目录和调用名统一为 `xl-ai-language`。包版本以 `SKILL.md metadata.version` 为准；工具身份和协议版本独立维护。历史版本名、标签与仓库地址保留。
 
@@ -75,14 +75,14 @@ flowchart LR
 用源码构建可核验运行包，自动排除缓存、历史报告和开发资料，保留共享工具、专业指南与来源许可：
 
 ```bash
-git clone --branch v1.3.1 https://github.com/40508597/rwgj_sy.git xl-ai-language-source
+git clone --branch v1.3.1 https://github.com/40508597/xl-ai-language.git xl-ai-language-source
 python xl-ai-language-source/scripts/package_skill.py --output "<宿主技能目录>/xl-ai-language"
 python xl-ai-language-source/scripts/package_skill.py --verify "<宿主技能目录>/xl-ai-language"
 ```
 
 把占位目录替换为实际路径，目标父目录需存在，输出目录必须尚不存在。Codex 常用的全局安装位置是 `~/.agents/skills/xl-ai-language/`。构建器不会覆盖旧安装：先构建到临时新目录、核验，再备份并替换，**不要把新包覆盖解压进旧目录**。
 
-也可使用维护者提供的同版本运行 ZIP，解压后应得到 `xl-ai-language/SKILL.md`；开发 ZIP 则包含测试和维护资料。用源码中的构建器核验解压后的 `skill-distribution.json`。源码 ZIP 不等于已裁剪运行包。发布索引见 [GitHub Releases](https://github.com/40508597/rwgj_sy/releases)，标签源码见 [v1.3.1](https://github.com/40508597/rwgj_sy/tree/v1.3.1)。
+也可使用维护者提供的同版本运行 ZIP，解压后应得到 `xl-ai-language/SKILL.md`；开发 ZIP 则包含测试和维护资料。用源码中的构建器核验解压后的 `skill-distribution.json`。源码 ZIP 不等于已裁剪运行包。发布索引见 [GitHub Releases](https://github.com/40508597/xl-ai-language/releases)，标签源码见 [v1.3.1](https://github.com/40508597/xl-ai-language/tree/v1.3.1)。
 
 随包工具需要 Python 3.9+；一键 Bash 验证另需 Git Bash、WSL 或 POSIX shell。部分开发测试和可选原生观察示例需要 Node。版本支持范围不等于本次每个环境都已实际通过，见更新记录中的验证说明。
 
@@ -518,7 +518,7 @@ python scripts/package_skill.py --profile development --output "<新的开发包
 
 ```bash
 # 1. 保留源码，从源码构建独立运行包
-git clone https://github.com/40508597/rwgj_sy.git xl-ai-language-source
+git clone https://github.com/40508597/xl-ai-language.git xl-ai-language-source
 python xl-ai-language-source/scripts/package_skill.py --output "<宿主技能目录>/xl-ai-language"
 python xl-ai-language-source/scripts/package_skill.py --verify "<宿主技能目录>/xl-ai-language"
 
